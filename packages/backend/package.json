@@ -1,0 +1,36 @@
+{
+  "name": "@chat-room/backend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "admin": "tsx --env-file=.env src/admin/cli.ts"
+  },
+  "dependencies": {
+    "@chat-room/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.45.0",
+    "cac": "^6.7.14",
+    "fastify": "^4.28.0",
+    "jsonwebtoken": "^9.0.2",
+    "nanoid": "^5.0.7",
+    "pino": "^9.0.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.14.0",
+    "@types/ws": "^8.5.10",
+    "dotenv": "^17.4.2",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

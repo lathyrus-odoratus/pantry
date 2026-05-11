@@ -1,0 +1,38 @@
+import { describe, it, expect } from "vitest";
+import { validateNickname } from "./nickname.js";
+
+describe("validateNickname", () => {
+  it("accepts simple ASCII", () => {
+    expect(validateNickname("Alice")).toEqual({ ok: true, value: "Alice" });
+  });
+
+  it("accepts CJK characters", () => {
+    expect(validateNickname("阿莉斯")).toEqual({ ok: true, value: "阿莉斯" });
+  });
+
+  it("rejects empty", () => {
+    expect(validateNickname("")).toEqual({ ok: false, error: "empty" });
+  });
+
+  it("rejects leading whitespace", () => {
+    expect(validateNickname(" Alice")).toEqual({ ok: false, error: "whitespace_edges" });
+  });
+
+  it("rejects trailing whitespace", () => {
+    expect(validateNickname("Alice ")).toEqual({ ok: false, error: "whitespace_edges" });
+  });
+
+  it("rejects over 20 chars", () => {
+    expect(validateNickname("a".repeat(21))).toEqual({ ok: false, error: "too_long" });
+  });
+
+  it("rejects control characters", () => {
+    expect(validateNickname("Al\u0000ice")).toEqual({ ok: false, error: "control_chars" });
+    expect(validateNickname("Al\tice")).toEqual({ ok: false, error: "control_chars" });
+    expect(validateNickname("Al\nice")).toEqual({ ok: false, error: "control_chars" });
+  });
+
+  it("allows internal spaces", () => {
+    expect(validateNickname("Alice B")).toEqual({ ok: true, value: "Alice B" });
+  });
+});

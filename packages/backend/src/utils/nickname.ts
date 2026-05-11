@@ -1,0 +1,21 @@
+export type NicknameValidationError =
+  | "empty"
+  | "too_long"
+  | "whitespace_edges"
+  | "control_chars";
+
+export type NicknameResult =
+  | { ok: true; value: string }
+  | { ok: false; error: NicknameValidationError };
+
+export function validateNickname(input: string): NicknameResult {
+  if (input.length === 0) return { ok: false, error: "empty" };
+  if (input.length > 20) return { ok: false, error: "too_long" };
+  if (input !== input.trim()) return { ok: false, error: "whitespace_edges" };
+  // disallow C0 control chars (0x00-0x1F) and DEL (0x7F)
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001F\u007F]/.test(input)) {
+    return { ok: false, error: "control_chars" };
+  }
+  return { ok: true, value: input };
+}
