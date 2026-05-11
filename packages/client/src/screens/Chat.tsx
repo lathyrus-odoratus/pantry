@@ -3,6 +3,9 @@ import { Box, Text } from "ink";
 import { useStore } from "../store.js";
 import { TransportClient } from "../transport/client.js";
 import { MessageList } from "./components/MessageList.js";
+import { OnlineList } from "./components/OnlineList.js";
+import { InputBar } from "./components/InputBar.js";
+import { StatusBar } from "./components/StatusBar.js";
 
 type Props = { serverUrl: string };
 
@@ -11,6 +14,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const onlineUsers = useStore((s) => s.onlineUsers);
   const authedUser = useStore((s) => s.authedUser);
   const status = useStore((s) => s.status);
+  const reconnectAttempt = useStore((s) => s.reconnectAttempt);
   const pending = useStore((s) => s.pendingIdentity);
   const roomName = useStore((s) => s.roomName);
   const setStatus = useStore((s) => s.setStatus);
@@ -57,7 +61,6 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
             useStore.getState().prependHistory(m.messages, m.hasMore);
             break;
           case "error":
-            // non-fatal; ignore for MVP
             break;
         }
       },
@@ -88,6 +91,13 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
     };
   }, [pending, roomName, serverUrl, setStatus, onAuthOk, setSnapshot, addMessage, setPresence, setError]);
 
+  const onSend = (body: string) => {
+    transportRef.current?.send({ type: "message.send", body });
+  };
+  const onNick = (newNickname: string) => {
+    transportRef.current?.send({ type: "nick.change", newNickname });
+  };
+
   return (
     <Box flexDirection="column" height="100%">
       <Box flexDirection="row" flexGrow={1}>
@@ -95,20 +105,19 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
           <Box marginBottom={1}>
             <Text bold>Room: {roomName}</Text>
             {authedUser ? (
-              <Text dimColor> (you are {authedUser.nickname}#{authedUser.discriminator})</Text>
+              <Text dimColor>
+                {" "}
+                (you are {authedUser.nickname}#{authedUser.discriminator})
+              </Text>
             ) : null}
           </Box>
           <MessageList messages={messages} />
         </Box>
-        <Box flexDirection="column" width={20} paddingX={1} borderStyle="single">
-          <Text bold>Online ({onlineUsers.length})</Text>
-          {onlineUsers.map((u) => (
-            <Text key={`${u.nickname}#${u.discriminator}`}>{u.nickname}#{u.discriminator}</Text>
-          ))}
-        </Box>
+        <OnlineList users={onlineUsers} />
       </Box>
-      <Box>
-        <Text dimColor>Status: {status}</Text>
+      <Box flexDirection="column">
+        <InputBar onSend={onSend} onNick={onNick} />
+        <StatusBar status={status} reconnectAttempt={reconnectAttempt} />
       </Box>
     </Box>
   );
