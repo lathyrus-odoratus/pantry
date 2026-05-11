@@ -1,0 +1,14 @@
+{
+  "name": "chat-room",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "dev:backend": "pnpm --filter @chat-room/backend dev",
+    "admin": "pnpm --filter @chat-room/backend admin"
+  },
+  "packageManager": "pnpm@9.0.0"
+}
