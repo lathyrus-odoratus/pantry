@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "admin": "tsx src/admin/cli.ts"
+    "admin": "tsx --env-file=.env src/admin/cli.ts"
   },
   "dependencies": {
     "@chat-room/shared": "workspace:*",
