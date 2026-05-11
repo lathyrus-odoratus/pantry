@@ -1,2 +1,13 @@
 #!/usr/bin/env node
-console.log("chat-room TUI booting…");
+import React from "react";
+import { render } from "ink";
+import { App } from "./app.js";
+import { loadConfig } from "./config.js";
+import { useStore } from "./store.js";
+
+const config = loadConfig();
+if (config.initialRoom) {
+  useStore.getState().commitRoomName(config.initialRoom);
+}
+
+render(<App />);
