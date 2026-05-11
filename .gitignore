@@ -41,3 +41,7 @@ logs/
 
 # OS / misc
 Thumbs.db
+
+# Supabase CLI local config
+.supabase/
+supabase/.temp/
