@@ -1,4 +1,4 @@
-import type { AuthProvider } from "@chat-room/shared";
+import type { AuthProvider } from "@pantry/shared";
 import type { Config } from "../config.js";
 
 export type ProviderConfig = {
@@ -144,7 +144,7 @@ export async function fetchUserProfile(
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/json",
-      "User-Agent": "chat-room-backend",
+      "User-Agent": "pantry-backend",
     },
   });
   if (!res.ok) {

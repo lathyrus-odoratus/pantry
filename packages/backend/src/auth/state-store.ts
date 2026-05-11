@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import type { AuthProvider } from "@chat-room/shared";
+import type { AuthProvider } from "@pantry/shared";
 
 const TTL_MS = 10 * 60 * 1000;
 

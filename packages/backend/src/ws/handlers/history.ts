@@ -1,4 +1,4 @@
-import type { ServerMessage, HistoryLoad } from "@chat-room/shared";
+import type { ServerMessage, HistoryLoad } from "@pantry/shared";
 import type { MessagesRepo } from "../../db/messages.js";
 import type { AuthedConnection } from "../connection-registry.js";
 import { send } from "../broadcast.js";

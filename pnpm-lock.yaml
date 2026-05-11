@@ -10,7 +10,7 @@ importers:
 
   packages/backend:
     dependencies:
-      '@chat-room/shared':
+      '@pantry/shared':
         specifier: workspace:*
         version: link:../shared
       '@supabase/supabase-js':
@@ -62,7 +62,7 @@ importers:
 
   packages/client:
     dependencies:
-      '@chat-room/shared':
+      '@pantry/shared':
         specifier: workspace:*
         version: link:../shared
       ink:

@@ -1,11 +1,11 @@
-# Chat-Room Plan C: Deploy backend + publish client to npm
+# Pantry Plan C: Deploy backend + publish client to npm
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship chat-room MVP — backend running on a GCP VM behind Cloudflare Tunnel with Discord OAuth, client published to npm and runnable via `npx`.
+**Goal:** Ship pantry MVP — backend running on a GCP VM behind Cloudflare Tunnel with Discord OAuth, client published to npm and runnable via `npx`.
 
 **Architecture:**
-- Backend dockerised, runs on existing VM (host `wisp`, Ubuntu 24.04, Docker 29.3), host port `8081 → container 8080` to avoid colliding with existing `wisp-wisp-1` container on `:8080`. Image pushed to Artifact Registry `asia-east1-docker.pkg.dev/careful-broker-485510-r0/chat-room/backend`.
+- Backend dockerised, runs on existing VM (host `wisp`, Ubuntu 24.04, Docker 29.3), host port `8081 → container 8080` to avoid colliding with existing `wisp-wisp-1` container on `:8080`. Image pushed to Artifact Registry `asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry/backend`.
 - Public HTTPS via Cloudflare Tunnel — VM `cloudflared` (already active) forwards a sub-domain to `http://localhost:8081`. No public ports opened on the VM.
 - Discord-only OAuth for MVP. GitHub / Google secrets become optional in the backend config schema; auth start returns `503` for unconfigured providers; client renders ErrorScreen.
 - Client published as a scoped npm package, runnable via `npx <pkg> --server wss://<sub-domain>`.
@@ -26,7 +26,7 @@ These values are referenced by exact placeholders throughout the plan. Replace e
 | `<SUPABASE_URL>` | e.g. `https://abcdefgh.supabase.co` | Existing Supabase project → Project Settings → API |
 | `<SUPABASE_SERVICE_ROLE_KEY>` | service_role secret | Same page (NEVER paste into client; backend only) |
 | `<JWT_SIGNING_KEY>` | 32+ random chars | `openssl rand -base64 48` |
-| `<NPM_PACKAGE_NAME>` | default `@noracami/chat-room` | npm scoped package; change only if you've already claimed another |
+| `<NPM_PACKAGE_NAME>` | default `@noracami/pantry` | npm scoped package; change only if you've already claimed another |
 | `<GCP_PROJECT_ID>` | `careful-broker-485510-r0` | From your existing setup (already inspected) |
 | `<TUNNEL_NAME>` | name of your existing Cloudflare tunnel | `cloudflared tunnel list` on the VM |
 
@@ -45,7 +45,7 @@ https://<SUBDOMAIN>/auth/oauth/callback
 **Backend container packaging:**
 - Create: `packages/backend/Dockerfile`
 - Create: `packages/backend/.dockerignore`
-- Create: `deploy/docker-compose.yml` — chat-room service definition
+- Create: `deploy/docker-compose.yml` — pantry service definition
 - Create: `deploy/.env.example` — documented env-var template
 - Create: `deploy/cloudflared-ingress.example.yml` — paste snippet for VM-side `~/.cloudflared/config.yml`
 
@@ -59,7 +59,7 @@ https://<SUBDOMAIN>/auth/oauth/callback
 - Modify: `packages/client/src/cli.tsx` — add `#!/usr/bin/env node` shebang (preserved by `tsc`)
 - Modify: `packages/client/tsconfig.json` — ensure `outDir: dist`, declaration optional
 - Create: `packages/client/README.md` — short usage doc shown on npm page
-- Modify: `packages/shared/package.json` — ensure publishable shape (private OK if bundled, but `chat-room` depends on `@chat-room/shared` via workspace; for publish we will inline-build shared into client `dist` via tsc — see Task 12)
+- Modify: `packages/shared/package.json` — ensure publishable shape (private OK if bundled, but `pantry` depends on `@pantry/shared` via workspace; for publish we will inline-build shared into client `dist` via tsc — see Task 12)
 
 **Deploy helpers:**
 - Create: `scripts/build-and-push-backend.sh`
@@ -73,7 +73,7 @@ https://<SUBDOMAIN>/auth/oauth/callback
 ## Architecture Notes
 
 ### Why host port 8081, not 8080
-`ss -tlnp` on the VM shows `wisp-wisp-1` already binds host 8080. Re-binding fails. The chat-room **container** still listens on 8080 internally (no app changes); only the `ports:` mapping in compose changes.
+`ss -tlnp` on the VM shows `wisp-wisp-1` already binds host 8080. Re-binding fails. The pantry **container** still listens on 8080 internally (no app changes); only the `ports:` mapping in compose changes.
 
 ### Why Cloudflare Tunnel, not a public load balancer
 - VM already runs `cloudflared` as a systemd service
@@ -81,9 +81,9 @@ https://<SUBDOMAIN>/auth/oauth/callback
 - Free TLS handled at Cloudflare edge
 - Drop-in for OAuth callbacks (Discord requires HTTPS)
 
-### Why scoped npm package (`@noracami/chat-room`)
+### Why scoped npm package (`@noracami/pantry`)
 - Scoped packages are guaranteed-free under your own scope, no name-squat risk
-- `npx @noracami/chat-room` is one extra character; acceptable
+- `npx @noracami/pantry` is one extra character; acceptable
 - `--access public` on first publish
 
 ### Why Discord-only MVP
@@ -95,7 +95,7 @@ https://<SUBDOMAIN>/auth/oauth/callback
 You confirmed migrations are already pushed to the existing project. Plan C only consumes `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from env.
 
 ### Image registry path
-`asia-east1-docker.pkg.dev/careful-broker-485510-r0/chat-room/backend:<tag>` — a new repository `chat-room` inside the existing project. Repo creation is Task 8.
+`asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry/backend:<tag>` — a new repository `pantry` inside the existing project. Repo creation is Task 8.
 
 ---
 
@@ -129,7 +129,7 @@ You confirmed migrations are already pushed to the existing project. Plan C only
 - [ ] **Step 2: Run test, confirm failure**
 
 ```bash
-pnpm --filter @chat-room/backend test -- src/config.test.ts
+pnpm --filter @pantry/backend test -- src/config.test.ts
 ```
 
 Expected: first new test fails (typescript error on `cfg.oauth.github`/`google` being potentially `undefined` is a clue — the schema and `Config` type still demand them).
@@ -208,7 +208,7 @@ export function loadConfig(): Config {
 - [ ] **Step 4: Re-run tests**
 
 ```bash
-pnpm --filter @chat-room/backend test -- src/config.test.ts
+pnpm --filter @pantry/backend test -- src/config.test.ts
 ```
 
 Expected: all pass. If the file `providers.ts` complains about `config.oauth.github.clientId` (since `github` is now optional), that is intentional — handled in Task 2.
@@ -216,7 +216,7 @@ Expected: all pass. If the file `providers.ts` complains about `config.oauth.git
 - [ ] **Step 5: Run typecheck** (will reveal `auth/routes.ts` and `auth/providers.ts` callsites)
 
 ```bash
-pnpm --filter @chat-room/backend typecheck
+pnpm --filter @pantry/backend typecheck
 ```
 
 Expected: typecheck error(s) inside `auth/providers.ts` `getProviderConfig` because `config.oauth.github` is now `ProviderCreds | undefined`. Leave it — Task 2 fixes it.
@@ -337,8 +337,8 @@ Replace with:
 - [ ] **Step 3: Typecheck + run all backend tests**
 
 ```bash
-pnpm --filter @chat-room/backend typecheck
-pnpm --filter @chat-room/backend test
+pnpm --filter @pantry/backend typecheck
+pnpm --filter @pantry/backend test
 ```
 
 Expected: typecheck clean, all tests pass.
@@ -387,8 +387,8 @@ Replace with:
 - [ ] **Step 2: Run client tests + typecheck**
 
 ```bash
-pnpm --filter chat-room test
-pnpm --filter chat-room typecheck
+pnpm --filter pantry test
+pnpm --filter pantry typecheck
 ```
 
 Expected: 41 tests pass, typecheck clean.
@@ -463,14 +463,14 @@ FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/backend/package.json packages/backend/package.json
-RUN pnpm install --frozen-lockfile --filter @chat-room/backend...
+RUN pnpm install --frozen-lockfile --filter @pantry/backend...
 
 # --- build shared then backend ---
 FROM deps AS build
 COPY packages/shared packages/shared
 COPY packages/backend packages/backend
-RUN pnpm --filter @chat-room/shared build \
- && pnpm --filter @chat-room/backend build
+RUN pnpm --filter @pantry/shared build \
+ && pnpm --filter @pantry/backend build
 
 # --- runtime: re-install prod-only deps, then copy dist ---
 FROM base AS runtime
@@ -478,7 +478,7 @@ WORKDIR /app
 COPY --from=build /repo/pnpm-lock.yaml /repo/pnpm-workspace.yaml /repo/package.json ./
 COPY --from=build /repo/packages/shared/package.json packages/shared/package.json
 COPY --from=build /repo/packages/backend/package.json packages/backend/package.json
-RUN pnpm install --frozen-lockfile --prod --filter @chat-room/backend...
+RUN pnpm install --frozen-lockfile --prod --filter @pantry/backend...
 COPY --from=build /repo/packages/shared/dist packages/shared/dist
 COPY --from=build /repo/packages/backend/dist packages/backend/dist
 ENV NODE_ENV=production PORT=8080
@@ -490,7 +490,7 @@ CMD ["node", "dist/index.js"]
 - [ ] **Step 3: Local build smoke test**
 
 ```bash
-docker build -f packages/backend/Dockerfile -t chat-room-backend:dev .
+docker build -f packages/backend/Dockerfile -t pantry-backend:dev .
 ```
 
 Expected: build succeeds. Should produce an image around 200-300 MB.
@@ -498,7 +498,7 @@ Expected: build succeeds. Should produce an image around 200-300 MB.
 - [ ] **Step 4: Local run smoke test (will fail — env vars missing — that's the point)**
 
 ```bash
-docker run --rm -p 18080:8080 chat-room-backend:dev
+docker run --rm -p 18080:8080 pantry-backend:dev
 ```
 
 Expected: fast crash with zod parse error mentioning `PUBLIC_BACKEND_URL` (and SUPABASE_URL, JWT_SIGNING_KEY, DISCORD_*) — proves config validation runs.
@@ -513,11 +513,11 @@ docker run --rm -p 18080:8080 \
   -e JWT_SIGNING_KEY=this-is-just-thirty-two-bytes-long-for-test \
   -e DISCORD_CLIENT_ID=d \
   -e DISCORD_CLIENT_SECRET=d \
-  chat-room-backend:dev &
+  pantry-backend:dev &
 
 sleep 2
 curl -fsS http://localhost:18080/health
-docker ps --filter ancestor=chat-room-backend:dev -q | xargs -r docker kill
+docker ps --filter ancestor=pantry-backend:dev -q | xargs -r docker kill
 ```
 
 Expected: `{"ok":true}`. Discord OAuth callback against `example.test` will fail in real life, that's fine — we're only sanity-checking startup + health.
@@ -538,7 +538,7 @@ git commit -m "chore(backend): Dockerfile and dockerignore for prod image"
 - [ ] **Step 1: Create `deploy/.env.example`** with this exact content:
 
 ```
-# chat-room backend production env
+# pantry backend production env
 # Copy to deploy/.env on the VM and fill in real values.
 
 # Public URL the backend serves under (Cloudflare Tunnel hostname). MUST be https.
@@ -570,8 +570,8 @@ PORT=8080
 ```yaml
 services:
   backend:
-    image: asia-east1-docker.pkg.dev/careful-broker-485510-r0/chat-room/backend:latest
-    container_name: chat-room-backend
+    image: asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry/backend:latest
+    container_name: pantry-backend
     restart: unless-stopped
     ports:
       - "127.0.0.1:8081:8080"
@@ -628,18 +628,18 @@ gcloud auth configure-docker asia-east1-docker.pkg.dev
 
 No commit — this is one-time machine setup.
 
-### Task 8: Create Artifact Registry repo for chat-room
+### Task 8: Create Artifact Registry repo for pantry
 
-- [ ] **Step 1:** Create the repo (skip if `gcloud artifacts repositories describe chat-room --location=asia-east1` already returns success):
+- [ ] **Step 1:** Create the repo (skip if `gcloud artifacts repositories describe pantry --location=asia-east1` already returns success):
 
 ```bash
-gcloud artifacts repositories create chat-room \
+gcloud artifacts repositories create pantry \
   --repository-format=docker \
   --location=asia-east1 \
-  --description="chat-room backend images"
+  --description="pantry backend images"
 ```
 
-Expected: `Created repository [chat-room].` — or `ALREADY_EXISTS` (ignore).
+Expected: `Created repository [pantry].` — or `ALREADY_EXISTS` (ignore).
 
 - [ ] **Step 2:** Verify visibility:
 
@@ -647,7 +647,7 @@ Expected: `Created repository [chat-room].` — or `ALREADY_EXISTS` (ignore).
 gcloud artifacts repositories list --location=asia-east1
 ```
 
-Expected: `chat-room` in the list.
+Expected: `pantry` in the list.
 
 No commit.
 
@@ -668,7 +668,7 @@ set -euo pipefail
 # Run from repo root:
 #   ./scripts/build-and-push-backend.sh
 
-REGISTRY="asia-east1-docker.pkg.dev/careful-broker-485510-r0/chat-room"
+REGISTRY="asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry"
 IMAGE="${REGISTRY}/backend"
 SHA="$(git rev-parse --short HEAD)"
 
@@ -706,7 +706,7 @@ Expected: buildx builds for `linux/amd64` (matches the VM) and pushes both tags.
 
 ```bash
 gcloud artifacts docker images list \
-  asia-east1-docker.pkg.dev/careful-broker-485510-r0/chat-room/backend
+  asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry/backend
 ```
 
 Expected: two rows for the latest two tags.
@@ -733,9 +733,9 @@ ssh wisp
 - [ ] **Step 2: Create the deploy dir**
 
 ```bash
-sudo mkdir -p /opt/chat-room
-sudo chown "$USER":"$USER" /opt/chat-room
-cd /opt/chat-room
+sudo mkdir -p /opt/pantry
+sudo chown "$USER":"$USER" /opt/pantry
+cd /opt/pantry
 ```
 
 - [ ] **Step 3: Configure Docker to pull from Artifact Registry**
@@ -758,7 +758,7 @@ gcloud auth configure-docker asia-east1-docker.pkg.dev
 - [ ] **Step 4: Place the compose file** — back on your local machine, scp it up:
 
 ```bash
-scp deploy/docker-compose.yml wisp:/opt/chat-room/docker-compose.yml
+scp deploy/docker-compose.yml wisp:/opt/pantry/docker-compose.yml
 ```
 
 - [ ] **Step 5: Create the env file on the VM** (the `<…>` values come from the Prerequisites table at the top of this plan)
@@ -766,7 +766,7 @@ scp deploy/docker-compose.yml wisp:/opt/chat-room/docker-compose.yml
 On the VM:
 
 ```bash
-cat > /opt/chat-room/.env <<'EOF'
+cat > /opt/pantry/.env <<'EOF'
 PUBLIC_BACKEND_URL=https://<SUBDOMAIN>
 SUPABASE_URL=<SUPABASE_URL>
 SUPABASE_SERVICE_ROLE_KEY=<SUPABASE_SERVICE_ROLE_KEY>
@@ -776,19 +776,19 @@ DISCORD_CLIENT_SECRET=<DISCORD_CLIENT_SECRET>
 NODE_ENV=production
 PORT=8080
 EOF
-chmod 600 /opt/chat-room/.env
+chmod 600 /opt/pantry/.env
 ```
 
 - [ ] **Step 6: Pull + start**
 
 ```bash
-cd /opt/chat-room
+cd /opt/pantry
 docker compose pull
 docker compose up -d
 docker compose ps
 ```
 
-Expected: `chat-room-backend` listed, status `Up (healthy)` after ~15 s.
+Expected: `pantry-backend` listed, status `Up (healthy)` after ~15 s.
 
 - [ ] **Step 7: Local-loopback health check on the VM**
 
@@ -895,7 +895,7 @@ This task is mostly portal clicks; no code.
 
 - [ ] **Step 1: Discord Developer Portal**
 
-Visit https://discord.com/developers/applications → **New Application** → name e.g. `chat-room (prod)`.
+Visit https://discord.com/developers/applications → **New Application** → name e.g. `pantry (prod)`.
 
 - [ ] **Step 2: OAuth2 → Redirects → Add**
 
@@ -913,9 +913,9 @@ Press `Reset Secret` → copy `CLIENT SECRET` → store as `DISCORD_CLIENT_SECRE
 - [ ] **Step 4: Update the VM `.env`** if you used placeholder values in Task 10
 
 ```bash
-ssh wisp 'sed -i "s|^DISCORD_CLIENT_ID=.*|DISCORD_CLIENT_ID=<DISCORD_CLIENT_ID>|" /opt/chat-room/.env'
-ssh wisp 'sed -i "s|^DISCORD_CLIENT_SECRET=.*|DISCORD_CLIENT_SECRET=<DISCORD_CLIENT_SECRET>|" /opt/chat-room/.env'
-ssh wisp 'cd /opt/chat-room && docker compose up -d'
+ssh wisp 'sed -i "s|^DISCORD_CLIENT_ID=.*|DISCORD_CLIENT_ID=<DISCORD_CLIENT_ID>|" /opt/pantry/.env'
+ssh wisp 'sed -i "s|^DISCORD_CLIENT_SECRET=.*|DISCORD_CLIENT_SECRET=<DISCORD_CLIENT_SECRET>|" /opt/pantry/.env'
+ssh wisp 'cd /opt/pantry && docker compose up -d'
 ```
 
 (`up -d` re-creates the container with the new env.)
@@ -963,10 +963,10 @@ The rest of the file is unchanged. `tsc` preserves the shebang.
 {
   "name": "<NPM_PACKAGE_NAME>",
   "version": "0.1.0",
-  "description": "Tiny TUI chat client (companion to the chat-room backend)",
+  "description": "Tiny TUI chat client (companion to the pantry backend)",
   "type": "module",
   "bin": {
-    "chat-room": "./dist/cli.js"
+    "pantry": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -1005,13 +1005,13 @@ The rest of the file is unchanged. `tsc` preserves the shebang.
 ```
 
 Key changes vs. previous `package.json`:
-- `name` switched from `chat-room` (workspace-internal) to `<NPM_PACKAGE_NAME>` (the scoped npm name).
-- `@chat-room/shared` removed from dependencies (it's a workspace package and will be bundled into the client's `dist`; see Step 3).
+- `name` switched from `pantry` (workspace-internal) to `<NPM_PACKAGE_NAME>` (the scoped npm name).
+- `@pantry/shared` removed from dependencies (it's a workspace package and will be bundled into the client's `dist`; see Step 3).
 - `version: 0.1.0`, `files: ["dist", "README.md"]`, `publishConfig.access: public`, `prepublishOnly` script that runs build + ensures executable bit.
 
-Note: removing `@chat-room/shared` from dependencies means `tsc` must inline the shared package into the client's `dist`. Step 3 handles this.
+Note: removing `@pantry/shared` from dependencies means `tsc` must inline the shared package into the client's `dist`. Step 3 handles this.
 
-- [ ] **Step 3: Inline `@chat-room/shared` into the client tsconfig** — open `packages/client/tsconfig.json` and add `paths` so the import resolves to source (this way `tsc --build` will copy the compiled JS into the client's `dist`):
+- [ ] **Step 3: Inline `@pantry/shared` into the client tsconfig** — open `packages/client/tsconfig.json` and add `paths` so the import resolves to source (this way `tsc --build` will copy the compiled JS into the client's `dist`):
 
 Replace the file with:
 
@@ -1028,8 +1028,8 @@ Replace the file with:
     "declaration": false,
     "sourceMap": false,
     "paths": {
-      "@chat-room/shared": ["../shared/src/index.ts"],
-      "@chat-room/shared/*": ["../shared/src/*"]
+      "@pantry/shared": ["../shared/src/index.ts"],
+      "@pantry/shared/*": ["../shared/src/*"]
     }
   },
   "include": ["src/**/*", "../shared/src/**/*"]
@@ -1070,7 +1070,7 @@ If `find` shows `dist/client/src/cli.js`, change `package.json` `bin` to:
 
 ```json
   "bin": {
-    "chat-room": "./dist/client/src/cli.js"
+    "pantry": "./dist/client/src/cli.js"
   },
 ```
 
@@ -1087,9 +1087,9 @@ node dist/<path-to-cli.js> --server wss://<SUBDOMAIN> --help 2>&1 | head -20
 - [ ] **Step 7: Create `packages/client/README.md`** with this exact content (replace `<NPM_PACKAGE_NAME>` and `<SUBDOMAIN>` with your actual values when committing):
 
 ```markdown
-# chat-room
+# pantry
 
-Tiny TUI chat client. Companion to a chat-room backend.
+Tiny TUI chat client. Companion to a pantry backend.
 
 ## Usage
 
@@ -1108,11 +1108,11 @@ Steps inside the TUI:
 | Flag | Description |
 |---|---|
 | `--server <ws-url>` | Backend WebSocket URL. Defaults to `ws://localhost:8080`. |
-| (env) `CHAT_ROOM_SERVER` | Same as `--server`. |
+| (env) `PANTRY_SERVER` | Same as `--server`. |
 
 ## Source
 
-https://github.com/<your-gh-handle>/chat-room
+https://github.com/<your-gh-handle>/pantry
 ```
 
 - [ ] **Step 8: Commit**
@@ -1209,7 +1209,7 @@ Restart one client. At the Identity screen, select **Discord**. A browser tab op
 On the VM:
 
 ```bash
-cd /opt/chat-room
+cd /opt/pantry
 docker compose stop backend
 ```
 
@@ -1224,7 +1224,7 @@ Expected on clients: status flips back to `Connected` once the backend is health
 - [ ] **Step 5: Cleanup**
 
 ```bash
-ssh wisp 'cd /opt/chat-room && docker compose ps'
+ssh wisp 'cd /opt/pantry && docker compose ps'
 ```
 
 (No teardown — leave running. Use `pnpm admin room delete prod-smoke -y` against the prod backend if you want to drop the test room.)
@@ -1273,7 +1273,7 @@ fi
 echo "==> Triggering VM pull + restart"
 ssh wisp '
   set -euo pipefail
-  cd /opt/chat-room
+  cd /opt/pantry
   docker compose pull
   docker compose up -d
   docker compose ps
@@ -1307,10 +1307,10 @@ ssh wisp 'sudo grep -ril webhook /etc /opt 2>/dev/null | head -5'
 ssh wisp 'sudo find /etc -name "hooks*" 2>/dev/null'
 ```
 
-- [ ] **Step 2:** Append a hook for chat-room that runs:
+- [ ] **Step 2:** Append a hook for pantry that runs:
 
 ```bash
-cd /opt/chat-room && docker compose pull && docker compose up -d
+cd /opt/pantry && docker compose pull && docker compose up -d
 ```
 
 Use the existing entries as a template — same author, same secret style.
@@ -1324,7 +1324,7 @@ ssh wisp 'sudo systemctl restart deploy-webhook'
 - [ ] **Step 4:** From your laptop, trigger:
 
 ```bash
-curl -X POST -H 'X-Hub-Signature: ...' https://<SUBDOMAIN-OR-IP>:9000/hooks/chat-room
+curl -X POST -H 'X-Hub-Signature: ...' https://<SUBDOMAIN-OR-IP>:9000/hooks/pantry
 ```
 
 (Use whatever auth the existing webhooks use — sign with the same secret.)

@@ -1,4 +1,4 @@
-import type { ServerMessage } from "@chat-room/shared";
+import type { ServerMessage } from "@pantry/shared";
 import type { ConnectionRegistry, AuthedConnection } from "./connection-registry.js";
 
 function serialize(msg: ServerMessage): string {

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Message } from "@chat-room/shared";
+import type { Message } from "@pantry/shared";
 
 export type Screen =
   | "room_input"

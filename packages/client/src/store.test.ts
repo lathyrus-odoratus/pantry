@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useStore } from "./store.js";
-import type { Message } from "@chat-room/shared";
+import type { Message } from "@pantry/shared";
 
 function reset() {
   useStore.getState().reset();

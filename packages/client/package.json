@@ -1,10 +1,10 @@
 {
-  "name": "chat-room",
+  "name": "pantry",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "chat-room": "./dist/cli.js"
+    "pantry": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -14,7 +14,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@chat-room/shared": "workspace:*",
+    "@pantry/shared": "workspace:*",
     "ink": "^5.0.1",
     "ink-select-input": "^6.0.0",
     "ink-text-input": "^6.0.0",

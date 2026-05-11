@@ -19,7 +19,7 @@ export function RoomInput(): React.JSX.Element {
   return (
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
-        <Text bold>Welcome to chat-room</Text>
+        <Text bold>Welcome to pantry</Text>
       </Box>
       <Box>
         <Text>Room name: </Text>

@@ -1,5 +1,5 @@
 import type { DB } from "./supabase.js";
-import type { AuthProvider } from "@chat-room/shared";
+import type { AuthProvider } from "@pantry/shared";
 import { generateDiscriminator } from "../utils/discriminator.js";
 
 export type UserRow = {

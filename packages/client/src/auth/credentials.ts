@@ -12,7 +12,7 @@ export type Credentials = {
 };
 
 export function defaultCredentialsPath(): string {
-  return join(homedir(), ".chat-room", "credentials.json");
+  return join(homedir(), ".pantry", "credentials.json");
 }
 
 export async function saveCredentials(

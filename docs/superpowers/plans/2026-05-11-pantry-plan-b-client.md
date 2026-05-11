@@ -4,11 +4,11 @@
 
 **Goal:** Stand up the Ink-based TUI client that connects to the Plan A backend, supports the full chat flow (room input, anonymous / OAuth identity, message exchange, rename, presence, history scroll-back), and is locally runnable via `pnpm dev`.
 
-**Architecture:** Ink (React for terminals) + Zustand for state + a thin WebSocket transport wrapper. Single workspace package `@chat-room/client` published from `packages/client/`. CLI entry compiles to a single executable that boots an Ink render tree with a screen state machine.
+**Architecture:** Ink (React for terminals) + Zustand for state + a thin WebSocket transport wrapper. Single workspace package `@pantry/client` published from `packages/client/`. CLI entry compiles to a single executable that boots an Ink render tree with a screen state machine.
 
 **Tech Stack:** Node 20+, TypeScript 5.5+ (ESM), React 18, Ink 5, ink-text-input, ink-select-input, Zustand 4, open (browser launcher), Vitest, ink-testing-library.
 
-**Reference spec:** `docs/superpowers/specs/2026-05-11-chat-room-design.md`
+**Reference spec:** `docs/superpowers/specs/2026-05-11-pantry-design.md`
 **Backend (Plan A merged):** `ws://localhost:8080/ws` (WebSocket chat), HTTP `POST /auth/oauth/start`, `GET /auth/oauth/poll`.
 
 **Plan C scope:** Plan C handles Dockerfile / Cloud Run for the backend and npm publish for the client.
@@ -29,7 +29,7 @@ packages/client/
     ├── app.tsx                       # screen router
     ├── store.ts                      # Zustand store: screens + connection + chat
     ├── auth/
-    │   ├── credentials.ts            # ~/.chat-room/credentials.json
+    │   ├── credentials.ts            # ~/.pantry/credentials.json
     │   └── oauth.ts                  # client-side OAuth flow
     ├── transport/
     │   └── client.ts                 # WS wrapper with reconnect
@@ -81,7 +81,7 @@ Exponential backoff: 2s → 4s → 8s → 16s → 30s (cap). Resets after a succ
 ### Auth identity persistence
 
 - Anonymous: nothing persisted. Each session is fresh.
-- OAuth: token (backend-signed JWT) saved to `~/.chat-room/credentials.json` mode `0600` after successful OAuth flow.
+- OAuth: token (backend-signed JWT) saved to `~/.pantry/credentials.json` mode `0600` after successful OAuth flow.
 - On startup, if credentials exist, the IdentitySelect screen offers "Continue as previous OAuth user" as an extra option.
 
 ### Why Zustand
@@ -104,12 +104,12 @@ State is shared across many screens (a screen reads connection status, current u
 
 ```json
 {
-  "name": "chat-room",
+  "name": "pantry",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "chat-room": "./dist/cli.js"
+    "pantry": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -119,7 +119,7 @@ State is shared across many screens (a screen reads connection status, current u
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@chat-room/shared": "workspace:*",
+    "@pantry/shared": "workspace:*",
     "ink": "^5.0.1",
     "ink-select-input": "^6.0.0",
     "ink-text-input": "^6.0.0",
@@ -172,7 +172,7 @@ export default defineConfig({
 
 ```typescript
 #!/usr/bin/env node
-console.log("chat-room TUI booting…");
+console.log("pantry TUI booting…");
 ```
 
 - [ ] **Step 5: Update the root `package.json` to add a client dev shortcut**
@@ -184,9 +184,9 @@ Edit `package.json` at repo root. The existing `scripts` block needs a new entry
   "build": "pnpm -r build",
   "test": "pnpm -r test",
   "typecheck": "pnpm -r typecheck",
-  "dev:backend": "pnpm --filter @chat-room/backend dev",
-  "dev:client": "pnpm --filter chat-room dev",
-  "admin": "pnpm --filter @chat-room/backend admin"
+  "dev:backend": "pnpm --filter @pantry/backend dev",
+  "dev:client": "pnpm --filter pantry dev",
+  "admin": "pnpm --filter @pantry/backend admin"
 }
 ```
 
@@ -197,11 +197,11 @@ Edit `package.json` at repo root. The existing `scripts` block needs a new entry
 Run: `pnpm install`
 Expected: completes; client deps installed.
 
-Run: `pnpm --filter chat-room typecheck`
+Run: `pnpm --filter pantry typecheck`
 Expected: no errors.
 
 Run: `pnpm dev:client`
-Expected: prints `chat-room TUI booting…` and exits.
+Expected: prints `pantry TUI booting…` and exits.
 
 - [ ] **Step 7: Commit**
 
@@ -242,16 +242,16 @@ describe("resolveConfig", () => {
     expect(cfg.backendHttpUrl).toBe("https://example.com");
   });
 
-  it("CHAT_ROOM_SERVER env overrides default but loses to CLI", () => {
+  it("PANTRY_SERVER env overrides default but loses to CLI", () => {
     const fromEnv = resolveConfig({
       argv: [],
-      env: { CHAT_ROOM_SERVER: "wss://env.example.com/ws" },
+      env: { PANTRY_SERVER: "wss://env.example.com/ws" },
     });
     expect(fromEnv.serverUrl).toBe("wss://env.example.com/ws");
 
     const fromCli = resolveConfig({
       argv: ["--server", "wss://cli.example.com/ws"],
-      env: { CHAT_ROOM_SERVER: "wss://env.example.com/ws" },
+      env: { PANTRY_SERVER: "wss://env.example.com/ws" },
     });
     expect(fromCli.serverUrl).toBe("wss://cli.example.com/ws");
   });
@@ -286,7 +286,7 @@ describe("resolveConfig", () => {
 
 - [ ] **Step 2: Run test, confirm failure**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: FAIL — `Cannot find module './config.js'`.
 
 - [ ] **Step 3: Implement `packages/client/src/config.ts`**
@@ -320,7 +320,7 @@ function toHttpUrl(wsUrl: string): string {
 
 export function resolveConfig(input: ResolveInput): ClientConfig {
   const cliServer = parseFlag(input.argv, "--server");
-  const envServer = input.env.CHAT_ROOM_SERVER;
+  const envServer = input.env.PANTRY_SERVER;
   const serverUrl = cliServer ?? envServer ?? DEFAULT_SERVER_URL;
   const initialRoom = parseFlag(input.argv, "--room");
   return {
@@ -337,14 +337,14 @@ export function loadConfig(): ClientConfig {
 
 - [ ] **Step 4: Re-run tests**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: 7 tests pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add packages/client/src/config.ts packages/client/src/config.test.ts
-git commit -m "feat(client): config with --server / CHAT_ROOM_SERVER overrides"
+git commit -m "feat(client): config with --server / PANTRY_SERVER overrides"
 ```
 
 ---
@@ -447,7 +447,7 @@ describe("credentials", () => {
 
 - [ ] **Step 2: Run tests, confirm failure**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: FAIL — `Cannot find module './credentials.js'`.
 
 - [ ] **Step 3: Implement `packages/client/src/auth/credentials.ts`**
@@ -467,7 +467,7 @@ export type Credentials = {
 };
 
 export function defaultCredentialsPath(): string {
-  return join(homedir(), ".chat-room", "credentials.json");
+  return join(homedir(), ".pantry", "credentials.json");
 }
 
 export async function saveCredentials(
@@ -523,7 +523,7 @@ export async function clearCredentials(
 
 - [ ] **Step 4: Re-run tests**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: 7 (config) + 7 (credentials) = 14 tests pass.
 
 - [ ] **Step 5: Commit**
@@ -548,7 +548,7 @@ Create `packages/client/src/store.test.ts`:
 ```typescript
 import { describe, it, expect, beforeEach } from "vitest";
 import { useStore } from "./store.js";
-import type { Message } from "@chat-room/shared";
+import type { Message } from "@pantry/shared";
 
 function reset() {
   useStore.getState().reset();
@@ -615,14 +615,14 @@ describe("store", () => {
 
 - [ ] **Step 2: Run, confirm failure**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: FAIL.
 
 - [ ] **Step 3: Implement `packages/client/src/store.ts`**
 
 ```typescript
 import { create } from "zustand";
-import type { Message } from "@chat-room/shared";
+import type { Message } from "@pantry/shared";
 
 export type Screen =
   | "room_input"
@@ -768,7 +768,7 @@ export const useStore = create<Store>((set) => ({
 
 - [ ] **Step 4: Re-run tests**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: 14 + 6 = 20 tests pass.
 
 - [ ] **Step 5: Commit**
@@ -794,7 +794,7 @@ Create `packages/client/src/transport/client.test.ts`:
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { TransportClient } from "./client.js";
-import type { ServerMessage } from "@chat-room/shared";
+import type { ServerMessage } from "@pantry/shared";
 
 let port: number;
 let server: WebSocketServer;
@@ -893,7 +893,7 @@ describe("TransportClient", () => {
 
 - [ ] **Step 2: Run, confirm failure**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement `packages/client/src/transport/client.ts`**
@@ -904,7 +904,7 @@ import {
   ServerMessageSchema,
   type ServerMessage,
   type ClientMessage,
-} from "@chat-room/shared";
+} from "@pantry/shared";
 
 export type Status =
   | "idle"
@@ -1014,7 +1014,7 @@ export class TransportClient {
 
 - [ ] **Step 4: Re-run tests**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: 20 + 3 = 23 tests pass.
 
 - [ ] **Step 5: Commit**
@@ -1107,7 +1107,7 @@ describe("runOAuthFlow", () => {
 
 - [ ] **Step 2: Run, confirm failure**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: FAIL.
 
 - [ ] **Step 3: Implement `packages/client/src/auth/oauth.ts`**
@@ -1183,7 +1183,7 @@ export async function runOAuthFlow(input: RunOAuthInput): Promise<OAuthResult> {
 
 - [ ] **Step 4: Re-run tests**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: 23 + 1 = 24 tests pass.
 
 - [ ] **Step 5: Commit**
@@ -1242,7 +1242,7 @@ describe("RoomInput", () => {
 
 - [ ] **Step 2: Run, confirm failure**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: FAIL — `Cannot find module './RoomInput.js'`.
 
 - [ ] **Step 3: Implement `packages/client/src/screens/RoomInput.tsx`**
@@ -1263,7 +1263,7 @@ export function RoomInput(): React.JSX.Element {
   return (
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
-        <Text bold>Welcome to chat-room</Text>
+        <Text bold>Welcome to pantry</Text>
       </Box>
       <Box>
         <Text>Room name: </Text>
@@ -1322,7 +1322,7 @@ render(<App />);
 
 - [ ] **Step 6: Run tests**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: 24 + 3 = 27 tests pass.
 
 - [ ] **Step 7: Sanity-render the CLI**
@@ -1543,7 +1543,7 @@ export function App(): React.JSX.Element {
 
 - [ ] **Step 6: Run tests**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: 27 + 3 (IdentitySelect) + 3 (NicknameInput) = 33 tests pass.
 
 - [ ] **Step 7: Commit**
@@ -1734,7 +1734,7 @@ export function App(): React.JSX.Element {
 
 - [ ] **Step 4: Run tests**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: 33 + 2 = 35 tests pass.
 
 - [ ] **Step 5: Commit**
@@ -1766,7 +1766,7 @@ import { describe, it, expect } from "vitest";
 import React from "react";
 import { render } from "ink-testing-library";
 import { MessageList } from "./MessageList.js";
-import type { Message } from "@chat-room/shared";
+import type { Message } from "@pantry/shared";
 
 function msg(id: string, body: string, nick = "Alice"): Message {
   return {
@@ -1802,7 +1802,7 @@ describe("MessageList", () => {
 ```typescript
 import React from "react";
 import { Box, Text } from "ink";
-import type { Message } from "@chat-room/shared";
+import type { Message } from "@pantry/shared";
 
 type Props = { messages: Message[] };
 
@@ -1966,7 +1966,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
 
 - [ ] **Step 4: Run tests**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: 35 + 2 (MessageList) = 37 tests pass.
 
 - [ ] **Step 5: Commit**
@@ -2282,7 +2282,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
 
 - [ ] **Step 6: Run tests**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: 37 + 4 (InputBar) = 41 tests pass.
 
 - [ ] **Step 7: Commit**
@@ -2409,10 +2409,10 @@ import { Box, Text, useInput } from "ink";
 
 - [ ] **Step 4: Run tests**
 
-Run: `pnpm --filter chat-room test`
+Run: `pnpm --filter pantry test`
 Expected: 41 tests pass (no new tests — Error screen UX + PgUp are exercised in smoke test).
 
-Also run: `pnpm --filter chat-room typecheck`
+Also run: `pnpm --filter pantry typecheck`
 Expected: no errors.
 
 - [ ] **Step 5: Commit**

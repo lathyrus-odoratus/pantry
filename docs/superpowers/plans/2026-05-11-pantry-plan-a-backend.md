@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js 20+, TypeScript 5.5+ (ESM), pnpm 9+, Fastify 4, `ws`, Vitest, zod, jsonwebtoken, supabase-js, pino, cac.
 
-**Reference spec:** `docs/superpowers/specs/2026-05-11-chat-room-design.md`
+**Reference spec:** `docs/superpowers/specs/2026-05-11-pantry-design.md`
 
 **Plan B/C scope:** Plan B builds the Ink TUI client. Plan C handles GCP Cloud Run + npm publishing.
 
@@ -91,7 +91,7 @@ Unit test files live colocated as `<file>.test.ts` (Vitest convention).
 
 ```json
 {
-  "name": "chat-room",
+  "name": "pantry",
   "private": true,
   "type": "module",
   "engines": { "node": ">=20" },
@@ -99,8 +99,8 @@ Unit test files live colocated as `<file>.test.ts` (Vitest convention).
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "dev:backend": "pnpm --filter @chat-room/backend dev",
-    "admin": "pnpm --filter @chat-room/backend admin"
+    "dev:backend": "pnpm --filter @pantry/backend dev",
+    "admin": "pnpm --filter @pantry/backend admin"
   },
   "packageManager": "pnpm@9.0.0"
 }
@@ -170,7 +170,7 @@ git commit -m "chore: initialize pnpm monorepo skeleton"
 
 ```json
 {
-  "name": "@chat-room/shared",
+  "name": "@pantry/shared",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -256,7 +256,7 @@ export * from "./models.js";
 Run: `pnpm install`
 Expected: completes without errors and installs zod + typescript.
 
-Run: `pnpm --filter @chat-room/shared build`
+Run: `pnpm --filter @pantry/shared build`
 Expected: produces `packages/shared/dist/index.js` and `index.d.ts`.
 
 - [ ] **Step 6: Commit**
@@ -404,7 +404,7 @@ export * from "./protocol.js";
 
 - [ ] **Step 3: Build to verify schemas compile**
 
-Run: `pnpm --filter @chat-room/shared build`
+Run: `pnpm --filter @pantry/shared build`
 Expected: builds without errors.
 
 - [ ] **Step 4: Commit**
@@ -431,7 +431,7 @@ git commit -m "feat(shared): add WebSocket protocol schemas"
 
 ```json
 {
-  "name": "@chat-room/backend",
+  "name": "@pantry/backend",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -446,7 +446,7 @@ git commit -m "feat(shared): add WebSocket protocol schemas"
     "admin": "tsx src/admin/cli.ts"
   },
   "dependencies": {
-    "@chat-room/shared": "workspace:*",
+    "@pantry/shared": "workspace:*",
     "@supabase/supabase-js": "^2.45.0",
     "cac": "^6.7.14",
     "fastify": "^4.28.0",
@@ -523,7 +523,7 @@ DISCORD_CLIENT_SECRET=
 - [ ] **Step 5: Create `packages/backend/src/index.ts` (temporary hello)**
 
 ```typescript
-console.log("chat-room backend booting…");
+console.log("pantry backend booting…");
 ```
 
 - [ ] **Step 6: Install + verify**
@@ -531,11 +531,11 @@ console.log("chat-room backend booting…");
 Run: `pnpm install`
 Expected: completes; all backend deps installed.
 
-Run: `pnpm --filter @chat-room/backend typecheck`
+Run: `pnpm --filter @pantry/backend typecheck`
 Expected: no errors.
 
-Run: `pnpm --filter @chat-room/backend dev`
-Expected: prints `chat-room backend booting…` then exits (Ctrl+C if it stays alive).
+Run: `pnpm --filter @pantry/backend dev`
+Expected: prints `pantry backend booting…` then exits (Ctrl+C if it stays alive).
 
 - [ ] **Step 7: Commit**
 
@@ -596,7 +596,7 @@ describe("parseConfig", () => {
 
 - [ ] **Step 2: Run the test and confirm it fails**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: FAIL — `Cannot find module './config.js'`.
 
 - [ ] **Step 3: Implement `packages/backend/src/config.ts`**
@@ -670,7 +670,7 @@ export function loadConfig(): Config {
 
 - [ ] **Step 4: Re-run tests**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: 3 tests pass.
 
 - [ ] **Step 5: Commit**
@@ -694,7 +694,7 @@ import pino from "pino";
 
 export const logger = pino({
   level: process.env.LOG_LEVEL ?? "info",
-  base: { service: "chat-room-backend" },
+  base: { service: "pantry-backend" },
   timestamp: pino.stdTimeFunctions.isoTime,
   formatters: {
     level: (label) => ({ level: label }),
@@ -706,7 +706,7 @@ export type Logger = typeof logger;
 
 - [ ] **Step 2: Verify it compiles**
 
-Run: `pnpm --filter @chat-room/backend typecheck`
+Run: `pnpm --filter @pantry/backend typecheck`
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
@@ -766,7 +766,7 @@ describe("isValidDiscriminator", () => {
 
 - [ ] **Step 2: Run tests, confirm fail**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: FAIL — file not found.
 
 - [ ] **Step 3: Implement `packages/backend/src/utils/discriminator.ts`**
@@ -792,7 +792,7 @@ export function isValidDiscriminator(s: string): boolean {
 
 - [ ] **Step 4: Re-run tests**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: all pass.
 
 - [ ] **Step 5: Commit**
@@ -856,7 +856,7 @@ describe("validateNickname", () => {
 
 - [ ] **Step 2: Run tests to confirm fail**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: FAIL.
 
 - [ ] **Step 3: Implement `packages/backend/src/utils/nickname.ts`**
@@ -887,7 +887,7 @@ export function validateNickname(input: string): NicknameResult {
 
 - [ ] **Step 4: Re-run tests**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: all pass.
 
 - [ ] **Step 5: Commit**
@@ -938,7 +938,7 @@ describe("session token", () => {
 
 - [ ] **Step 2: Run tests, confirm fail**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: FAIL.
 
 - [ ] **Step 3: Implement `packages/backend/src/utils/jwt.ts`**
@@ -977,7 +977,7 @@ Edit `jwt.test.ts` accordingly before running.
 
 - [ ] **Step 4: Re-run tests**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: all pass.
 
 - [ ] **Step 5: Commit**
@@ -1057,7 +1057,7 @@ import type { Config } from "../config.js";
 export function createSupabaseClient(config: Config): SupabaseClient {
   return createClient(config.supabase.url, config.supabase.serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { "X-Client-Info": "chat-room-backend" } },
+    global: { headers: { "X-Client-Info": "pantry-backend" } },
   });
 }
 
@@ -1066,7 +1066,7 @@ export type DB = SupabaseClient;
 
 - [ ] **Step 5: Verify typecheck**
 
-Run: `pnpm --filter @chat-room/backend typecheck`
+Run: `pnpm --filter @pantry/backend typecheck`
 Expected: no errors.
 
 - [ ] **Step 6: Commit**
@@ -1138,7 +1138,7 @@ export class RoomsRepo {
 
 - [ ] **Step 2: Typecheck**
 
-Run: `pnpm --filter @chat-room/backend typecheck`
+Run: `pnpm --filter @pantry/backend typecheck`
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
@@ -1159,7 +1159,7 @@ git commit -m "feat(db): rooms repository"
 
 ```typescript
 import type { DB } from "./supabase.js";
-import type { AuthProvider } from "@chat-room/shared";
+import type { AuthProvider } from "@pantry/shared";
 import { generateDiscriminator } from "../utils/discriminator.js";
 
 export type UserRow = {
@@ -1316,7 +1316,7 @@ export class UsersRepo {
 
 - [ ] **Step 2: Typecheck**
 
-Run: `pnpm --filter @chat-room/backend typecheck`
+Run: `pnpm --filter @pantry/backend typecheck`
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
@@ -1337,7 +1337,7 @@ git commit -m "feat(db): users repository with discriminator-collision retry"
 
 ```typescript
 import type { DB } from "./supabase.js";
-import type { Message } from "@chat-room/shared";
+import type { Message } from "@pantry/shared";
 
 export type MessageRow = {
   id: string;
@@ -1437,7 +1437,7 @@ export class MessagesRepo {
 
 - [ ] **Step 2: Typecheck**
 
-Run: `pnpm --filter @chat-room/backend typecheck`
+Run: `pnpm --filter @pantry/backend typecheck`
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
@@ -1467,7 +1467,7 @@ import { createSupabaseClient } from "../db/supabase.js";
 import { RoomsRepo } from "../db/rooms.js";
 import { UsersRepo } from "../db/users.js";
 
-const cli = cac("chat-room-admin");
+const cli = cac("pantry-admin");
 
 function makeRepos() {
   const config = loadConfig();
@@ -1591,13 +1591,13 @@ if (!cli.matchedCommand) {
 
 Set up a `.env` in `packages/backend/` based on `.env.example`, filled with your Supabase project URL + service role key (other OAuth values can be empty strings — they're required by config, so put dummy values).
 
-Run: `pnpm --filter @chat-room/backend admin room list`
+Run: `pnpm --filter @pantry/backend admin room list`
 Expected: `(no rooms)` on a fresh DB.
 
-Run: `pnpm --filter @chat-room/backend admin room create lobby`
+Run: `pnpm --filter @pantry/backend admin room create lobby`
 Expected: `✓ Created room "lobby" (id: ...)`
 
-Run: `pnpm --filter @chat-room/backend admin room list`
+Run: `pnpm --filter @pantry/backend admin room list`
 Expected: shows the new row.
 
 - [ ] **Step 3: Commit**
@@ -1664,14 +1664,14 @@ describe("OAuthStateStore", () => {
 
 - [ ] **Step 2: Run tests, confirm fail**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: FAIL.
 
 - [ ] **Step 3: Implement `packages/backend/src/auth/state-store.ts`**
 
 ```typescript
 import { nanoid } from "nanoid";
-import type { AuthProvider } from "@chat-room/shared";
+import type { AuthProvider } from "@pantry/shared";
 
 const TTL_MS = 10 * 60 * 1000;
 
@@ -1734,7 +1734,7 @@ export class OAuthStateStore {
 
 - [ ] **Step 4: Re-run tests**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: all pass.
 
 - [ ] **Step 5: Commit**
@@ -1754,7 +1754,7 @@ git commit -m "feat(auth): oauth state nonce store with TTL"
 - [ ] **Step 1: Implement `packages/backend/src/auth/providers.ts`**
 
 ```typescript
-import type { AuthProvider } from "@chat-room/shared";
+import type { AuthProvider } from "@pantry/shared";
 import type { Config } from "../config.js";
 
 export type ProviderConfig = {
@@ -1900,7 +1900,7 @@ export async function fetchUserProfile(
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/json",
-      "User-Agent": "chat-room-backend",
+      "User-Agent": "pantry-backend",
     },
   });
   if (!res.ok) {
@@ -1913,7 +1913,7 @@ export async function fetchUserProfile(
 
 - [ ] **Step 2: Typecheck**
 
-Run: `pnpm --filter @chat-room/backend typecheck`
+Run: `pnpm --filter @pantry/backend typecheck`
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
@@ -1945,7 +1945,7 @@ import {
 } from "./providers.js";
 import { UsersRepo } from "../db/users.js";
 import { signSessionToken } from "../utils/jwt.js";
-import type { AuthProvider } from "@chat-room/shared";
+import type { AuthProvider } from "@pantry/shared";
 
 export type AuthRoutesDeps = {
   config: Config;
@@ -2070,7 +2070,7 @@ function escapeHtml(s: string): string {
 
 - [ ] **Step 2: Typecheck**
 
-Run: `pnpm --filter @chat-room/backend typecheck`
+Run: `pnpm --filter @pantry/backend typecheck`
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
@@ -2147,7 +2147,7 @@ describe("ConnectionRegistry", () => {
 
 - [ ] **Step 2: Run tests, confirm fail**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: FAIL.
 
 - [ ] **Step 3: Implement `packages/backend/src/ws/connection-registry.ts`**
@@ -2211,7 +2211,7 @@ export class ConnectionRegistry {
 
 - [ ] **Step 4: Re-run tests**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: all pass.
 
 - [ ] **Step 5: Commit**
@@ -2231,7 +2231,7 @@ git commit -m "feat(ws): connection registry with room indexing"
 - [ ] **Step 1: Implement `packages/backend/src/ws/broadcast.ts`**
 
 ```typescript
-import type { ServerMessage } from "@chat-room/shared";
+import type { ServerMessage } from "@pantry/shared";
 import type { ConnectionRegistry, AuthedConnection } from "./connection-registry.js";
 
 function serialize(msg: ServerMessage): string {
@@ -2273,7 +2273,7 @@ export function presenceFor(
 
 - [ ] **Step 2: Typecheck**
 
-Run: `pnpm --filter @chat-room/backend typecheck`
+Run: `pnpm --filter @pantry/backend typecheck`
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
@@ -2294,7 +2294,7 @@ git commit -m "feat(ws): broadcast + presence helpers"
 
 ```typescript
 import { randomUUID } from "node:crypto";
-import type { ServerMessage, AuthAnon, AuthOAuth } from "@chat-room/shared";
+import type { ServerMessage, AuthAnon, AuthOAuth } from "@pantry/shared";
 
 import type { Config } from "../../config.js";
 import { logger } from "../../logger.js";
@@ -2428,7 +2428,7 @@ export async function admitConnection(
 
 - [ ] **Step 2: Typecheck**
 
-Run: `pnpm --filter @chat-room/backend typecheck`
+Run: `pnpm --filter @pantry/backend typecheck`
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
@@ -2451,7 +2451,7 @@ git commit -m "feat(ws): auth handlers (anon + oauth) and admit flow"
 
 ```typescript
 import { randomUUID } from "node:crypto";
-import type { ServerMessage, Message, MessageSend } from "@chat-room/shared";
+import type { ServerMessage, Message, MessageSend } from "@pantry/shared";
 import type { MessagesRepo } from "../../db/messages.js";
 import type { ConnectionRegistry, AuthedConnection } from "../connection-registry.js";
 import { broadcastToRoom, send } from "../broadcast.js";
@@ -2509,7 +2509,7 @@ export async function handleSend(
 - [ ] **Step 2: Create `packages/backend/src/ws/handlers/nick.ts`**
 
 ```typescript
-import type { ServerMessage, NickChange } from "@chat-room/shared";
+import type { ServerMessage, NickChange } from "@pantry/shared";
 import { validateNickname } from "../../utils/nickname.js";
 import type { UsersRepo } from "../../db/users.js";
 import type { ConnectionRegistry, AuthedConnection } from "../connection-registry.js";
@@ -2560,7 +2560,7 @@ export async function handleNick(
 - [ ] **Step 3: Create `packages/backend/src/ws/handlers/history.ts`**
 
 ```typescript
-import type { ServerMessage, HistoryLoad } from "@chat-room/shared";
+import type { ServerMessage, HistoryLoad } from "@pantry/shared";
 import type { MessagesRepo } from "../../db/messages.js";
 import type { AuthedConnection } from "../connection-registry.js";
 import { send } from "../broadcast.js";
@@ -2586,7 +2586,7 @@ export async function handleHistory(
 
 - [ ] **Step 4: Typecheck**
 
-Run: `pnpm --filter @chat-room/backend typecheck`
+Run: `pnpm --filter @pantry/backend typecheck`
 Expected: no errors.
 
 - [ ] **Step 5: Commit**
@@ -2611,7 +2611,7 @@ git commit -m "feat(ws): handlers for message.send, nick.change, history.load"
 import { WebSocketServer, type WebSocket } from "ws";
 import type { Server as HTTPServer } from "node:http";
 import { randomUUID } from "node:crypto";
-import { ClientMessageSchema, type ServerMessage } from "@chat-room/shared";
+import { ClientMessageSchema, type ServerMessage } from "@pantry/shared";
 
 import type { Config } from "../config.js";
 import { logger } from "../logger.js";
@@ -2799,12 +2799,12 @@ startServer().catch((err) => {
 
 - [ ] **Step 4: Build + boot smoke**
 
-Run: `pnpm --filter @chat-room/backend typecheck`
+Run: `pnpm --filter @pantry/backend typecheck`
 Expected: no errors.
 
 Make sure `.env` is populated (at minimum: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PUBLIC_BACKEND_URL=http://localhost:8080`, a 32+ char `JWT_SIGNING_KEY`, and dummy OAuth secrets).
 
-Run: `pnpm --filter @chat-room/backend dev`
+Run: `pnpm --filter @pantry/backend dev`
 Expected: log line `backend listening { port: 8080 }`. `curl http://localhost:8080/health` returns `{"ok":true}`.
 
 Ctrl+C to stop.
@@ -2845,7 +2845,7 @@ import { ConnectionRegistry } from "../../ws/connection-registry.js";
 import { attachWebSocketServer } from "../../ws/server.js";
 import { OAuthStateStore } from "../../auth/state-store.js";
 import { registerAuthRoutes } from "../../auth/routes.js";
-import type { ServerMessage } from "@chat-room/shared";
+import type { ServerMessage } from "@pantry/shared";
 
 function next<T extends ServerMessage["type"]>(
   ws: WebSocket,
@@ -2995,7 +2995,7 @@ Expected: dotenv installed.
 
 - [ ] **Step 3: Run the integration test**
 
-Run: `pnpm --filter @chat-room/backend test`
+Run: `pnpm --filter @pantry/backend test`
 Expected: all tests pass (unit + integration).
 
 - [ ] **Step 4: Commit**
