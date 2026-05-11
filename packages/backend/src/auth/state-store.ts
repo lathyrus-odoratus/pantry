@@ -3,8 +3,10 @@ import type { AuthProvider } from "@chat-room/shared";
 
 const TTL_MS = 10 * 60 * 1000;
 
+export type OAuthProvider = Exclude<AuthProvider, "anon">;
+
 type Entry =
-  | { status: "pending"; provider: AuthProvider; expiresAt: number }
+  | { status: "pending"; provider: OAuthProvider; expiresAt: number }
   | { status: "ready"; token: string; expiresAt: number };
 
 export type ConsumeResult =
@@ -15,7 +17,7 @@ export type ConsumeResult =
 export class OAuthStateStore {
   private entries = new Map<string, Entry>();
 
-  createPending(provider: AuthProvider): string {
+  createPending(provider: OAuthProvider): string {
     const state = nanoid(32);
     this.entries.set(state, {
       status: "pending",
@@ -52,7 +54,7 @@ export class OAuthStateStore {
     return { status: "ready", token: entry.token };
   }
 
-  getProvider(state: string): AuthProvider | null {
+  getProvider(state: string): OAuthProvider | null {
     const entry = this.entries.get(state);
     if (!entry || entry.status !== "pending") return null;
     return entry.provider;

@@ -33,9 +33,8 @@ export async function registerAuthRoutes(
       if (!provider.success) {
         return reply.code(400).send({ error: "invalid_provider" });
       }
-      const providerValue = provider.data as "github" | "google" | "discord";
-      const state = stateStore.createPending(providerValue);
-      const cfg = getProviderConfig(providerValue, config);
+      const state = stateStore.createPending(provider.data);
+      const cfg = getProviderConfig(provider.data, config);
       const redirectUri = `${config.publicBackendUrl}/auth/oauth/callback`;
       const authUrl = cfg.authorizeUrl({
         clientId: cfg.clientId,
@@ -66,11 +65,7 @@ export async function registerAuthRoutes(
           .type("text/html")
           .send("<h1>Missing code or state.</h1>");
       }
-      const provider = stateStore.getProvider(state) as
-        | "github"
-        | "google"
-        | "discord"
-        | null;
+      const provider = stateStore.getProvider(state);
       if (!provider) {
         return reply
           .code(400)
@@ -91,7 +86,7 @@ export async function registerAuthRoutes(
           });
         }
         const token = signSessionToken(
-          { userId: user.id, provider: provider as "github" | "google" | "discord" },
+          { userId: user.id, provider },
           config.jwtSigningKey,
         );
         stateStore.resolve(state, token);
