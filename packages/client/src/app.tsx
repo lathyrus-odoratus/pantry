@@ -1,11 +1,12 @@
 import React from "react";
-import { Box, Text } from "ink";
 import { useStore } from "./store.js";
 import { loadConfig } from "./config.js";
 import { RoomInput } from "./screens/RoomInput.js";
 import { IdentitySelect } from "./screens/IdentitySelect.js";
 import { NicknameInput } from "./screens/NicknameInput.js";
 import { OAuthWaiting } from "./screens/OAuthWaiting.js";
+import { Chat } from "./screens/Chat.js";
+import { ErrorScreen } from "./screens/ErrorScreen.js";
 
 const config = loadConfig();
 
@@ -20,11 +21,9 @@ export function App(): React.JSX.Element {
       return <NicknameInput />;
     case "oauth_waiting":
       return <OAuthWaiting backendHttpUrl={config.backendHttpUrl} />;
-    default:
-      return (
-        <Box padding={1}>
-          <Text>Screen "{screen}" not implemented yet.</Text>
-        </Box>
-      );
+    case "chat":
+      return <Chat serverUrl={config.serverUrl} />;
+    case "error":
+      return <ErrorScreen />;
   }
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import { useStore } from "../store.js";
 import { TransportClient } from "../transport/client.js";
 import { MessageList } from "./components/MessageList.js";
@@ -97,6 +97,21 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const onNick = (newNickname: string) => {
     transportRef.current?.send({ type: "nick.change", newNickname });
   };
+
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  useInput((_input, key) => {
+    if (!(key.pageUp ?? false)) return;
+    const list = messagesRef.current;
+    const oldest = list[0];
+    if (!oldest) return;
+    if (!useStore.getState().historyHasMore) return;
+    transportRef.current?.send({
+      type: "history.load",
+      beforeId: oldest.id,
+      limit: 50,
+    });
+  });
 
   return (
     <Box flexDirection="column" height="100%">
