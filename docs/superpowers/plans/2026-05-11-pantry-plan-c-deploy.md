@@ -5,12 +5,13 @@
 **Goal:** Ship pantry MVP — backend running on a GCP VM behind Cloudflare Tunnel with Discord OAuth, client published to npm and runnable via `npx`.
 
 **Architecture:**
-- Backend dockerised, runs on existing VM (host `wisp`, Ubuntu 24.04, Docker 29.3), host port `8081 → container 8080` to avoid colliding with existing `wisp-wisp-1` container on `:8080`. Image pushed to Artifact Registry `asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry/backend`.
+- Backend dockerised, runs on existing VM (host `wisp`, Ubuntu 24.04, Docker 29.3), host port `8081 → container 8080` to avoid colliding with existing `wisp-wisp-1` container on `:8080`.
+- **Image is built on the VM itself** — source synced via `rsync`, then `docker compose up --build`. No external image registry. Aligns with the existing wisp/dixit deploy style on the same VM.
 - Public HTTPS via Cloudflare Tunnel — VM `cloudflared` (already active) forwards a sub-domain to `http://localhost:8081`. No public ports opened on the VM.
 - Discord-only OAuth for MVP. GitHub / Google secrets become optional in the backend config schema; auth start returns `503` for unconfigured providers; client renders ErrorScreen.
-- Client published as a scoped npm package, runnable via `npx <pkg> --server wss://<sub-domain>`.
+- Client published as a scoped npm package, runnable via `npx @noracami/pantry`.
 
-**Tech Stack:** Node 20, pnpm 9 workspace, Fastify, Docker + Compose v5.1, Cloudflare Tunnel, GitHub Artifact Registry, supabase (already provisioned), Discord OAuth.
+**Tech Stack:** Node 20, pnpm 9 workspace, Fastify, Docker + Compose v5.1, Cloudflare Tunnel, supabase (already provisioned), Discord OAuth.
 
 ---
 
@@ -22,10 +23,9 @@ These were decided up-front and baked into the plan body:
 |---|---|
 | Sub-domain | `pantry.miao-bao.cc` |
 | npm package name | `@noracami/pantry` |
-| GCP project | `careful-broker-485510-r0` |
-| Artifact Registry | `asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry` |
 | VM SSH alias | `wisp` |
 | VM deploy dir | `/opt/pantry` |
+| Deploy method | rsync source to VM, `docker compose up -d --build` on VM |
 
 You still need to gather these — they remain as placeholders:
 
@@ -53,8 +53,9 @@ https://pantry.miao-bao.cc/auth/oauth/callback
 **Backend container packaging:**
 - Create: `packages/backend/Dockerfile`
 - Create: `packages/backend/.dockerignore`
-- Create: `deploy/docker-compose.yml` — pantry service definition
-- Create: `deploy/.env.example` — documented env-var template
+- Create: `docker-compose.yml` (repo root) — pantry service definition with `build:` directive
+- Create: `.dockerignore` (repo root)
+- Create: `.env.example` (repo root) — documented env-var template
 - Create: `deploy/cloudflared-ingress.example.yml` — paste snippet for VM-side `~/.cloudflared/config.yml`
 
 **Backend code changes (relax OAuth schema):**
@@ -67,11 +68,9 @@ https://pantry.miao-bao.cc/auth/oauth/callback
 - Modify: `packages/client/src/cli.tsx` — add `#!/usr/bin/env node` shebang (preserved by `tsc`)
 - Modify: `packages/client/tsconfig.json` — ensure `outDir: dist`, declaration optional
 - Create: `packages/client/README.md` — short usage doc shown on npm page
-- Modify: `packages/shared/package.json` — ensure publishable shape (private OK if bundled, but `pantry` depends on `@pantry/shared` via workspace; for publish we will inline-build shared into client `dist` via tsc — see Task 12)
 
-**Deploy helpers:**
-- Create: `scripts/build-and-push-backend.sh`
-- Create: `scripts/deploy-backend.sh` (runs on the VM via `ssh wisp`)
+**Deploy helper:**
+- Create: `scripts/deploy.sh` — rsync source to VM, run `docker compose up -d --build` remotely
 
 **Docs:**
 - Modify: `README.md` (or create if missing) — production deploy + npx usage
@@ -102,8 +101,11 @@ https://pantry.miao-bao.cc/auth/oauth/callback
 ### Why supabase migrations are not in Plan C
 You confirmed migrations are already pushed to the existing project. Plan C only consumes `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from env.
 
-### Image registry path
-`asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry/backend:<tag>` — a new repository `pantry` inside the existing project. Repo creation is Task 8.
+### Why build on VM (no registry)
+- Existing VM workflow (wisp / dixit) builds on-host; pantry follows the same pattern
+- Skips Artifact Registry / GHCR setup and the associated gcloud / GitHub auth dance
+- Tradeoffs accepted for MVP: no image tag history (rollback = `git checkout <sha>` + redeploy), ~30 s downtime on rebuild, build runs on a 2 GB / 5 GB-free machine (tight but acceptable)
+- The image is tagged locally as `pantry-backend:latest`; compose's `build:` directive rebuilds it from the synced source tree
 
 ---
 
@@ -540,14 +542,14 @@ git commit -m "chore(backend): Dockerfile and dockerignore for prod image"
 ### Task 6: Production env example + Compose file
 
 **Files:**
-- Create: `deploy/.env.example`
-- Create: `deploy/docker-compose.yml`
+- Create: `.env.example` (repo root)
+- Create: `docker-compose.yml` (repo root)
 
-- [ ] **Step 1: Create `deploy/.env.example`** with this exact content:
+- [ ] **Step 1: Create `.env.example` at repo root** with this exact content:
 
 ```
 # pantry backend production env
-# Copy to deploy/.env on the VM and fill in real values.
+# Copy to .env on the VM and fill in real values.
 
 # Public URL the backend serves under (Cloudflare Tunnel hostname). MUST be https.
 PUBLIC_BACKEND_URL=https://pantry.miao-bao.cc
@@ -573,12 +575,15 @@ NODE_ENV=production
 PORT=8080
 ```
 
-- [ ] **Step 2: Create `deploy/docker-compose.yml`** with this exact content:
+- [ ] **Step 2: Create `docker-compose.yml` at repo root** with this exact content:
 
 ```yaml
 services:
   backend:
-    image: asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry/backend:latest
+    build:
+      context: .
+      dockerfile: packages/backend/Dockerfile
+    image: pantry-backend:latest
     container_name: pantry-backend
     restart: unless-stopped
     ports:
@@ -601,220 +606,122 @@ services:
 Notes:
 - Host port bound to `127.0.0.1` only — cloudflared on the host reaches it via loopback; nothing exposed publicly.
 - `:8081` chosen to avoid colliding with the existing `wisp-wisp-1` container.
+- `build.context: .` means compose builds from the same directory it lives in (repo root). On the VM, the repo working tree IS `/opt/pantry`, so `docker compose up --build` rebuilds from the synced source.
 - `wget` is present in `node:20-alpine`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add deploy/.env.example deploy/docker-compose.yml
-git commit -m "chore(deploy): docker-compose + env template for VM"
+git add .env.example docker-compose.yml
+git commit -m "chore(deploy): docker-compose + env template (build on host)"
 ```
 
 ---
 
-## Phase 3: Image registry + push
+## Phase 3: First deploy on the VM (rsync → build → up)
 
-### Task 7: Confirm gcloud auth on local machine
+### Task 7: Sync source to VM and bring the service up
 
-- [ ] **Step 1:** Run:
+This task is purely VM-side ops; no code changes, no commit.
 
-```bash
-gcloud config get-value project
-gcloud auth list
-gcloud auth configure-docker asia-east1-docker.pkg.dev
-```
+The user's `.env` already exists at `/opt/pantry/.env` (populated during plan-prep). We rsync the repo into `/opt/pantry/` while excluding `.env` so the secrets stay put, then `docker compose up -d --build` from inside.
 
-Expected: project shows `careful-broker-485510-r0` (or you set it: `gcloud config set project careful-broker-485510-r0`). `auth list` shows an account marked `ACTIVE`. `configure-docker` writes a credHelper into `~/.docker/config.json`.
-
-- [ ] **Step 2:** If `gcloud` is not signed in:
+- [ ] **Step 1: From your local machine, dry-run the rsync to verify the exclude list**
 
 ```bash
-gcloud auth login
-gcloud config set project careful-broker-485510-r0
-gcloud auth configure-docker asia-east1-docker.pkg.dev
-```
-
-No commit — this is one-time machine setup.
-
-### Task 8: Create Artifact Registry repo for pantry
-
-- [ ] **Step 1:** Create the repo (skip if `gcloud artifacts repositories describe pantry --location=asia-east1` already returns success):
-
-```bash
-gcloud artifacts repositories create pantry \
-  --repository-format=docker \
-  --location=asia-east1 \
-  --description="pantry backend images"
-```
-
-Expected: `Created repository [pantry].` — or `ALREADY_EXISTS` (ignore).
-
-- [ ] **Step 2:** Verify visibility:
-
-```bash
-gcloud artifacts repositories list --location=asia-east1
-```
-
-Expected: `pantry` in the list.
-
-No commit.
-
-### Task 9: Build + push script
-
-**Files:**
-- Create: `scripts/build-and-push-backend.sh`
-
-- [ ] **Step 1: Create the script** with this exact content:
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Build the backend image and push to Artifact Registry.
-# Tags: <git-sha> + latest
-#
-# Run from repo root:
-#   ./scripts/build-and-push-backend.sh
-
-REGISTRY="asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry"
-IMAGE="${REGISTRY}/backend"
-SHA="$(git rev-parse --short HEAD)"
-
 cd "$(git rev-parse --show-toplevel)"
-
-echo "==> Building ${IMAGE}:${SHA}"
-docker buildx build \
-  --platform linux/amd64 \
-  -f packages/backend/Dockerfile \
-  -t "${IMAGE}:${SHA}" \
-  -t "${IMAGE}:latest" \
-  --push \
-  .
-
-echo "==> Pushed:"
-echo "    ${IMAGE}:${SHA}"
-echo "    ${IMAGE}:latest"
+rsync -avzn --delete \
+  --exclude='.env' \
+  --exclude='.env.*' \
+  --exclude='node_modules' \
+  --exclude='**/node_modules' \
+  --exclude='dist' \
+  --exclude='**/dist' \
+  --exclude='.git' \
+  --exclude='.DS_Store' \
+  --exclude='coverage' \
+  ./ wisp:/opt/pantry/
 ```
 
-- [ ] **Step 2: Make executable**
+Expected: a list of files that WOULD be transferred (the `n` flag = dry-run). Confirm `.env` is **not** in the list. If it is, fix the exclude before continuing.
+
+- [ ] **Step 2: Real rsync**
+
+Same command without `-n`:
 
 ```bash
-chmod +x scripts/build-and-push-backend.sh
+rsync -avz --delete \
+  --exclude='.env' \
+  --exclude='.env.*' \
+  --exclude='node_modules' \
+  --exclude='**/node_modules' \
+  --exclude='dist' \
+  --exclude='**/dist' \
+  --exclude='.git' \
+  --exclude='.DS_Store' \
+  --exclude='coverage' \
+  ./ wisp:/opt/pantry/
 ```
 
-- [ ] **Step 3: First run — push the image**
+Expected: files transferred, `.env` on the VM untouched. Verify on the VM:
 
 ```bash
-./scripts/build-and-push-backend.sh
+ssh wisp 'ls -la /opt/pantry/.env /opt/pantry/docker-compose.yml /opt/pantry/packages/backend/Dockerfile'
 ```
 
-Expected: buildx builds for `linux/amd64` (matches the VM) and pushes both tags. If you don't have `buildx`, install Docker Desktop / `docker-buildx-plugin`; or replace with two steps: `docker build` + `docker push`. The cross-platform flag matters because if you build on a Mac M-series, native is `linux/arm64` and the VM is `linux/amd64`.
+All three should exist; `.env` should still be mode 600.
 
-- [ ] **Step 4: Confirm in Artifact Registry**
+- [ ] **Step 3: Build + start on the VM**
 
 ```bash
-gcloud artifacts docker images list \
-  asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry/backend
+ssh wisp 'cd /opt/pantry && docker compose up -d --build'
 ```
 
-Expected: two rows for the latest two tags.
+Expected: docker build runs (~2-5 min on this VM — tight on RAM but should complete), then container starts. First build will be slowest; subsequent rebuilds reuse layers.
 
-- [ ] **Step 5: Commit**
+If build OOMs (`tsc` killed mid-compile), try a low-memory workaround:
 
 ```bash
-git add scripts/build-and-push-backend.sh
-git commit -m "chore(deploy): build-and-push backend script"
+ssh wisp 'cd /opt/pantry && docker compose build --memory 1g && docker compose up -d'
 ```
 
----
-
-## Phase 4: First deploy on the VM
-
-### Task 10: Provision deploy dir on VM, pull image, run
-
-- [ ] **Step 1: Open a shell on the VM**
+- [ ] **Step 4: Check status**
 
 ```bash
-ssh wisp
+ssh wisp 'cd /opt/pantry && docker compose ps'
 ```
 
-- [ ] **Step 2: Create the deploy dir**
+Expected: `pantry-backend` listed, status `Up (healthy)` after ~15 s of start_period.
+
+- [ ] **Step 5: Local-loopback health check on the VM**
 
 ```bash
-sudo mkdir -p /opt/pantry
-sudo chown "$USER":"$USER" /opt/pantry
-cd /opt/pantry
-```
-
-- [ ] **Step 3: Configure Docker to pull from Artifact Registry**
-
-```bash
-gcloud auth configure-docker asia-east1-docker.pkg.dev
-```
-
-If `gcloud` is not present on the VM, install (one-time):
-
-```bash
-sudo apt-get update && sudo apt-get install -y google-cloud-cli
-gcloud auth login
-gcloud config set project careful-broker-485510-r0
-gcloud auth configure-docker asia-east1-docker.pkg.dev
-```
-
-(Alternatively, attach a service account to the VM; for MVP, user-account login is fine.)
-
-- [ ] **Step 4: Place the compose file** — back on your local machine, scp it up:
-
-```bash
-scp deploy/docker-compose.yml wisp:/opt/pantry/docker-compose.yml
-```
-
-- [ ] **Step 5: Create the env file on the VM** (the `<…>` values come from the Prerequisites table at the top of this plan)
-
-On the VM:
-
-```bash
-cat > /opt/pantry/.env <<'EOF'
-PUBLIC_BACKEND_URL=https://pantry.miao-bao.cc
-SUPABASE_URL=<SUPABASE_URL>
-SUPABASE_SERVICE_ROLE_KEY=<SUPABASE_SERVICE_ROLE_KEY>
-JWT_SIGNING_KEY=<JWT_SIGNING_KEY>
-DISCORD_CLIENT_ID=<DISCORD_CLIENT_ID>
-DISCORD_CLIENT_SECRET=<DISCORD_CLIENT_SECRET>
-NODE_ENV=production
-PORT=8080
-EOF
-chmod 600 /opt/pantry/.env
-```
-
-- [ ] **Step 6: Pull + start**
-
-```bash
-cd /opt/pantry
-docker compose pull
-docker compose up -d
-docker compose ps
-```
-
-Expected: `pantry-backend` listed, status `Up (healthy)` after ~15 s.
-
-- [ ] **Step 7: Local-loopback health check on the VM**
-
-```bash
-curl -fsS http://127.0.0.1:8081/health
+ssh wisp 'curl -fsS http://127.0.0.1:8081/health'
 ```
 
 Expected: `{"ok":true}`.
 
-If this fails: `docker compose logs --tail=50 backend` — most likely a zod env-parse error.
+If this fails: `ssh wisp 'cd /opt/pantry && docker compose logs --tail=50 backend'` — most likely a zod env-parse error (missing/malformed env var) or a Discord secret typo.
 
-No commit (this task is purely server-side ops).
+- [ ] **Step 6: Disk hygiene check**
+
+A first build can leave 1-2 GB of intermediate layers. The VM has 5 GB free, so monitor:
+
+```bash
+ssh wisp 'df -h / && docker system df'
+```
+
+If `/` drops below 1 GB free, prune:
+
+```bash
+ssh wisp 'docker builder prune -f && docker image prune -f'
+```
 
 ---
 
-## Phase 5: Cloudflare Tunnel ingress
+## Phase 4: Cloudflare Tunnel ingress
 
-### Task 11: Wire the sub-domain through cloudflared
+### Task 8: Wire the sub-domain through cloudflared
 
 **Files:**
 - Create: `deploy/cloudflared-ingress.example.yml`
@@ -895,9 +802,9 @@ git commit -m "docs(deploy): example cloudflared ingress snippet"
 
 ---
 
-## Phase 6: Discord OAuth registration
+## Phase 5: Discord OAuth registration
 
-### Task 12: Register Discord app and run OAuth round-trip
+### Task 9: Register Discord app and run OAuth round-trip
 
 This task is mostly portal clicks; no code.
 
@@ -918,7 +825,7 @@ Save.
 Copy `CLIENT ID` → store as `DISCORD_CLIENT_ID`.
 Press `Reset Secret` → copy `CLIENT SECRET` → store as `DISCORD_CLIENT_SECRET`. **The secret is only shown once.**
 
-- [ ] **Step 4: Update the VM `.env`** if you used placeholder values in Task 10
+- [ ] **Step 4: Update the VM `.env`** if you used placeholder values in Task 7
 
 ```bash
 ssh wisp 'sed -i "s|^DISCORD_CLIENT_ID=.*|DISCORD_CLIENT_ID=<DISCORD_CLIENT_ID>|" /opt/pantry/.env'
@@ -946,9 +853,9 @@ If this works, OAuth is wired end-to-end. No commit (no code change in this task
 
 ---
 
-## Phase 7: Client npm publish
+## Phase 6: Client npm publish
 
-### Task 13: Make `packages/client` publishable
+### Task 10: Make `packages/client` publishable
 
 **Files:**
 - Modify: `packages/client/package.json`
@@ -1087,7 +994,7 @@ Re-run `pnpm run build`.
 - [ ] **Step 6: Verify the binary works locally**
 
 ```bash
-node dist/<path-to-cli.js> --server wss://pantry.miao-bao.cc --help 2>&1 | head -20
+node dist/<path-to-cli.js> --help 2>&1 | head -20
 ```
 
 (If `--help` isn't supported, just run without `--help` for two seconds and Ctrl+C — the goal is to confirm Node can execute it.)
@@ -1102,7 +1009,7 @@ Tiny TUI chat client. Companion to a pantry backend.
 ## Usage
 
 ```sh
-npx @noracami/pantry --server wss://pantry.miao-bao.cc
+npx @noracami/pantry
 ```
 
 Steps inside the TUI:
@@ -1115,7 +1022,7 @@ Steps inside the TUI:
 
 | Flag | Description |
 |---|---|
-| `--server <ws-url>` | Backend WebSocket URL. Defaults to `ws://localhost:8080`. |
+| `--server <ws-url>` | Override the backend WebSocket URL. Defaults to `wss://pantry.miao-bao.cc/ws`. |
 | (env) `PANTRY_SERVER` | Same as `--server`. |
 
 ## Source
@@ -1131,7 +1038,7 @@ git add packages/client/package.json packages/client/tsconfig.json \
 git commit -m "chore(client): package for npm publish (bin, files, shebang, bundled shared)"
 ```
 
-### Task 14: Dry-run publish, then publish
+### Task 11: Dry-run publish, then publish
 
 - [ ] **Step 1: npm auth (one-time)**
 
@@ -1167,7 +1074,7 @@ Expected: `+ @noracami/pantry@0.1.0`. If the registry rejects with "package name
 In a fresh terminal (or even a fresh VM, anywhere with Node ≥ 20):
 
 ```bash
-npx @noracami/pantry@latest --server wss://pantry.miao-bao.cc
+npx @noracami/pantry@latest
 ```
 
 Expected: the TUI opens at the Room input screen.
@@ -1183,9 +1090,9 @@ No commit beyond the tag.
 
 ---
 
-## Phase 8: End-to-end smoke test (real users, real OAuth)
+## Phase 7: End-to-end smoke test (real users, real OAuth)
 
-### Task 15: Two-client live smoke test
+### Task 12: Two-client live smoke test
 
 This produces no code; it validates the whole stack.
 
@@ -1194,7 +1101,7 @@ This produces no code; it validates the whole stack.
 In each:
 
 ```bash
-npx @noracami/pantry@latest --server wss://pantry.miao-bao.cc
+npx @noracami/pantry@latest
 ```
 
 - [ ] **Step 2: Anonymous round-trip**
@@ -1244,7 +1151,7 @@ In the project root, append a one-line note to `README.md` (create it if absent)
 ```markdown
 ## Production
 - Backend: https://pantry.miao-bao.cc
-- Client: `npx @noracami/pantry@latest --server wss://pantry.miao-bao.cc`
+- Client: `npx @noracami/pantry@latest`
 ```
 
 ```bash
@@ -1254,12 +1161,12 @@ git commit -m "docs: note production URLs"
 
 ---
 
-## Phase 9: One-touch redeploy script
+## Phase 8: One-touch redeploy script
 
-### Task 16: VM-side update helper
+### Task 13: One-touch deploy script
 
 **Files:**
-- Create: `scripts/deploy-backend.sh`
+- Create: `scripts/deploy.sh`
 
 - [ ] **Step 1: Create the script** with this exact content:
 
@@ -1267,92 +1174,83 @@ git commit -m "docs: note production URLs"
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Trigger a backend redeploy on the VM.
-# Assumes ./scripts/build-and-push-backend.sh was already run (or run it inline with --build).
+# Sync local source to wisp and rebuild + restart pantry-backend.
+# Run from anywhere inside the repo:
+#   ./scripts/deploy.sh
 
-BUILD=0
-if [[ "${1:-}" == "--build" ]]; then BUILD=1; fi
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
 
-if [[ "$BUILD" == "1" ]]; then
-  echo "==> Building + pushing"
-  ./scripts/build-and-push-backend.sh
-fi
+echo "==> rsync source to wisp:/opt/pantry"
+rsync -avz --delete \
+  --exclude='.env' \
+  --exclude='.env.*' \
+  --exclude='node_modules' \
+  --exclude='**/node_modules' \
+  --exclude='dist' \
+  --exclude='**/dist' \
+  --exclude='.git' \
+  --exclude='.DS_Store' \
+  --exclude='coverage' \
+  ./ wisp:/opt/pantry/
 
-echo "==> Triggering VM pull + restart"
+echo "==> docker compose up -d --build on wisp"
 ssh wisp '
   set -euo pipefail
   cd /opt/pantry
-  docker compose pull
-  docker compose up -d
+  docker compose up -d --build
   docker compose ps
 '
+
+echo "==> verifying /health"
+ssh wisp 'curl -fsS http://127.0.0.1:8081/health' && echo
 ```
 
-- [ ] **Step 2: Make executable + first dry use**
+- [ ] **Step 2: Make executable + smoke test**
 
 ```bash
-chmod +x scripts/deploy-backend.sh
-./scripts/deploy-backend.sh
+chmod +x scripts/deploy.sh
+./scripts/deploy.sh
 ```
 
-Expected: VM pulls `:latest`, restarts container in-place, prints `Up (healthy)`.
+Expected: rsync transfers a small delta (no changes if nothing was edited since last deploy), build either reuses cache or rebuilds quickly, container ends `Up (healthy)`, `/health` returns `{"ok":true}`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add scripts/deploy-backend.sh
-git commit -m "chore(deploy): one-touch backend redeploy script"
+git add scripts/deploy.sh
+git commit -m "chore(deploy): one-touch rsync + rebuild deploy script"
 ```
 
-### Task 17: (Optional) Wire into existing deploy-webhook
+### Task 14: (Deferred) Push-to-deploy via existing webhook
 
-Skip this task unless you want zero-touch CI redeploy. Your existing `deploy-webhook.service` on `:9000` already runs locally on the VM; the standard pattern is:
+Skip this task — it requires a Git remote (e.g. GitHub) that the VM can `git pull` from, which is out of scope for this plan. Documenting the future shape only:
 
-- [ ] **Step 1: Find its config** (likely `/etc/webhook/hooks.yaml` or `/etc/webhook/hooks.json`)
+When you push the repo to GitHub:
+1. On the VM: `cd /opt/pantry && git remote add origin <github-url> && git fetch origin main && git reset --hard origin/main` (one-time bootstrap)
+2. Wire the existing `deploy-webhook.service` (`:9000`) with a `pantry` hook that runs:
+   ```bash
+   cd /opt/pantry && git pull --ff-only && docker compose up -d --build
+   ```
+3. Reload: `sudo systemctl restart deploy-webhook`
+4. Add a GitHub Actions workflow that POSTs to the webhook on `main` pushes.
 
-```bash
-ssh wisp 'sudo grep -ril webhook /etc /opt 2>/dev/null | head -5'
-ssh wisp 'sudo find /etc -name "hooks*" 2>/dev/null'
-```
-
-- [ ] **Step 2:** Append a hook for pantry that runs:
-
-```bash
-cd /opt/pantry && docker compose pull && docker compose up -d
-```
-
-Use the existing entries as a template — same author, same secret style.
-
-- [ ] **Step 3:** Reload the webhook service:
-
-```bash
-ssh wisp 'sudo systemctl restart deploy-webhook'
-```
-
-- [ ] **Step 4:** From your laptop, trigger:
-
-```bash
-curl -X POST -H 'X-Hub-Signature: ...' https://<SUBDOMAIN-OR-IP>:9000/hooks/pantry
-```
-
-(Use whatever auth the existing webhooks use — sign with the same secret.)
-
-No commit if the change is only on the VM side. If you template a hooks file in the repo, commit it as `deploy/webhook-hooks.example.yml`.
+For now, `scripts/deploy.sh` from Task 13 is the deploy mechanism.
 
 ---
 
 ## Done — Plan C Exit Criteria
 
 - `https://pantry.miao-bao.cc/health` returns `{"ok":true}` from the open internet.
-- `npx @noracami/pantry@latest --server wss://pantry.miao-bao.cc` opens the TUI from a clean machine.
+- `npx @noracami/pantry@latest` (no flags) opens the TUI from a clean machine; default server URL is the production sub-domain (baked into the client at build time).
 - Two clients can exchange messages via the production backend.
 - Discord OAuth round-trip completes in a real browser; the TUI lands in chat as the authenticated user.
 - GitHub / Google selections from the identity screen produce a clean ErrorScreen ("Provider not configured…"), not a crash.
-- `./scripts/deploy-backend.sh` rebuilds and rolls out a new image.
+- `./scripts/deploy.sh` rsyncs source, rebuilds the image on the VM, and rolls out the new container.
 
 **Out of scope (deferred):**
 - GitHub / Google OAuth round-trip (just add env vars + redeploy; no code change needed).
 - Multi-region failover or rolling deploy — the VM and the tunnel terminate at one point.
 - Monitoring + alerting (the existing fluent-bit + otelopscol on the VM likely already collect; out of scope here).
 - Image vulnerability scanning / supply-chain attestation.
-- Auto-cleanup of old Artifact Registry tags.
+- Push-to-deploy via Git remote + webhook (sketched in Task 14; requires GitHub remote).
