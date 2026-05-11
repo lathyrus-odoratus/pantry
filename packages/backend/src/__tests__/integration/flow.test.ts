@@ -13,33 +13,81 @@ import { OAuthStateStore } from "../../auth/state-store.js";
 import { registerAuthRoutes } from "../../auth/routes.js";
 import type { ServerMessage } from "@chat-room/shared";
 
-function next<T extends ServerMessage["type"]>(
-  ws: WebSocket,
-  type: T,
-  timeoutMs = 4000,
-): Promise<Extract<ServerMessage, { type: T }>> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`timeout waiting for ${type}`)), timeoutMs);
-    const onMsg = (data: WebSocket.RawData) => {
+type WaitingConsumer = {
+  predicate: (m: ServerMessage) => boolean;
+  resolve: (m: ServerMessage) => void;
+  reject: (err: Error) => void;
+  timer: NodeJS.Timeout;
+};
+
+class ClientChannel {
+  private buffer: ServerMessage[] = [];
+  private waiters: WaitingConsumer[] = [];
+
+  constructor(public ws: WebSocket) {
+    ws.on("message", (data: WebSocket.RawData) => {
+      let msg: ServerMessage;
       try {
-        const msg = JSON.parse(data.toString()) as ServerMessage;
-        if (msg.type === type) {
-          ws.off("message", onMsg);
-          clearTimeout(t);
-          resolve(msg as Extract<ServerMessage, { type: T }>);
-        }
+        msg = JSON.parse(data.toString()) as ServerMessage;
       } catch {
-        // ignore
+        return;
       }
-    };
-    ws.on("message", onMsg);
-  });
+      // Try to satisfy an existing waiter
+      for (let i = 0; i < this.waiters.length; i++) {
+        const w = this.waiters[i]!;
+        if (w.predicate(msg)) {
+          this.waiters.splice(i, 1);
+          clearTimeout(w.timer);
+          w.resolve(msg);
+          return;
+        }
+      }
+      // Otherwise buffer it for later consumption
+      this.buffer.push(msg);
+    });
+  }
+
+  send(payload: object): void {
+    this.ws.send(JSON.stringify(payload));
+  }
+
+  close(): void {
+    this.ws.close();
+  }
+
+  next<T extends ServerMessage["type"]>(
+    type: T,
+    timeoutMs = 4000,
+  ): Promise<Extract<ServerMessage, { type: T }>> {
+    // First check the buffer
+    for (let i = 0; i < this.buffer.length; i++) {
+      const m = this.buffer[i]!;
+      if (m.type === type) {
+        this.buffer.splice(i, 1);
+        return Promise.resolve(m as Extract<ServerMessage, { type: T }>);
+      }
+    }
+    // Otherwise wait
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const idx = this.waiters.findIndex((w) => w.timer === timer);
+        if (idx !== -1) this.waiters.splice(idx, 1);
+        reject(new Error(`timeout waiting for ${type}`));
+      }, timeoutMs);
+      this.waiters.push({
+        predicate: (m) => m.type === type,
+        resolve: (m) => resolve(m as Extract<ServerMessage, { type: T }>),
+        reject,
+        timer,
+      });
+    });
+  }
 }
 
-function connect(url: string): Promise<WebSocket> {
+function connect(url: string): Promise<ClientChannel> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url);
-    ws.once("open", () => resolve(ws));
+    ws.once("open", () => resolve(new ClientChannel(ws)));
     ws.once("error", reject);
   });
 }
@@ -63,7 +111,6 @@ describe("backend integration flow", () => {
     app = Fastify({ logger: false });
     app.get("/health", async () => ({ ok: true }));
     await registerAuthRoutes(app, { config, stateStore, usersRepo: users });
-    // bind to ephemeral port
     await app.listen({ port: 0, host: "127.0.0.1" });
     attachWebSocketServer(app.server, { config, rooms, users, messages, registry });
     const addr = app.server.address();
@@ -80,31 +127,31 @@ describe("backend integration flow", () => {
 
   it("two anonymous users can join, exchange messages, and rename", async () => {
     const alice = await connect(wsUrl);
-    alice.send(JSON.stringify({ type: "auth.anon", nickname: "Alice", roomName }));
-    const aliceOk = await next(alice, "auth.ok");
+    alice.send({ type: "auth.anon", nickname: "Alice", roomName });
+    const aliceOk = await alice.next("auth.ok");
     expect(aliceOk.user.nickname).toBe("Alice");
-    await next(alice, "room.snapshot");
+    await alice.next("room.snapshot");
 
     const bob = await connect(wsUrl);
-    bob.send(JSON.stringify({ type: "auth.anon", nickname: "Bob", roomName }));
-    await next(bob, "auth.ok");
-    await next(bob, "room.snapshot");
+    bob.send({ type: "auth.anon", nickname: "Bob", roomName });
+    await bob.next("auth.ok");
+    await bob.next("room.snapshot");
 
     // Alice should have seen a join from Bob
-    await next(alice, "system");
+    await alice.next("system");
 
     // Alice sends a message; Bob should receive it
-    alice.send(JSON.stringify({ type: "message.send", body: "hello" }));
-    const received = await next(bob, "message");
+    alice.send({ type: "message.send", body: "hello" });
+    const received = await bob.next("message");
     expect(received.data.body).toBe("hello");
     expect(received.data.author.nickname).toBe("Alice");
 
     // Alice renames; Bob should see a system message and a presence update
-    alice.send(JSON.stringify({ type: "nick.change", newNickname: "Alicia" }));
-    const sys = await next(bob, "system");
+    alice.send({ type: "nick.change", newNickname: "Alicia" });
+    const sys = await bob.next("system");
     expect(sys.body).toMatch(/Alice/);
     expect(sys.body).toMatch(/Alicia/);
-    await next(bob, "presence");
+    await bob.next("presence");
 
     alice.close();
     bob.close();
@@ -112,10 +159,8 @@ describe("backend integration flow", () => {
 
   it("rejects join to non-existent room", async () => {
     const ws = await connect(wsUrl);
-    ws.send(
-      JSON.stringify({ type: "auth.anon", nickname: "Ghost", roomName: "does-not-exist" }),
-    );
-    const err = await next(ws, "auth.error");
+    ws.send({ type: "auth.anon", nickname: "Ghost", roomName: "does-not-exist" });
+    const err = await ws.next("auth.error");
     expect(err.reason).toBe("room_not_found");
   });
 });

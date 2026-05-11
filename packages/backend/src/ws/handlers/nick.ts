@@ -37,10 +37,6 @@ export async function handleNick(
     body: `${oldLabel} → ${newLabel}`,
   };
   broadcastToRoom(deps.registry, conn.roomId, sys);
-  // Small delay so the system and presence frames arrive in separate TCP reads;
-  // without this, the client may receive both in one read and miss presence if
-  // its listener is re-installed between the two synchronous message emissions.
-  await new Promise<void>((r) => setTimeout(r, 20));
 
   const presence: ServerMessage = {
     type: "presence",
