@@ -1,5 +1,5 @@
 {
-  "name": "@chat-room/backend",
+  "name": "@pantry/backend",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "admin": "tsx --env-file=.env src/admin/cli.ts"
   },
   "dependencies": {
-    "@chat-room/shared": "workspace:*",
+    "@pantry/shared": "workspace:*",
     "@supabase/supabase-js": "^2.45.0",
     "cac": "^6.7.14",
     "fastify": "^4.28.0",

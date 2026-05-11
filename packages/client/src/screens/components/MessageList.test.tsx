@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import React from "react";
 import { render } from "ink-testing-library";
 import { MessageList } from "./MessageList.js";
-import type { Message } from "@chat-room/shared";
+import type { Message } from "@pantry/shared";
 
 function msg(id: string, body: string, nick = "Alice"): Message {
   return {

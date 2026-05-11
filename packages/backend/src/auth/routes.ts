@@ -10,7 +10,7 @@ import {
 } from "./providers.js";
 import { UsersRepo } from "../db/users.js";
 import { signSessionToken } from "../utils/jwt.js";
-import type { AuthProvider } from "@chat-room/shared";
+import type { AuthProvider } from "@pantry/shared";
 
 export type AuthRoutesDeps = {
   config: Config;

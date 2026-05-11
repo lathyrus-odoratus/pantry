@@ -26,7 +26,7 @@ function toHttpUrl(wsUrl: string): string {
 
 export function resolveConfig(input: ResolveInput): ClientConfig {
   const cliServer = parseFlag(input.argv, "--server");
-  const envServer = input.env.CHAT_ROOM_SERVER;
+  const envServer = input.env.PANTRY_SERVER;
   const serverUrl = cliServer ?? envServer ?? DEFAULT_SERVER_URL;
   const initialRoom = parseFlag(input.argv, "--room");
   return {

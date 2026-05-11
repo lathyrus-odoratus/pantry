@@ -1,4 +1,4 @@
-import type { ServerMessage, NickChange } from "@chat-room/shared";
+import type { ServerMessage, NickChange } from "@pantry/shared";
 import { validateNickname } from "../../utils/nickname.js";
 import type { UsersRepo } from "../../db/users.js";
 import type { ConnectionRegistry, AuthedConnection } from "../connection-registry.js";

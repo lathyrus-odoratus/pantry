@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ServerMessage, AuthAnon, AuthOAuth } from "@chat-room/shared";
+import type { ServerMessage, AuthAnon, AuthOAuth } from "@pantry/shared";
 
 import type { Config } from "../../config.js";
 import { logger } from "../../logger.js";

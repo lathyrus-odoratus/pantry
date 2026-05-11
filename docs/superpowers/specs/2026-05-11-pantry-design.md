@@ -10,7 +10,7 @@
 
 ### Goals
 - A small, real-time chat tool intended for use among friends or a small team.
-- TUI client published to npm, runnable via `npx chat-room`.
+- TUI client published to npm, runnable via `npx pantry`.
 - Custom backend on GCP Cloud Run that gates room access and handles broadcast.
 - Supabase for Postgres persistence and OAuth handshake support.
 - Knowledge of `room_name` is the primary access gate; rooms are pre-created by admin.
@@ -293,7 +293,7 @@ Client                       Provider                  Backend
   │ {token, user}
   │ ◄─────────────────────────────────────────────────
   │
-  │ Persist token to ~/.chat-room/credentials.json (mode 600)
+  │ Persist token to ~/.pantry/credentials.json (mode 600)
   │
   │ Send auth.oauth over WS with token
 ```
@@ -325,7 +325,7 @@ PORT                            # Cloud Run injects
 
 - Backend-signed JWT, HS256, 7-day expiry, claims: `{sub: user_id, provider, iat, exp}`.
 - No refresh in MVP; expired token forces a new OAuth flow.
-- Stored in `~/.chat-room/credentials.json`, file mode `0600`.
+- Stored in `~/.pantry/credentials.json`, file mode `0600`.
 
 ---
 
@@ -376,8 +376,8 @@ MVP excludes: ban, mute, message deletion.
 ### Room input
 
 ```
-┌─ chat-room ──────────────────────────────────┐
-│  Welcome to chat-room                        │
+┌─ pantry ──────────────────────────────────┐
+│  Welcome to pantry                        │
 │  Room name: ▮                                │
 │  (Enter to continue, Ctrl+C to quit)         │
 └──────────────────────────────────────────────┘
@@ -386,7 +386,7 @@ MVP excludes: ban, mute, message deletion.
 ### Identity selection
 
 ```
-┌─ chat-room ──────────────────────────────────┐
+┌─ pantry ──────────────────────────────────┐
 │  Room: lobby                                 │
 │  How do you want to join?                    │
 │  ▸ Anonymous (just a nickname)               │
@@ -399,7 +399,7 @@ MVP excludes: ban, mute, message deletion.
 ### OAuth waiting
 
 ```
-┌─ chat-room ──────────────────────────────────┐
+┌─ pantry ──────────────────────────────────┐
 │  Open this URL in your browser:              │
 │    https://github.com/login/oauth/...        │
 │  Waiting for authorization...                │
@@ -426,7 +426,7 @@ MVP excludes: ban, mute, message deletion.
 ### Error (room not found)
 
 ```
-┌─ chat-room ──────────────────────────────────┐
+┌─ pantry ──────────────────────────────────┐
 │  Error: Room "foo" not found.                │
 │  Ask the room admin to create it.            │
 │  (Enter to try another room, Ctrl+C to quit) │
@@ -472,7 +472,7 @@ MVP excludes: ban, mute, message deletion.
 | `auth.error: invalid_token` | Delete local credentials; return to identity selection. |
 | WS dropped mid-session | Status line color shift; auto-reconnect; input stays editable, send queued or rejected. |
 | Send failed | Mark the line `(failed, ↑ to retry)` in red. |
-| Unhandled render exception | Fallback screen; log to `~/.chat-room/log`. |
+| Unhandled render exception | Fallback screen; log to `~/.pantry/log`. |
 
 ### Backend
 
@@ -487,7 +487,7 @@ MVP excludes: ban, mute, message deletion.
 ### Logging
 
 - Backend: structured JSON to stdout → Cloud Run → Cloud Logging.
-- Client: text log at `~/.chat-room/log`, never auto-uploaded.
+- Client: text log at `~/.pantry/log`, never auto-uploaded.
 
 ---
 
@@ -531,15 +531,15 @@ MVP excludes: ban, mute, message deletion.
 
 ### Client → npm
 
-- Package name: `chat-room` (or `@scope/chat-room` if collision).
+- Package name: `pantry` (or `@scope/pantry` if collision).
 - `bin` entry: `dist/cli.js` with `#!/usr/bin/env node`.
 - `engines: { node: ">=20" }`.
 - Backend URL compiled into client; override with `--server`.
 - Usage:
   ```bash
-  npx chat-room
-  chat-room --room lobby
-  chat-room --server wss://staging.example.com/ws
+  npx pantry
+  pantry --room lobby
+  pantry --server wss://staging.example.com/ws
   ```
 - Release: `pnpm release` script bumps semver, tags git, runs `npm publish`.
 
@@ -548,7 +548,7 @@ MVP excludes: ban, mute, message deletion.
 ## 13. Repository Layout (monorepo, pnpm workspaces)
 
 ```
-chat-room/
+pantry/
 ├── package.json
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json
@@ -578,7 +578,7 @@ chat-room/
 │           └── state/              # message store
 │
 └── docs/superpowers/specs/
-    └── 2026-05-11-chat-room-design.md
+    └── 2026-05-11-pantry-design.md
 ```
 
 ---

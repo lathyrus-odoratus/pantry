@@ -1,5 +1,5 @@
 import type { DB } from "./supabase.js";
-import type { Message } from "@chat-room/shared";
+import type { Message } from "@pantry/shared";
 
 export type MessageRow = {
   id: string;

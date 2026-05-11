@@ -17,16 +17,16 @@ describe("resolveConfig", () => {
     expect(cfg.backendHttpUrl).toBe("https://example.com");
   });
 
-  it("CHAT_ROOM_SERVER env overrides default but loses to CLI", () => {
+  it("PANTRY_SERVER env overrides default but loses to CLI", () => {
     const fromEnv = resolveConfig({
       argv: [],
-      env: { CHAT_ROOM_SERVER: "wss://env.example.com/ws" },
+      env: { PANTRY_SERVER: "wss://env.example.com/ws" },
     });
     expect(fromEnv.serverUrl).toBe("wss://env.example.com/ws");
 
     const fromCli = resolveConfig({
       argv: ["--server", "wss://cli.example.com/ws"],
-      env: { CHAT_ROOM_SERVER: "wss://env.example.com/ws" },
+      env: { PANTRY_SERVER: "wss://env.example.com/ws" },
     });
     expect(fromCli.serverUrl).toBe("wss://cli.example.com/ws");
   });

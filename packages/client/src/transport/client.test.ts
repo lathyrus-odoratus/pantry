@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { TransportClient } from "./client.js";
-import type { ServerMessage } from "@chat-room/shared";
+import type { ServerMessage } from "@pantry/shared";
 
 let port: number;
 let server: WebSocketServer;

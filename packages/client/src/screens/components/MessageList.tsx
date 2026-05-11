@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
-import type { Message } from "@chat-room/shared";
+import type { Message } from "@pantry/shared";
 
 type Props = { messages: Message[] };
 

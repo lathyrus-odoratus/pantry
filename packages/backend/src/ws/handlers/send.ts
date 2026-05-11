@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ServerMessage, Message, MessageSend } from "@chat-room/shared";
+import type { ServerMessage, Message, MessageSend } from "@pantry/shared";
 import type { MessagesRepo } from "../../db/messages.js";
 import type { ConnectionRegistry, AuthedConnection } from "../connection-registry.js";
 import { broadcastToRoom, send } from "../broadcast.js";

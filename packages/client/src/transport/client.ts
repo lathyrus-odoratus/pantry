@@ -3,7 +3,7 @@ import {
   ServerMessageSchema,
   type ServerMessage,
   type ClientMessage,
-} from "@chat-room/shared";
+} from "@pantry/shared";
 
 export type Status =
   | "idle"

@@ -6,7 +6,7 @@ import { createSupabaseClient } from "../db/supabase.js";
 import { RoomsRepo } from "../db/rooms.js";
 import { UsersRepo } from "../db/users.js";
 
-const cli = cac("chat-room-admin");
+const cli = cac("pantry-admin");
 
 function makeRepos() {
   const config = loadConfig();

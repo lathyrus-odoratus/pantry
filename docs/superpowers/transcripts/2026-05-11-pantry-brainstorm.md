@@ -1,7 +1,7 @@
 # Chat Room — Brainstorming Transcript
 
 **Date:** 2026-05-11
-**Outcome:** `docs/superpowers/specs/2026-05-11-chat-room-design.md`
+**Outcome:** `docs/superpowers/specs/2026-05-11-pantry-design.md`
 **Format:** 使用者 / Claude 對話紀錄
 
 ---
@@ -443,7 +443,7 @@ CREATE TABLE messages (
 
 **Claude：** [檢查目錄狀況：不是 git repo、空目錄]
 [建立 `docs/superpowers/specs/` 目錄]
-[寫入 `2026-05-11-chat-room-design.md`，14 個章節，~600 行]
+[寫入 `2026-05-11-pantry-design.md`，14 個章節，~600 行]
 
 Spec 寫好了，請花時間 review。
 

@@ -11,7 +11,7 @@ import { ConnectionRegistry } from "../../ws/connection-registry.js";
 import { attachWebSocketServer } from "../../ws/server.js";
 import { OAuthStateStore } from "../../auth/state-store.js";
 import { registerAuthRoutes } from "../../auth/routes.js";
-import type { ServerMessage } from "@chat-room/shared";
+import type { ServerMessage } from "@pantry/shared";
 
 type WaitingConsumer = {
   predicate: (m: ServerMessage) => boolean;

@@ -1,5 +1,5 @@
 {
-  "name": "chat-room",
+  "name": "pantry",
   "private": true,
   "type": "module",
   "engines": { "node": ">=20" },
@@ -7,9 +7,9 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "dev:backend": "pnpm --filter @chat-room/backend dev",
-    "dev:client": "pnpm --filter chat-room dev",
-    "admin": "pnpm --filter @chat-room/backend admin"
+    "dev:backend": "pnpm --filter @pantry/backend dev",
+    "dev:client": "pnpm --filter pantry dev",
+    "admin": "pnpm --filter @pantry/backend admin"
   },
   "packageManager": "pnpm@9.0.0"
 }

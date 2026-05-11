@@ -1,7 +1,7 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import type { Server as HTTPServer } from "node:http";
 import { randomUUID } from "node:crypto";
-import { ClientMessageSchema, type ServerMessage } from "@chat-room/shared";
+import { ClientMessageSchema, type ServerMessage } from "@pantry/shared";
 
 import type { Config } from "../config.js";
 import { logger } from "../logger.js";
