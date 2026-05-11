@@ -1,9 +1,13 @@
 import React from "react";
 import { Box, Text } from "ink";
 import { useStore } from "./store.js";
+import { loadConfig } from "./config.js";
 import { RoomInput } from "./screens/RoomInput.js";
 import { IdentitySelect } from "./screens/IdentitySelect.js";
 import { NicknameInput } from "./screens/NicknameInput.js";
+import { OAuthWaiting } from "./screens/OAuthWaiting.js";
+
+const config = loadConfig();
 
 export function App(): React.JSX.Element {
   const screen = useStore((s) => s.screen);
@@ -14,6 +18,8 @@ export function App(): React.JSX.Element {
       return <IdentitySelect />;
     case "nickname_input":
       return <NicknameInput />;
+    case "oauth_waiting":
+      return <OAuthWaiting backendHttpUrl={config.backendHttpUrl} />;
     default:
       return (
         <Box padding={1}>
