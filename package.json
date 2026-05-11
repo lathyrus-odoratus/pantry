@@ -8,6 +8,7 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "dev:backend": "pnpm --filter @chat-room/backend dev",
+    "dev:client": "pnpm --filter chat-room dev",
     "admin": "pnpm --filter @chat-room/backend admin"
   },
   "packageManager": "pnpm@9.0.0"
