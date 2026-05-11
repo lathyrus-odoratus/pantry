@@ -1,0 +1,35 @@
+import { describe, it, expect } from "vitest";
+import { parseConfig } from "./config.js";
+
+describe("parseConfig", () => {
+  const valid = {
+    PORT: "8080",
+    NODE_ENV: "development",
+    PUBLIC_BACKEND_URL: "http://localhost:8080",
+    SUPABASE_URL: "https://x.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "k",
+    JWT_SIGNING_KEY: "0123456789abcdef0123456789abcdef",
+    GITHUB_CLIENT_ID: "g",
+    GITHUB_CLIENT_SECRET: "g",
+    GOOGLE_CLIENT_ID: "g",
+    GOOGLE_CLIENT_SECRET: "g",
+    DISCORD_CLIENT_ID: "d",
+    DISCORD_CLIENT_SECRET: "d",
+  };
+
+  it("parses a valid env", () => {
+    const cfg = parseConfig(valid);
+    expect(cfg.port).toBe(8080);
+    expect(cfg.nodeEnv).toBe("development");
+    expect(cfg.supabase.url).toBe("https://x.supabase.co");
+  });
+
+  it("rejects missing SUPABASE_URL", () => {
+    const { SUPABASE_URL, ...rest } = valid;
+    expect(() => parseConfig(rest)).toThrow();
+  });
+
+  it("rejects short JWT_SIGNING_KEY", () => {
+    expect(() => parseConfig({ ...valid, JWT_SIGNING_KEY: "short" })).toThrow();
+  });
+});
