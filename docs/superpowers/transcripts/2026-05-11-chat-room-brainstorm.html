@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat Room — Brainstorming Transcript</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --border: #e4e4e7;
+    --user-bg: #e0f2fe;
+    --user-border: #0284c7;
+    --user-label: #0369a1;
+    --claude-bg: #f4f4f5;
+    --claude-border: #71717a;
+    --claude-label: #3f3f46;
+    --section-bar: #18181b;
+    --code-bg: #1e1e1e;
+    --code-fg: #e4e4e7;
+    --inline-code-bg: #f4f4f5;
+    --inline-code-fg: #be185d;
+    --link: #0369a1;
+    --accent: #0284c7;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0a0a0a;
+      --fg: #fafafa;
+      --muted: #a1a1aa;
+      --border: #27272a;
+      --user-bg: #0c2740;
+      --user-border: #0369a1;
+      --user-label: #38bdf8;
+      --claude-bg: #18181b;
+      --claude-border: #52525b;
+      --claude-label: #d4d4d8;
+      --section-bar: #fafafa;
+      --code-bg: #0c0c0c;
+      --code-fg: #e4e4e7;
+      --inline-code-bg: #27272a;
+      --inline-code-fg: #f472b6;
+      --link: #38bdf8;
+      --accent: #38bdf8;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
+                 "Microsoft JhengHei", "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    background: var(--bg);
+    color: var(--fg);
+  }
+
+  .page {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+
+  header.doc-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+    margin-bottom: 32px;
+  }
+
+  header.doc-header h1 {
+    margin: 0 0 8px;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+  }
+
+  header.doc-header .meta {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  header.doc-header .meta a {
+    color: var(--link);
+    text-decoration: none;
+  }
+
+  header.doc-header .meta a:hover { text-decoration: underline; }
+
+  h2.section {
+    font-size: 20px;
+    margin: 56px 0 24px;
+    padding-left: 14px;
+    border-left: 4px solid var(--section-bar);
+    letter-spacing: -0.01em;
+  }
+
+  h2.section .num {
+    color: var(--muted);
+    font-weight: 500;
+    margin-right: 8px;
+  }
+
+  /* Message bubble */
+  .msg {
+    margin: 16px 0;
+    padding: 16px 20px;
+    border-radius: 12px;
+    border-left: 4px solid;
+    position: relative;
+  }
+
+  .msg.user {
+    background: var(--user-bg);
+    border-color: var(--user-border);
+  }
+
+  .msg.claude {
+    background: var(--claude-bg);
+    border-color: var(--claude-border);
+  }
+
+  .msg .label {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .msg.user .label { color: var(--user-label); }
+  .msg.claude .label { color: var(--claude-label); }
+
+  .msg p { margin: 8px 0; }
+  .msg p:first-of-type { margin-top: 0; }
+  .msg p:last-child { margin-bottom: 0; }
+
+  .msg ul, .msg ol {
+    margin: 8px 0;
+    padding-left: 24px;
+  }
+
+  .msg li { margin: 2px 0; }
+
+  .msg strong { font-weight: 600; }
+
+  .msg code {
+    background: var(--inline-code-bg);
+    color: var(--inline-code-fg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 0.9em;
+  }
+
+  .msg pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 14px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.55;
+    margin: 12px 0;
+  }
+
+  .msg pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+
+  /* Inline note for omitted formal content */
+  .placeholder {
+    display: inline-block;
+    background: rgba(2, 132, 199, 0.08);
+    border: 1px dashed var(--accent);
+    color: var(--muted);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-style: italic;
+    margin: 8px 0;
+  }
+
+  /* Q/A list inside Claude messages */
+  .qa { margin: 10px 0; }
+
+  .qa .q {
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  /* Decision summary table */
+  table.decisions {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+
+  table.decisions th,
+  table.decisions td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  table.decisions th {
+    background: var(--claude-bg);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  table.decisions tr:hover td {
+    background: rgba(2, 132, 199, 0.04);
+  }
+
+  /* Table of contents */
+  nav.toc {
+    background: var(--claude-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 32px;
+    font-size: 14px;
+  }
+
+  nav.toc h3 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  nav.toc ol {
+    margin: 0;
+    padding-left: 20px;
+    columns: 2;
+    column-gap: 24px;
+  }
+
+  nav.toc li { margin: 3px 0; }
+
+  nav.toc a {
+    color: var(--link);
+    text-decoration: none;
+  }
+
+  nav.toc a:hover { text-decoration: underline; }
+
+  @media (max-width: 640px) {
+    .page { padding: 24px 16px 60px; }
+    nav.toc ol { columns: 1; }
+    h2.section { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="doc-header">
+  <h1>Chat Room — Brainstorming Transcript</h1>
+  <div class="meta">
+    Date: 2026-05-11 &middot;
+    Outcome: <a href="../specs/2026-05-11-chat-room-design.md">2026-05-11-chat-room-design.md</a>
+  </div>
+</header>
+
+<nav class="toc">
+  <h3>目錄</h3>
+  <ol>
+    <li><a href="#sec-1">起手 — 專案目標</a></li>
+    <li><a href="#sec-2">第一次架構轉向 — Supabase + GCP + npm</a></li>
+    <li><a href="#sec-3">第二次架構轉向 — room_name + 後端</a></li>
+    <li><a href="#sec-4">資料模型</a></li>
+    <li><a href="#sec-5">WebSocket 訊息協定</a></li>
+    <li><a href="#sec-6">TUI 畫面與互動</a></li>
+    <li><a href="#sec-7">認證流程細節</a></li>
+    <li><a href="#sec-8">Admin + 部署與發佈</a></li>
+    <li><a href="#sec-9">錯誤處理 / 測試 / 專案結構</a></li>
+    <li><a href="#sec-10">寫入 spec 並 commit</a></li>
+    <li><a href="#sec-11">存對話紀錄</a></li>
+    <li><a href="#sec-decisions">MVP 決策一覽</a></li>
+  </ol>
+</nav>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 class="section" id="sec-1"><span class="num">1.</span>起手 — 專案目標</h2>
+
+<div class="msg user">
+  <div class="label">使用者</div>
+  <p>我要實作一個聊天室專案，跟我一起討論生出 prd 吧</p>
+</div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>在開始問細節之前，先確認方向。</p>
+  <div class="qa">
+    <div class="q">Q1：這個聊天室專案的目標是什麼？</div>
+    <ul>
+      <li>A. 個人練習作品</li>
+      <li>B. 小型實用工具（給自己或小團隊內部用）</li>
+      <li>C. 正式產品雛形</li>
+      <li>D. 特定情境的聊天室（客服、遊戲、社群、AI 對話）</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>b</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>了解，<strong>小型實用工具</strong>給自己或小團隊用。</p>
+  <div class="qa">
+    <div class="q">Q2：聊天的形式是哪一種？</div>
+    <ul>
+      <li>A. 單一大廳</li>
+      <li>B. 多房間</li>
+      <li>C. 一對一私訊為主</li>
+      <li>D. 混合</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>a</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>了解，<strong>單一大廳</strong>。</p>
+  <div class="qa">
+    <div class="q">Q3：使用者識別方式？</div>
+    <ul>
+      <li>A. 匿名（暱稱）</li>
+      <li>B. 帳號密碼註冊/登入</li>
+      <li>C. 第三方登入（Google / GitHub OAuth）</li>
+      <li>D. 預先建立的固定帳號</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>a + c</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>了解，<strong>匿名暱稱 + 第三方 OAuth</strong> 混搭。</p>
+  <div class="qa">
+    <div class="q">Q4：訊息內容支援哪些格式？</div>
+    <ul>
+      <li>A. 純文字</li>
+      <li>B. 文字 + Emoji</li>
+      <li>C. 文字 + 圖片/檔案</li>
+      <li>D. 富文本（Markdown、程式碼）</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>我要用 tui (terminal)</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>重要的方向確認！<strong>TUI（終端機介面）的聊天室客戶端</strong>。架構變成：</p>
+  <ul>
+    <li>Server：管理連線、廣播、身份驗證</li>
+    <li>Client：跑在使用者終端機裡的 TUI</li>
+  </ul>
+  <div class="qa">
+    <div class="q">Q4（重問）：訊息內容支援哪些格式？（TUI 限制下）</div>
+    <ul>
+      <li>A. 純文字</li>
+      <li>B. 文字 + Emoji</li>
+      <li>C. 文字 + ANSI 顏色/樣式</li>
+      <li>D. B + C</li>
+      <li>E. 再加程式碼區塊</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>先做 a 後續迭代</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>好，<strong>純文字 MVP</strong>。</p>
+  <div class="qa">
+    <div class="q">Q5：技術棧偏好？</div>
+    <ul>
+      <li>A. Go（bubbletea）</li>
+      <li>B. Rust（ratatui）</li>
+      <li>C. Python（textual）</li>
+      <li>D. Node.js / TypeScript（blessed/ink）</li>
+      <li>E. 混合</li>
+      <li>F. 我推薦就好</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>tui 用 react(ink) 後端隨意</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>後端我建議 <strong>Node.js + TypeScript</strong>，理由：</p>
+  <ul>
+    <li>跟 client 同語言，可以共用訊息型別定義</li>
+    <li>小型工具不需要分散式效能</li>
+    <li>WebSocket 套件成熟</li>
+  </ul>
+  <div class="qa">
+    <div class="q">Q6：即時通訊協定？</div>
+    <ul>
+      <li>A. 原生 WebSocket（<code>ws</code>）</li>
+      <li>B. Socket.IO</li>
+      <li>C. SSE + HTTP POST</li>
+    </ul>
+  </div>
+  <p>我推 <strong>A</strong>：場景單純（單一大廳廣播），原生 WebSocket 最乾淨。</p>
+</div>
+
+<div class="msg user">
+  <div class="label">使用者</div>
+  <p>其實我不曉得 terminal 連線有什麼限制，我對瀏覽器比較熟</p>
+</div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>好問題，<strong>TUI 連線其實比瀏覽器限制更少</strong>：</p>
+  <p>瀏覽器有但 TUI 沒有的限制：</p>
+  <ul>
+    <li>CORS 跨域</li>
+    <li>Mixed content</li>
+    <li>只能用 HTTP/WebSocket</li>
+  </ul>
+  <p>TUI 端能做的：</p>
+  <ul>
+    <li>任何網路協定</li>
+    <li>讀寫本機檔案</li>
+    <li>開本機 port 接 callback</li>
+  </ul>
+  <p>唯一不一樣的是 <strong>OAuth 流程</strong>：</p>
+  <ol>
+    <li><strong>Device Flow</strong>（GitHub CLI 用的）</li>
+    <li><strong>Local Callback</strong>（TUI 在本機開臨時 port）</li>
+  </ol>
+  <p>回到 Q6：A/B/C 選哪個？</p>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>u decide</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>決定：<strong>原生 WebSocket（<code>ws</code> 套件）+ zod</strong>。理由：場景單一大廳廣播，Socket.IO 的房間/重連/fallback 都用不到。</p>
+  <div class="qa">
+    <div class="q">Q7：訊息歷史記錄？</div>
+    <ul>
+      <li>A. 完全不存</li>
+      <li>B. 只存在記憶體</li>
+      <li>C. 存到資料庫（SQLite）</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>c</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p><strong>SQLite 持久化</strong>。</p>
+  <div class="qa">
+    <div class="q">Q8：使用者狀態 / 線上列表？</div>
+    <ul>
+      <li>A. 不顯示</li>
+      <li>B. 進出通知</li>
+      <li>C. 常駐線上列表</li>
+      <li>D. B + C</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>d</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p><strong>進出通知 + 常駐線上列表</strong>。</p>
+  <div class="qa">
+    <div class="q">Q9：部署形式？</div>
+    <ul>
+      <li>A. 本機跑</li>
+      <li>B. 雲端 VM</li>
+      <li>C. PaaS（Fly.io / Railway / Render）</li>
+      <li>D. 先不管，本機 dev 為主</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>d -&gt; b</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p><strong>MVP 本機跑，之後 VPS 部署</strong>。</p>
+  <div class="qa">
+    <div class="q">Q10：暱稱衝突與身份持久性？</div>
+    <ul>
+      <li>A. 完全不管</li>
+      <li>B. 同時不可重複</li>
+      <li>C. 永久保留（OAuth 名字綁定）</li>
+      <li>D. 加上識別後綴（<code>Alice#a1b2</code>）</li>
+    </ul>
+  </div>
+  <p>我推 <strong>C</strong>。</p>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>d</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p><strong><code>Alice#a1b2</code> 識別後綴</strong>。</p>
+  <div class="qa">
+    <div class="q">Q11：新使用者加入時載入多少歷史訊息？</div>
+    <ul>
+      <li>A. 不載入</li>
+      <li>B. 載入最近 N 筆</li>
+      <li>C. 載入全部</li>
+    </ul>
+  </div>
+  <p>我推 <strong>B（最近 50 筆 + 上滑載入更多）</strong>。</p>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>b</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>整體 MVP 範圍夠清楚，直接進入設計。</p>
+  <div class="placeholder">呈現 v1 架構圖：Ink Client ↔ Node.js Server ↔ SQLite</div>
+  <p>整體架構看起來對嗎？</p>
+</div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 class="section" id="sec-2"><span class="num">2.</span>第一次架構轉向 — Supabase + GCP + npm</h2>
+
+<div class="msg user">
+  <div class="label">使用者</div>
+  <p>我想用 supabase 然後我會直接上 gcp 前端應該是發布到 npm 或者先 push to github package</p>
+</div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>重大架構轉向！Supabase 直接幫你解決三件事：</p>
+  <ul>
+    <li>Auth（GitHub / Google OAuth + 匿名登入）</li>
+    <li>Postgres</li>
+    <li>Realtime（WebSocket pub/sub）</li>
+  </ul>
+  <p>架構可以大幅簡化成 Ink Client 直連 Supabase。</p>
+  <p>兩個澄清問題：</p>
+  <div class="qa">
+    <div class="q">Q1：GCP 上要部署什麼？</div>
+    <ul>
+      <li>A. Node middleware server</li>
+      <li>B. 不需要 GCP，剛剛是口誤</li>
+      <li>C. GCP 跑別的東西</li>
+    </ul>
+  </div>
+  <div class="qa">
+    <div class="q">Q2：npm 套件對外開放嗎？</div>
+    <ul>
+      <li>A. 公開 npm（靠 RLS 守好）</li>
+      <li>B. GitHub Packages 私有</li>
+      <li>C. 先 GitHub Packages → 公開 npm</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user">
+  <div class="label">使用者</div>
+  <p>q1 所以一個聊天室邏輯 Supabase 就能涵蓋了嗎？</p>
+</div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p><strong>是的，Supabase 一個平台就能涵蓋整個聊天室後端</strong>。</p>
+  <p>逐項對照：Auth、匿名登入、Postgres、Realtime broadcast、Presence、進出通知、歷史分頁、RLS、CLI OAuth callback ── 全部都有。</p>
+  <p>唯一要小心的：anon key 會被打包到 npm 套件裡。但這是設計，真正的安全靠 RLS 規則。</p>
+  <p>對於 GCP：</p>
+  <ul>
+    <li>A. 不用 GCP（推薦）</li>
+    <li>B. GCP 留給未來</li>
+  </ul>
+</div>
+
+<div class="msg user">
+  <div class="label">使用者</div>
+  <p>那如果我只想給指定人用，發布策略會變成什麼</p>
+</div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>拆成兩層思考：</p>
+  <div class="qa">
+    <div class="q">層一：Auth 白名單（誰能登入）— 真正的安全邊界</div>
+    <ul>
+      <li>A. 預先列名單（推薦）</li>
+      <li>B. 邀請碼</li>
+      <li>C. email domain 限制</li>
+      <li>D. 完全不開放註冊</li>
+    </ul>
+  </div>
+  <div class="qa">
+    <div class="q">層二：套件發布（誰拿得到 client）— 不是安全保證</div>
+    <ul>
+      <li>A. 公開 npm</li>
+      <li>B. GitHub Packages 私有</li>
+      <li>C. 完全不發布</li>
+    </ul>
+  </div>
+  <p>推薦組合：白名單表 + 關閉匿名 + 公開 npm。</p>
+  <p><strong>Q1：白名單機制選哪個？</strong></p>
+  <p><strong>Q2：匿名登入還要保留嗎？</strong></p>
+</div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 class="section" id="sec-3"><span class="num">3.</span>第二次架構轉向 — room_name + 後端</h2>
+
+<div class="msg user">
+  <div class="label">使用者</div>
+  <p>恩 我決定採用 進入時 輸入 room_name 有建立的 room 才會走下去 這樣我用一層後端好了</p>
+</div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>重要方向變更！新模型：</p>
+  <ul>
+    <li>進入時輸入 <code>room_name</code> → 房間存在才放行</li>
+    <li>單一大廳取消，改成多房間</li>
+    <li>加一層自有後端</li>
+  </ul>
+  <p>新架構：Client ↔ Backend (GCP) ↔ Database (Supabase or self)</p>
+  <div class="qa">
+    <div class="q">Q1：後端資料層？</div>
+    <ul>
+      <li>A. 後端 + Supabase（推薦）</li>
+      <li>B. 後端 + 自家 Postgres on GCP</li>
+      <li>C. 後端 + SQLite</li>
+    </ul>
+  </div>
+  <div class="qa">
+    <div class="q">Q2：房間怎麼建立？</div>
+    <ul>
+      <li>A. 只有 admin 能建</li>
+      <li>B. 任何登入使用者</li>
+      <li>C. 白名單使用者</li>
+      <li>D. admin script</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>a d</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p><strong>A（後端 + Supabase）+ D（admin script 建房間）</strong>。</p>
+  <div class="qa">
+    <div class="q">Q3：匿名要不要回來？</div>
+    <ul>
+      <li>A. 匿名回歸（推薦，因為 room_name 是門檻了）</li>
+      <li>B. 必須 OAuth</li>
+      <li>C. per-room 設定</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>q3 a</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p><strong>匿名回歸</strong>。</p>
+  <div class="qa">
+    <div class="q">Q4：Realtime 通道走哪邊？</div>
+    <ul>
+      <li>A. 後端自己跑 WebSocket</li>
+      <li>B. Supabase Realtime + 後端發 JWT</li>
+    </ul>
+  </div>
+  <p>推薦 A。</p>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>差別呢</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>用「送一則訊息會發生什麼」展開：</p>
+  <p><strong>A. 後端自己跑 WebSocket</strong></p>
+  <ul>
+    <li>流程：Client → Backend WS → Supabase INSERT + Broadcast to others</li>
+    <li>優點：邏輯集中、彈性高、vendor lock-in 低</li>
+    <li>缺點：要自己處理 WS scale、code 多一點</li>
+  </ul>
+  <p><strong>B. Supabase Realtime + JWT</strong></p>
+  <ul>
+    <li>流程：Client 取 JWT → 直接訂閱 Supabase Realtime</li>
+    <li>優點：後端極輕</li>
+    <li>缺點：邏輯分散在 RLS、debug 痛、lock-in 高</li>
+  </ul>
+  <p>我推 A，因為「業務邏輯收在後端」是你加後端的初衷，B 又把邏輯丟回 RLS。</p>
+</div>
+
+<div class="msg user">
+  <div class="label">使用者</div>
+  <p>那 a + supabase 會有延遲嗎？</p>
+</div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>不會，A 通常比 B 還低。</p>
+  <p><strong>A 路徑：</strong> Alice TUI → Backend → Bob TUI（in-memory broadcast，1-5ms）+ Supabase INSERT（平行，不阻塞）</p>
+  <p><strong>估算總延遲：</strong> 25-60ms</p>
+  <p><strong>B 路徑：</strong> Alice → Supabase INSERT → WAL → Realtime server → Bob</p>
+  <p><strong>估算總延遲：</strong> 110-360ms（postgres_changes pipeline 有 buffer/輪詢延遲）</p>
+  <p>部署上 Backend 跟 Supabase 同 region 即可。台灣 GCP + Supabase 東京 ≈ 30-50ms。</p>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>ok a</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <div class="placeholder">呈現 v2 整體架構圖 + MVP 鎖定/不做的功能清單</div>
+  <p>架構整體看起來對嗎？</p>
+</div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 class="section" id="sec-4"><span class="num">4.</span>資料模型</h2>
+
+<div class="msg user"><div class="label">使用者</div><p>可以</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <div class="placeholder">呈現第 2 段：資料模型</div>
+  <p>包含 rooms / users / messages schema、discriminator 設計、為什麼匿名也存進 users、沒有 RLS（Backend 用 service_role）、不存房間成員列表（in-memory）。</p>
+  <p>第 2 段看起來 OK 嗎？</p>
+</div>
+
+<div class="msg user">
+  <div class="label">使用者</div>
+  <p>oauth 加一個 discord<br>
+  message 到時候呈現 xx says: oo 是用別的 table 做疊加嗎？</p>
+</div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>兩件事：</p>
+  <p><strong>1. Discord OAuth</strong>：schema 不變，多一個 provider 值。Backend 加 <code>/auth/discord</code> endpoint。</p>
+  <p><strong>2. 訊息顯示</strong>：原本設計是 JOIN messages with users（不存暱稱於 messages），渲染由 TUI 處理。好處是改名後歷史會跟著更新。</p>
+</div>
+
+<div class="msg user">
+  <div class="label">使用者</div>
+  <p>我比較想要是，當下留言時什麼 nickname 就存什麼</p>
+</div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>了解，<strong>訊息要快照當下身份</strong>。Schema 調整：</p>
+  <pre><code>CREATE TABLE messages (
+  ...
+  author_nickname      text NOT NULL,
+  author_discriminator text NOT NULL,
+  ...
+);</code></pre>
+  <p>好處：改名後歷史不變、查詢不用 JOIN、訊息是完整紀錄。</p>
+  <div class="qa">
+    <div class="q">順便確認：使用者改名功能要做嗎？</div>
+    <ul>
+      <li>A. MVP 不做改名</li>
+      <li>B. MVP 做改名（推薦，配合快照剛好）</li>
+      <li>C. 每次連線都重輸入</li>
+    </ul>
+  </div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>b</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p><strong>改名 (<code>/nick newname</code>) MVP 內</strong>。</p>
+  <p>改名邏輯：UPDATE users → 撞到 UNIQUE 就重新產生 discriminator → 廣播系統訊息 + presence。訊息歷史完全不動。</p>
+</div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 class="section" id="sec-5"><span class="num">5.</span>WebSocket 訊息協定</h2>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <div class="placeholder">呈現第 3 段：Client→Server / Server→Client 各種 message types，連線生命週期</div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>ok</p></div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 class="section" id="sec-6"><span class="num">6.</span>TUI 畫面與互動</h2>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <div class="placeholder">呈現第 4 段：房間輸入 / 身份選擇 / OAuth 等待 / 主畫面 / 錯誤畫面，layout 規則、鍵盤操作、自動重連</div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>ok 繼續</p></div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 class="section" id="sec-7"><span class="num">7.</span>認證流程細節</h2>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <div class="placeholder">呈現第 5 段：匿名流程、OAuth Local Callback flow、Backend OAuth app 設定、環境變數</div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>ok 繼續</p></div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 class="section" id="sec-8"><span class="num">8.</span>Admin + 部署與發佈</h2>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <div class="placeholder">呈現第 6 段 admin CLI 指令：<code>pnpm admin room create/list/delete</code></div>
+  <div class="placeholder">呈現第 7 段：Backend → GCP Cloud Run、Client → npm、發佈策略</div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>ok 繼續</p></div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 class="section" id="sec-9"><span class="num">9.</span>錯誤處理 / 測試 / 專案結構</h2>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <div class="placeholder">呈現第 8 段：Client/Backend 錯誤處理表、log 策略、測試分層（Vitest + ink-testing-library）、手動 smoke test、monorepo 結構（pnpm workspaces，packages/shared, backend, client）</div>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>好</p></div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 class="section" id="sec-10"><span class="num">10.</span>寫入 spec 並 commit</h2>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>[檢查目錄狀況：不是 git repo、空目錄]<br>
+  [建立 <code>docs/superpowers/specs/</code> 目錄]<br>
+  [寫入 <code>2026-05-11-chat-room-design.md</code>，14 個章節，~600 行]</p>
+  <p>Spec 寫好了，請花時間 review。</p>
+  <p>特別建議檢查：MVP 範圍、訊息協定、改名邏輯、錯誤處理、monorepo 結構。</p>
+  <p>是否需要 git init + commit？</p>
+</div>
+
+<div class="msg user"><div class="label">使用者</div><p>git init 然後 commit</p></div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>[<code>git init</code> + 加入 spec + commit <code>aeb3419</code>]</p>
+  <p>Commit 完成。等 review 之後進到 writing-plans。</p>
+</div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 class="section" id="sec-11"><span class="num">11.</span>存對話紀錄</h2>
+
+<div class="msg user">
+  <div class="label">使用者</div>
+  <p>我想要你把這個 session 到目前為止的對話，存到一個檔案，作為後續檢視用。對話請區分我說的話及你說的話，可以嗎</p>
+</div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>[建立 markdown 版 transcript]</p>
+</div>
+
+<div class="msg user">
+  <div class="label">使用者</div>
+  <p>2026-05-11-chat-room-brainstorm.md 把他也用 html 做一遍吧，比較好閱讀跟可以套用 css 樣式</p>
+</div>
+
+<div class="msg claude">
+  <div class="label">Claude</div>
+  <p>[建立此 HTML 檔]</p>
+</div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2 class="section" id="sec-decisions"><span class="num">附錄.</span>MVP 決策一覽</h2>
+
+<table class="decisions">
+  <thead>
+    <tr><th>決策</th><th>內容</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>專案類型</td><td>小型實用工具，給朋友/小團隊用</td></tr>
+    <tr><td>聊天形式</td><td>多房間，輸入 <code>room_name</code> 進入；房間由 admin 預先建立</td></tr>
+    <tr><td>訊息格式</td><td>純文字 MVP，1-2000 字</td></tr>
+    <tr><td>身份</td><td>匿名暱稱 / GitHub / Google / Discord OAuth</td></tr>
+    <tr><td>識別</td><td><code>Nickname#abcd</code>（4 字元隨機 discriminator）</td></tr>
+    <tr><td>Client</td><td>Ink (React TUI)，發佈到公開 npm</td></tr>
+    <tr><td>Backend</td><td>Node.js + TypeScript，自家 WebSocket（不走 Supabase Realtime）</td></tr>
+    <tr><td>DB</td><td>Supabase Postgres（service_role，無 RLS）</td></tr>
+    <tr><td>OAuth</td><td>Local Callback flow，Backend 簽 7d JWT</td></tr>
+    <tr><td>訊息快照</td><td>author_nickname/discriminator 寫入訊息列，改名不影響歷史</td></tr>
+    <tr><td>改名</td><td><code>/nick &lt;new&gt;</code> 指令，撞到唯一鍵就重新產 discriminator</td></tr>
+    <tr><td>歷史</td><td>進房載入最近 50 筆，scroll up 載入更多</td></tr>
+    <tr><td>線上</td><td>側邊列表 + 進出系統訊息</td></tr>
+    <tr><td>部署</td><td>Backend → GCP Cloud Run（asia-east1 or asia-northeast1）；Supabase → Tokyo</td></tr>
+    <tr><td>Repo</td><td>pnpm monorepo：packages/shared, backend, client</td></tr>
+    <tr><td>存取控制</td><td>room_name 知識本身即門檻（無白名單）</td></tr>
+  </tbody>
+</table>
+
+</div>
+</body>
+</html>
