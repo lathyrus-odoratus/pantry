@@ -1,4 +1,4 @@
-const DEFAULT_SERVER_URL = "ws://localhost:8080/ws";
+const DEFAULT_SERVER_URL = "wss://pantry.miao-bao.cc/ws";
 
 export type ClientConfig = {
   serverUrl: string;

@@ -4,8 +4,8 @@ import { resolveConfig } from "./config.js";
 describe("resolveConfig", () => {
   it("uses the compiled-in default when no override", () => {
     const cfg = resolveConfig({ argv: [], env: {} });
-    expect(cfg.serverUrl).toBe("ws://localhost:8080/ws");
-    expect(cfg.backendHttpUrl).toBe("http://localhost:8080");
+    expect(cfg.serverUrl).toBe("wss://pantry.miao-bao.cc/ws");
+    expect(cfg.backendHttpUrl).toBe("https://pantry.miao-bao.cc");
   });
 
   it("--server overrides default", () => {

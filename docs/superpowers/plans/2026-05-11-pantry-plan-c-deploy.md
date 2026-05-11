@@ -14,26 +14,34 @@
 
 ---
 
-## Prerequisites — fill these in BEFORE starting Task 1
+## Prerequisites — locked-in values
 
-These values are referenced by exact placeholders throughout the plan. Replace every occurrence in commands / config when you reach the step.
+These were decided up-front and baked into the plan body:
+
+| Name | Value |
+|---|---|
+| Sub-domain | `pantry.miao-bao.cc` |
+| npm package name | `@noracami/pantry` |
+| GCP project | `careful-broker-485510-r0` |
+| Artifact Registry | `asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry` |
+| VM SSH alias | `wisp` |
+| VM deploy dir | `/opt/pantry` |
+
+You still need to gather these — they remain as placeholders:
 
 | Placeholder | Meaning | How to obtain |
 |---|---|---|
-| `<SUBDOMAIN>` | e.g. `chat.example.com` | Pick a sub-domain on a Cloudflare-managed zone you control |
 | `<DISCORD_CLIENT_ID>` | Discord app's Client ID | Discord Developer Portal → New Application → OAuth2 → Client ID |
 | `<DISCORD_CLIENT_SECRET>` | Discord app's Client Secret | Same page, "Reset Secret" |
 | `<SUPABASE_URL>` | e.g. `https://abcdefgh.supabase.co` | Existing Supabase project → Project Settings → API |
 | `<SUPABASE_SERVICE_ROLE_KEY>` | service_role secret | Same page (NEVER paste into client; backend only) |
 | `<JWT_SIGNING_KEY>` | 32+ random chars | `openssl rand -base64 48` |
-| `<NPM_PACKAGE_NAME>` | default `@noracami/pantry` | npm scoped package; change only if you've already claimed another |
-| `<GCP_PROJECT_ID>` | `careful-broker-485510-r0` | From your existing setup (already inspected) |
 | `<TUNNEL_NAME>` | name of your existing Cloudflare tunnel | `cloudflared tunnel list` on the VM |
 
 ### Discord redirect URL to register on Discord Developer Portal
 
 ```
-https://<SUBDOMAIN>/auth/oauth/callback
+https://pantry.miao-bao.cc/auth/oauth/callback
 ```
 
 (Single callback for all providers — backend looks the provider up by `state`.)
@@ -542,7 +550,7 @@ git commit -m "chore(backend): Dockerfile and dockerignore for prod image"
 # Copy to deploy/.env on the VM and fill in real values.
 
 # Public URL the backend serves under (Cloudflare Tunnel hostname). MUST be https.
-PUBLIC_BACKEND_URL=https://<SUBDOMAIN>
+PUBLIC_BACKEND_URL=https://pantry.miao-bao.cc
 
 # Supabase project (the existing one — migrations already pushed)
 SUPABASE_URL=<SUPABASE_URL>
@@ -767,7 +775,7 @@ On the VM:
 
 ```bash
 cat > /opt/pantry/.env <<'EOF'
-PUBLIC_BACKEND_URL=https://<SUBDOMAIN>
+PUBLIC_BACKEND_URL=https://pantry.miao-bao.cc
 SUPABASE_URL=<SUPABASE_URL>
 SUPABASE_SERVICE_ROLE_KEY=<SUPABASE_SERVICE_ROLE_KEY>
 JWT_SIGNING_KEY=<JWT_SIGNING_KEY>
@@ -836,7 +844,7 @@ Identify which `config.yml` is loaded.
 # Add this entry to the `ingress:` list in your cloudflared config.yml on the VM.
 # It MUST come BEFORE the catch-all `service: http_status:404`.
 
-  - hostname: <SUBDOMAIN>
+  - hostname: pantry.miao-bao.cc
     service: http://localhost:8081
 ```
 
@@ -863,17 +871,17 @@ Expected: `validate` prints OK; service stays active.
 In Cloudflare → DNS, or via CLI on the VM:
 
 ```bash
-cloudflared tunnel route dns <TUNNEL_NAME> <SUBDOMAIN>
+cloudflared tunnel route dns <TUNNEL_NAME> pantry.miao-bao.cc
 ```
 
-Expected: prints `Added CNAME <SUBDOMAIN> ...`. (Returns an error if already wired — fine.)
+Expected: prints `Added CNAME pantry.miao-bao.cc ...`. (Returns an error if already wired — fine.)
 
 - [ ] **Step 7: End-to-end smoke test**
 
 From your local machine:
 
 ```bash
-curl -fsS https://<SUBDOMAIN>/health
+curl -fsS https://pantry.miao-bao.cc/health
 ```
 
 Expected: `{"ok":true}`. TLS handled by Cloudflare; backend served via tunnel.
@@ -900,7 +908,7 @@ Visit https://discord.com/developers/applications → **New Application** → na
 - [ ] **Step 2: OAuth2 → Redirects → Add**
 
 ```
-https://<SUBDOMAIN>/auth/oauth/callback
+https://pantry.miao-bao.cc/auth/oauth/callback
 ```
 
 Save.
@@ -925,14 +933,14 @@ ssh wisp 'cd /opt/pantry && docker compose up -d'
 ```bash
 curl -fsS -X POST -H 'content-type: application/json' \
   -d '{"provider":"discord"}' \
-  https://<SUBDOMAIN>/auth/oauth/start
+  https://pantry.miao-bao.cc/auth/oauth/start
 ```
 
 Expected: JSON with `authUrl` pointing at `discord.com/api/oauth2/authorize?...`, `pollUrl`, and `state`.
 
 - [ ] **Step 6: Full OAuth round-trip**
 
-In a browser, open the `authUrl` from Step 5. Authorise. You should land on `https://<SUBDOMAIN>/auth/oauth/callback?...` and see "Signed in!".
+In a browser, open the `authUrl` from Step 5. Authorise. You should land on `https://pantry.miao-bao.cc/auth/oauth/callback?...` and see "Signed in!".
 
 If this works, OAuth is wired end-to-end. No commit (no code change in this task).
 
@@ -961,7 +969,7 @@ The rest of the file is unchanged. `tsc` preserves the shebang.
 
 ```json
 {
-  "name": "<NPM_PACKAGE_NAME>",
+  "name": "@noracami/pantry",
   "version": "0.1.0",
   "description": "Tiny TUI chat client (companion to the pantry backend)",
   "type": "module",
@@ -1005,7 +1013,7 @@ The rest of the file is unchanged. `tsc` preserves the shebang.
 ```
 
 Key changes vs. previous `package.json`:
-- `name` switched from `pantry` (workspace-internal) to `<NPM_PACKAGE_NAME>` (the scoped npm name).
+- `name` switched from `pantry` (workspace-internal) to `@noracami/pantry` (the scoped npm name).
 - `@pantry/shared` removed from dependencies (it's a workspace package and will be bundled into the client's `dist`; see Step 3).
 - `version: 0.1.0`, `files: ["dist", "README.md"]`, `publishConfig.access: public`, `prepublishOnly` script that runs build + ensures executable bit.
 
@@ -1079,12 +1087,12 @@ Re-run `pnpm run build`.
 - [ ] **Step 6: Verify the binary works locally**
 
 ```bash
-node dist/<path-to-cli.js> --server wss://<SUBDOMAIN> --help 2>&1 | head -20
+node dist/<path-to-cli.js> --server wss://pantry.miao-bao.cc --help 2>&1 | head -20
 ```
 
 (If `--help` isn't supported, just run without `--help` for two seconds and Ctrl+C — the goal is to confirm Node can execute it.)
 
-- [ ] **Step 7: Create `packages/client/README.md`** with this exact content (replace `<NPM_PACKAGE_NAME>` and `<SUBDOMAIN>` with your actual values when committing):
+- [ ] **Step 7: Create `packages/client/README.md`** with this exact content (replace `@noracami/pantry` and `pantry.miao-bao.cc` with your actual values when committing):
 
 ```markdown
 # pantry
@@ -1094,7 +1102,7 @@ Tiny TUI chat client. Companion to a pantry backend.
 ## Usage
 
 ```sh
-npx <NPM_PACKAGE_NAME> --server wss://<SUBDOMAIN>
+npx @noracami/pantry --server wss://pantry.miao-bao.cc
 ```
 
 Steps inside the TUI:
@@ -1152,14 +1160,14 @@ Expected: lists files under `dist/` and `README.md`. **Should NOT** contain `src
 pnpm publish --no-git-checks
 ```
 
-Expected: `+ <NPM_PACKAGE_NAME>@0.1.0`. If the registry rejects with "package name already taken", change the `name` field and re-pack.
+Expected: `+ @noracami/pantry@0.1.0`. If the registry rejects with "package name already taken", change the `name` field and re-pack.
 
 - [ ] **Step 4: Smoke test via npx**
 
 In a fresh terminal (or even a fresh VM, anywhere with Node ≥ 20):
 
 ```bash
-npx <NPM_PACKAGE_NAME>@latest --server wss://<SUBDOMAIN>
+npx @noracami/pantry@latest --server wss://pantry.miao-bao.cc
 ```
 
 Expected: the TUI opens at the Room input screen.
@@ -1186,7 +1194,7 @@ This produces no code; it validates the whole stack.
 In each:
 
 ```bash
-npx <NPM_PACKAGE_NAME>@latest --server wss://<SUBDOMAIN>
+npx @noracami/pantry@latest --server wss://pantry.miao-bao.cc
 ```
 
 - [ ] **Step 2: Anonymous round-trip**
@@ -1235,8 +1243,8 @@ In the project root, append a one-line note to `README.md` (create it if absent)
 
 ```markdown
 ## Production
-- Backend: https://<SUBDOMAIN>
-- Client: `npx <NPM_PACKAGE_NAME>@latest --server wss://<SUBDOMAIN>`
+- Backend: https://pantry.miao-bao.cc
+- Client: `npx @noracami/pantry@latest --server wss://pantry.miao-bao.cc`
 ```
 
 ```bash
@@ -1335,8 +1343,8 @@ No commit if the change is only on the VM side. If you template a hooks file in 
 
 ## Done — Plan C Exit Criteria
 
-- `https://<SUBDOMAIN>/health` returns `{"ok":true}` from the open internet.
-- `npx <NPM_PACKAGE_NAME>@latest --server wss://<SUBDOMAIN>` opens the TUI from a clean machine.
+- `https://pantry.miao-bao.cc/health` returns `{"ok":true}` from the open internet.
+- `npx @noracami/pantry@latest --server wss://pantry.miao-bao.cc` opens the TUI from a clean machine.
 - Two clients can exchange messages via the production backend.
 - Discord OAuth round-trip completes in a real browser; the TUI lands in chat as the authenticated user.
 - GitHub / Google selections from the identity screen produce a clean ErrorScreen ("Provider not configured…"), not a crash.
