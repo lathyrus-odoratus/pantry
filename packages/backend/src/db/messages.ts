@@ -15,7 +15,9 @@ function rowToMessage(r: MessageRow): Message {
   return {
     id: r.id,
     body: r.body,
-    createdAt: r.created_at,
+    // Postgres timestamptz serializes as "+00:00"; normalize to "Z" so the
+    // client's zod schema (which uses .datetime() without offset support) accepts it.
+    createdAt: new Date(r.created_at).toISOString(),
     author: {
       nickname: r.author_nickname,
       discriminator: r.author_discriminator,

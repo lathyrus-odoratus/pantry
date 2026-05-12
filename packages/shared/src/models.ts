@@ -9,7 +9,7 @@ export type Author = z.infer<typeof AuthorSchema>;
 export const MessageSchema = z.object({
   id: z.string().uuid(),
   body: z.string().min(1).max(2000),
-  createdAt: z.string().datetime(),
+  createdAt: z.string().datetime({ offset: true }),
   author: AuthorSchema,
 });
 export type Message = z.infer<typeof MessageSchema>;
