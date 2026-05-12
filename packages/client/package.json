@@ -1,6 +1,6 @@
 {
   "name": "@lathyrus-odoratus/pantry",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Tiny TUI chat client (companion to the pantry backend)",
   "type": "module",
   "bin": {
@@ -27,6 +27,7 @@
     "ink-text-input": "^6.0.0",
     "open": "^10.1.0",
     "react": "^18.3.1",
+    "terminal-link": "^5.0.0",
     "zod": "^3.23.0",
     "zustand": "^4.5.4"
   },
