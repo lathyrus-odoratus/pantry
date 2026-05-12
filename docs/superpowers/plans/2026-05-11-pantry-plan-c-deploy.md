@@ -9,7 +9,7 @@
 - **Image is built on the VM itself** — source synced via `rsync`, then `docker compose up --build`. No external image registry. Aligns with the existing wisp/dixit deploy style on the same VM.
 - Public HTTPS via Cloudflare Tunnel — VM `cloudflared` (already active) forwards a sub-domain to `http://localhost:8081`. No public ports opened on the VM.
 - Discord-only OAuth for MVP. GitHub / Google secrets become optional in the backend config schema; auth start returns `503` for unconfigured providers; client renders ErrorScreen.
-- Client published as a scoped npm package, runnable via `npx @noracami/pantry`.
+- Client published as a scoped npm package, runnable via `npx @lathyrus-odoratus/pantry`.
 
 **Tech Stack:** Node 20, pnpm 9 workspace, Fastify, Docker + Compose v5.1, Cloudflare Tunnel, supabase (already provisioned), Discord OAuth.
 
@@ -22,7 +22,7 @@ These were decided up-front and baked into the plan body:
 | Name | Value |
 |---|---|
 | Sub-domain | `pantry.miao-bao.cc` |
-| npm package name | `@noracami/pantry` |
+| npm package name | `@lathyrus-odoratus/pantry` |
 | VM SSH alias | `wisp` |
 | VM deploy dir | `/opt/pantry` |
 | Deploy method | rsync source to VM, `docker compose up -d --build` on VM |
@@ -88,9 +88,9 @@ https://pantry.miao-bao.cc/auth/oauth/callback
 - Free TLS handled at Cloudflare edge
 - Drop-in for OAuth callbacks (Discord requires HTTPS)
 
-### Why scoped npm package (`@noracami/pantry`)
+### Why scoped npm package (`@lathyrus-odoratus/pantry`)
 - Scoped packages are guaranteed-free under your own scope, no name-squat risk
-- `npx @noracami/pantry` is one extra character; acceptable
+- `npx @lathyrus-odoratus/pantry` is one extra character; acceptable
 - `--access public` on first publish
 
 ### Why Discord-only MVP
@@ -876,7 +876,7 @@ The rest of the file is unchanged. `tsc` preserves the shebang.
 
 ```json
 {
-  "name": "@noracami/pantry",
+  "name": "@lathyrus-odoratus/pantry",
   "version": "0.1.0",
   "description": "Tiny TUI chat client (companion to the pantry backend)",
   "type": "module",
@@ -920,7 +920,7 @@ The rest of the file is unchanged. `tsc` preserves the shebang.
 ```
 
 Key changes vs. previous `package.json`:
-- `name` switched from `pantry` (workspace-internal) to `@noracami/pantry` (the scoped npm name).
+- `name` switched from `pantry` (workspace-internal) to `@lathyrus-odoratus/pantry` (the scoped npm name).
 - `@pantry/shared` removed from dependencies (it's a workspace package and will be bundled into the client's `dist`; see Step 3).
 - `version: 0.1.0`, `files: ["dist", "README.md"]`, `publishConfig.access: public`, `prepublishOnly` script that runs build + ensures executable bit.
 
@@ -999,7 +999,7 @@ node dist/<path-to-cli.js> --help 2>&1 | head -20
 
 (If `--help` isn't supported, just run without `--help` for two seconds and Ctrl+C — the goal is to confirm Node can execute it.)
 
-- [ ] **Step 7: Create `packages/client/README.md`** with this exact content (replace `@noracami/pantry` and `pantry.miao-bao.cc` with your actual values when committing):
+- [ ] **Step 7: Create `packages/client/README.md`** with this exact content (replace `@lathyrus-odoratus/pantry` and `pantry.miao-bao.cc` with your actual values when committing):
 
 ```markdown
 # pantry
@@ -1009,7 +1009,7 @@ Tiny TUI chat client. Companion to a pantry backend.
 ## Usage
 
 ```sh
-npx @noracami/pantry
+npx @lathyrus-odoratus/pantry
 ```
 
 Steps inside the TUI:
@@ -1067,14 +1067,14 @@ Expected: lists files under `dist/` and `README.md`. **Should NOT** contain `src
 pnpm publish --no-git-checks
 ```
 
-Expected: `+ @noracami/pantry@0.1.0`. If the registry rejects with "package name already taken", change the `name` field and re-pack.
+Expected: `+ @lathyrus-odoratus/pantry@0.1.0`. If the registry rejects with "package name already taken", change the `name` field and re-pack.
 
 - [ ] **Step 4: Smoke test via npx**
 
 In a fresh terminal (or even a fresh VM, anywhere with Node ≥ 20):
 
 ```bash
-npx @noracami/pantry@latest
+npx @lathyrus-odoratus/pantry@latest
 ```
 
 Expected: the TUI opens at the Room input screen.
@@ -1101,7 +1101,7 @@ This produces no code; it validates the whole stack.
 In each:
 
 ```bash
-npx @noracami/pantry@latest
+npx @lathyrus-odoratus/pantry@latest
 ```
 
 - [ ] **Step 2: Anonymous round-trip**
@@ -1151,7 +1151,7 @@ In the project root, append a one-line note to `README.md` (create it if absent)
 ```markdown
 ## Production
 - Backend: https://pantry.miao-bao.cc
-- Client: `npx @noracami/pantry@latest`
+- Client: `npx @lathyrus-odoratus/pantry@latest`
 ```
 
 ```bash
@@ -1242,7 +1242,7 @@ For now, `scripts/deploy.sh` from Task 13 is the deploy mechanism.
 ## Done — Plan C Exit Criteria
 
 - `https://pantry.miao-bao.cc/health` returns `{"ok":true}` from the open internet.
-- `npx @noracami/pantry@latest` (no flags) opens the TUI from a clean machine; default server URL is the production sub-domain (baked into the client at build time).
+- `npx @lathyrus-odoratus/pantry@latest` (no flags) opens the TUI from a clean machine; default server URL is the production sub-domain (baked into the client at build time).
 - Two clients can exchange messages via the production backend.
 - Discord OAuth round-trip completes in a real browser; the TUI lands in chat as the authenticated user.
 - GitHub / Google selections from the identity screen produce a clean ErrorScreen ("Provider not configured…"), not a crash.

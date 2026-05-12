@@ -127,9 +127,10 @@ describe("backend integration flow", () => {
 
   it("two anonymous users can join, exchange messages, and rename", async () => {
     const alice = await connect(wsUrl);
-    alice.send({ type: "auth.anon", nickname: "Alice", roomName });
+    alice.send({ type: "auth.anon", nickname: "Alice", roomName, clientVersion: "0.0.1-test" });
     const aliceOk = await alice.next("auth.ok");
     expect(aliceOk.user.nickname).toBe("Alice");
+    expect(aliceOk.latestClientVersion).toEqual(expect.any(String));
     await alice.next("room.snapshot");
 
     const bob = await connect(wsUrl);

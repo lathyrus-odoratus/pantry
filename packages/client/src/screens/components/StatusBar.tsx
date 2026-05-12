@@ -5,6 +5,7 @@ import type { ConnStatus } from "../../store.js";
 type Props = {
   status: ConnStatus;
   reconnectAttempt: number;
+  updateAvailable?: string | null;
 };
 
 const LABELS: Record<ConnStatus, string> = {
@@ -23,7 +24,11 @@ const COLORS: Record<ConnStatus, string | undefined> = {
   disconnected: "red",
 };
 
-export function StatusBar({ status, reconnectAttempt }: Props): React.JSX.Element {
+export function StatusBar({
+  status,
+  reconnectAttempt,
+  updateAvailable,
+}: Props): React.JSX.Element {
   const extra =
     status === "reconnecting" && reconnectAttempt > 0
       ? ` (attempt ${reconnectAttempt})`
@@ -35,6 +40,12 @@ export function StatusBar({ status, reconnectAttempt }: Props): React.JSX.Elemen
         {extra}
       </Text>
       <Text dimColor> · Ctrl+C to quit · /nick &lt;name&gt; to rename</Text>
+      {updateAvailable ? (
+        <Text color="cyan">
+          {" "}
+          · ↑ {updateAvailable} available (run `npx @lathyrus-odoratus/pantry@latest`)
+        </Text>
+      ) : null}
     </Box>
   );
 }

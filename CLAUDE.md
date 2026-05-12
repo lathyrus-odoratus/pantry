@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`pantry` is a small real-time chat tool. Backend owns WebSocket connections and gates room access; client is an Ink TUI distributed on npm as `@noracami/pantry` and runnable via `npx`. Knowledge of a `room_name` (pre-created by admin) is the only access gate; there is no public room-creation API.
+`pantry` is a small real-time chat tool. Backend owns WebSocket connections and gates room access; client is an Ink TUI distributed on npm as `@lathyrus-odoratus/pantry` and runnable via `npx`. Knowledge of a `room_name` (pre-created by admin) is the only access gate; there is no public room-creation API.
 
 Full design doc: `docs/superpowers/specs/2026-05-11-pantry-design.md`. Deployment runbook (VM + Cloudflare Tunnel + npm publish): `docs/superpowers/plans/2026-05-11-pantry-plan-c-deploy.md`.
 
@@ -14,7 +14,7 @@ pnpm workspace (`pnpm@9`, Node ≥ 20, `"type": "module"` everywhere). Three pac
 
 - **`@pantry/shared`** — Zod schemas + types for WS protocol (`protocol.ts`) and persistence models (`models.ts`). Built first; consumed by both other packages. Has `composite: true` and is referenced via TS project references.
 - **`@pantry/backend`** — Fastify HTTP (health + OAuth routes) plus a native `ws` `WebSocketServer` mounted at `/ws`. Talks to Supabase using the service-role key. Logger is `pino`.
-- **`pantry`** (npm name `@noracami/pantry`) — Ink-based TUI. Zustand store drives screen routing (`room_input → identity_select → nickname_input | oauth_waiting → chat | error`). Transport layer uses `ws` directly with exponential backoff reconnect.
+- **`pantry`** (npm name `@lathyrus-odoratus/pantry`) — Ink-based TUI. Zustand store drives screen routing (`room_input → identity_select → nickname_input | oauth_waiting → chat | error`). Transport layer uses `ws` directly with exponential backoff reconnect.
 
 Imports between packages go through the workspace alias (`@pantry/shared`). The client's published build inlines `@pantry/shared` (see Plan C, Task 10): its `tsconfig.json` uses `paths` + `rootDir: ".."` so `tsc` emits both packages into the client's `dist/` and the published package has no workspace dependency.
 
@@ -106,7 +106,7 @@ Backend runs on the `wisp` VM in a container built on-host (no registry):
 - Cloudflare Tunnel routes `pantry.miao-bao.cc` → `http://localhost:8081`. No public ports opened on the VM.
 - `scripts/deploy.sh` rsyncs source to `/opt/pantry/` on `wisp` (excluding `.env`) and runs `docker compose up -d --build` remotely.
 
-The client publishes to npm as `@noracami/pantry` (scoped, public). `bin: pantry` → `dist/cli.js` with `#!/usr/bin/env node` shebang preserved by tsc.
+The client publishes to npm as `@lathyrus-odoratus/pantry` (scoped, public). `bin: pantry` → `dist/client/src/cli.js` (path reflects `tsconfig.json` `rootDir: ".."` so both packages emit into the published `dist/`). `tsc-alias` rewrites the `@pantry/shared` specifier to the relative `dist/shared/src/...` path so the published package has no workspace dependency.
 
 ## Conventions worth respecting
 

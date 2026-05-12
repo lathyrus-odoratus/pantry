@@ -10,13 +10,15 @@ const EnvSchema = z.object({
 
   JWT_SIGNING_KEY: z.string().min(32),
 
-  GITHUB_CLIENT_ID: z.string().min(1),
-  GITHUB_CLIENT_SECRET: z.string().min(1),
-  GOOGLE_CLIENT_ID: z.string().min(1),
-  GOOGLE_CLIENT_SECRET: z.string().min(1),
+  GITHUB_CLIENT_ID: z.string().min(1).optional(),
+  GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   DISCORD_CLIENT_ID: z.string().min(1),
   DISCORD_CLIENT_SECRET: z.string().min(1),
 });
+
+export type ProviderCreds = { clientId: string; clientSecret: string };
 
 export type Config = {
   port: number;
@@ -25,9 +27,9 @@ export type Config = {
   supabase: { url: string; serviceRoleKey: string };
   jwtSigningKey: string;
   oauth: {
-    github: { clientId: string; clientSecret: string };
-    google: { clientId: string; clientSecret: string };
-    discord: { clientId: string; clientSecret: string };
+    github?: ProviderCreds;
+    google?: ProviderCreds;
+    discord: ProviderCreds;
   };
 };
 
@@ -43,14 +45,14 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
     },
     jwtSigningKey: parsed.JWT_SIGNING_KEY,
     oauth: {
-      github: {
-        clientId: parsed.GITHUB_CLIENT_ID,
-        clientSecret: parsed.GITHUB_CLIENT_SECRET,
-      },
-      google: {
-        clientId: parsed.GOOGLE_CLIENT_ID,
-        clientSecret: parsed.GOOGLE_CLIENT_SECRET,
-      },
+      github:
+        parsed.GITHUB_CLIENT_ID && parsed.GITHUB_CLIENT_SECRET
+          ? { clientId: parsed.GITHUB_CLIENT_ID, clientSecret: parsed.GITHUB_CLIENT_SECRET }
+          : undefined,
+      google:
+        parsed.GOOGLE_CLIENT_ID && parsed.GOOGLE_CLIENT_SECRET
+          ? { clientId: parsed.GOOGLE_CLIENT_ID, clientSecret: parsed.GOOGLE_CLIENT_SECRET }
+          : undefined,
       discord: {
         clientId: parsed.DISCORD_CLIENT_ID,
         clientSecret: parsed.DISCORD_CLIENT_SECRET,

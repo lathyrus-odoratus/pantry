@@ -7,12 +7,14 @@ export const AuthAnonSchema = z.object({
   type: z.literal("auth.anon"),
   nickname: z.string().min(1).max(20),
   roomName: z.string().min(1).max(64),
+  clientVersion: z.string().optional(),
 });
 
 export const AuthOAuthSchema = z.object({
   type: z.literal("auth.oauth"),
   token: z.string(),
   roomName: z.string().min(1).max(64),
+  clientVersion: z.string().optional(),
 });
 
 export const MessageSendSchema = z.object({
@@ -55,6 +57,7 @@ export const AuthOkSchema = z.object({
     nickname: z.string(),
     discriminator: z.string().length(4),
   }),
+  latestClientVersion: z.string().optional(),
 });
 
 export const AuthErrorReason = z.enum([

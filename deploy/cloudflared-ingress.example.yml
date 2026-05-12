@@ -1,0 +1,5 @@
+# Add this entry to the `ingress:` list in your cloudflared config.yml on the VM.
+# It MUST come BEFORE the catch-all `service: http_status:404`.
+
+  - hostname: pantry.miao-bao.cc
+    service: http://localhost:8081
