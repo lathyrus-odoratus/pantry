@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
 import type { Message } from "@pantry/shared";
 import { useStore } from "../store.js";
@@ -153,12 +153,12 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
     };
   }, [pending, roomName, serverUrl, setStatus, onAuthOk, setSnapshot, addMessage, setPresence, setUpdateAvailable, setError]);
 
-  const onSend = (body: string) => {
+  const onSend = useCallback((body: string) => {
     transportRef.current?.send({ type: "message.send", body });
-  };
-  const onNick = (newNickname: string) => {
+  }, []);
+  const onNick = useCallback((newNickname: string) => {
     transportRef.current?.send({ type: "nick.change", newNickname });
-  };
+  }, []);
 
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
@@ -178,12 +178,23 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const { rows: termRows, cols: termCols } = useTerminalSize();
   const messageAreaRows = Math.max(3, termRows - RESERVED_ROWS);
   const messageAreaCols = Math.max(20, termCols - ONLINE_LIST_WIDTH - 2);
-  const visibleMessages = sliceToFit(messages, messageAreaRows, messageAreaCols);
+  // Stable reference so memoised MessageList skips re-render unless the
+  // visible slice actually changed (typing in InputBar must not invalidate
+  // this — otherwise every keystroke re-renders the whole message column
+  // and Ink's frame redraw becomes the visible flicker).
+  const visibleMessages = useMemo(
+    () => sliceToFit(messages, messageAreaRows, messageAreaCols),
+    [messages, messageAreaRows, messageAreaCols],
+  );
 
   return (
-    <Box flexDirection="column" height={termRows}>
-      <Box flexDirection="row" flexGrow={1} flexShrink={1}>
-        <Box flexDirection="column" flexGrow={1} flexShrink={1} paddingX={1}>
+    // No explicit height: with sliceToFit already limiting the message list,
+    // letting Ink intrinsic-size the frame keeps the rendered region small.
+    // Ink redraws the entire frame on every render, so a frame ~as tall as
+    // the terminal is what made keystrokes flicker visibly.
+    <Box flexDirection="column">
+      <Box flexDirection="row">
+        <Box flexDirection="column" flexGrow={1} paddingX={1}>
           <Box marginBottom={1}>
             <Text bold>Room: {roomName}</Text>
             {authedUser ? (
@@ -197,10 +208,8 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
         </Box>
         <OnlineList users={onlineUsers} />
       </Box>
-      <Box flexDirection="column" flexShrink={0}>
-        <InputBar onSend={onSend} onNick={onNick} />
-        <StatusBar status={status} reconnectAttempt={reconnectAttempt} updateAvailable={updateAvailable} />
-      </Box>
+      <InputBar onSend={onSend} onNick={onNick} />
+      <StatusBar status={status} reconnectAttempt={reconnectAttempt} updateAvailable={updateAvailable} />
     </Box>
   );
 }

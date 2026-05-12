@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo } from "react";
 import { Box, Text } from "ink";
 import type { Message } from "@pantry/shared";
 
@@ -11,7 +11,9 @@ function hashColor(label: string): string {
   return palette[Math.abs(h) % palette.length] ?? "white";
 }
 
-export function MessageList({ messages }: Props): React.JSX.Element {
+export const MessageList = memo(MessageListImpl);
+
+function MessageListImpl({ messages }: Props): React.JSX.Element {
   if (messages.length === 0) {
     return (
       <Box>
