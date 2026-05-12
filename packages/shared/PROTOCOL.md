@@ -33,4 +33,4 @@ The Pantry WebSocket protocol is committed to **forward compatibility**: a serve
 ## When you genuinely need to break compat
 
 - Don't. Add a new endpoint or a new message type instead.
-- If truly unavoidable: bump the `name` field in `package.json` (`@noracami/pantry` → `@noracami/pantry2`). This guarantees old `npx` users keep using the old server-compatible binary.
+- If truly unavoidable: bump the `name` field in `package.json` (`@lathyrus-odoratus/pantry` → `@lathyrus-odoratus/pantry2`). This guarantees old `npx` users keep using the old server-compatible binary.

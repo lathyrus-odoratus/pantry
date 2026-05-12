@@ -5,7 +5,7 @@ Tiny TUI chat client. Companion to a pantry backend.
 ## Usage
 
 ```sh
-npx @noracami/pantry
+npx @lathyrus-odoratus/pantry
 ```
 
 Steps inside the TUI:

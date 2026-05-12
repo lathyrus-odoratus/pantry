@@ -43,7 +43,7 @@ export function StatusBar({
       {updateAvailable ? (
         <Text color="cyan">
           {" "}
-          · ↑ {updateAvailable} available (run `npx @noracami/pantry@latest`)
+          · ↑ {updateAvailable} available (run `npx @lathyrus-odoratus/pantry@latest`)
         </Text>
       ) : null}
     </Box>
