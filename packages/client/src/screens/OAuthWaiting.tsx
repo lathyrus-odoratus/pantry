@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text } from "ink";
+import terminalLink from "terminal-link";
 import { useStore } from "../store.js";
 import { runOAuthFlow } from "../auth/oauth.js";
 
@@ -57,12 +58,13 @@ export function OAuthWaiting({ backendHttpUrl }: Props): React.JSX.Element {
           <Text dimColor>Preparing authorization request…</Text>
         )}
       </Box>
-      {/* URL is intentionally rendered at column 0 (outside paddingX) so that
-          when it wraps, no leading whitespace is inserted — keeps copy-paste
-          intact in environments where `open` can't launch a browser. */}
+      {/* URL is rendered at column 0 (outside paddingX) so wrap doesn't insert
+          leading whitespace. OSC 8 hyperlink (via terminal-link) lets terminals
+          like iTerm 3.4+ treat the whole wrapped URL as one Cmd+clickable link;
+          plain-URL fallback for terminals without OSC 8 support. */}
       {authUrl ? (
         <Box marginY={1}>
-          <Text color="cyan">{authUrl}</Text>
+          <Text color="cyan">{terminalLink(authUrl, authUrl)}</Text>
         </Box>
       ) : null}
       {authUrl ? (
