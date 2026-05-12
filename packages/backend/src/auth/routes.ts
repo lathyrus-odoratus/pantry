@@ -33,8 +33,14 @@ export async function registerAuthRoutes(
       if (!provider.success) {
         return reply.code(400).send({ error: "invalid_provider" });
       }
-      const state = stateStore.createPending(provider.data);
       const cfg = getProviderConfig(provider.data, config);
+      if (!cfg) {
+        return reply.code(503).send({
+          error: "provider_not_configured",
+          provider: provider.data,
+        });
+      }
+      const state = stateStore.createPending(provider.data);
       const redirectUri = `${config.publicBackendUrl}/auth/oauth/callback`;
       const authUrl = cfg.authorizeUrl({
         clientId: cfg.clientId,
@@ -74,6 +80,12 @@ export async function registerAuthRoutes(
       }
       try {
         const cfg = getProviderConfig(provider, config);
+        if (!cfg) {
+          return reply
+            .code(503)
+            .type("text/html")
+            .send("<h1>Provider not configured on server.</h1>");
+        }
         const redirectUri = `${config.publicBackendUrl}/auth/oauth/callback`;
         const accessToken = await exchangeCodeForToken(cfg, redirectUri, code);
         const profile = await fetchUserProfile(cfg, accessToken);

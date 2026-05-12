@@ -22,13 +22,15 @@ function qs(params: Record<string, string>): string {
 export function getProviderConfig(
   provider: Exclude<AuthProvider, "anon">,
   config: Config,
-): ProviderConfig {
+): ProviderConfig | undefined {
   switch (provider) {
-    case "github":
+    case "github": {
+      const creds = config.oauth.github;
+      if (!creds) return undefined;
       return {
         name: "github",
-        clientId: config.oauth.github.clientId,
-        clientSecret: config.oauth.github.clientSecret,
+        clientId: creds.clientId,
+        clientSecret: creds.clientSecret,
         scope: "read:user",
         authorizeUrl: ({ clientId, redirectUri, state, scope }) =>
           `https://github.com/login/oauth/authorize?${qs({
@@ -47,12 +49,15 @@ export function getProviderConfig(
           };
         },
       };
+    }
 
-    case "google":
+    case "google": {
+      const creds = config.oauth.google;
+      if (!creds) return undefined;
       return {
         name: "google",
-        clientId: config.oauth.google.clientId,
-        clientSecret: config.oauth.google.clientSecret,
+        clientId: creds.clientId,
+        clientSecret: creds.clientSecret,
         scope: "openid email profile",
         authorizeUrl: ({ clientId, redirectUri, state, scope }) =>
           `https://accounts.google.com/o/oauth2/v2/auth?${qs({
@@ -74,12 +79,14 @@ export function getProviderConfig(
           };
         },
       };
+    }
 
-    case "discord":
+    case "discord": {
+      const creds = config.oauth.discord;
       return {
         name: "discord",
-        clientId: config.oauth.discord.clientId,
-        clientSecret: config.oauth.discord.clientSecret,
+        clientId: creds.clientId,
+        clientSecret: creds.clientSecret,
         scope: "identify",
         authorizeUrl: ({ clientId, redirectUri, state, scope }) =>
           `https://discord.com/oauth2/authorize?${qs({
@@ -103,6 +110,7 @@ export function getProviderConfig(
           };
         },
       };
+    }
   }
 }
 

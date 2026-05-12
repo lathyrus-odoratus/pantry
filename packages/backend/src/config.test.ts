@@ -24,6 +24,19 @@ describe("parseConfig", () => {
     expect(cfg.supabase.url).toBe("https://x.supabase.co");
   });
 
+  it("accepts missing GitHub and Google OAuth secrets (Discord-only deploy)", () => {
+    const { GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ...rest } = valid;
+    const cfg = parseConfig(rest);
+    expect(cfg.oauth.github).toBeUndefined();
+    expect(cfg.oauth.google).toBeUndefined();
+    expect(cfg.oauth.discord.clientId).toBe("d");
+  });
+
+  it("still rejects missing DISCORD_CLIENT_ID", () => {
+    const { DISCORD_CLIENT_ID, ...rest } = valid;
+    expect(() => parseConfig(rest)).toThrow();
+  });
+
   it("rejects missing SUPABASE_URL", () => {
     const { SUPABASE_URL, ...rest } = valid;
     expect(() => parseConfig(rest)).toThrow();
