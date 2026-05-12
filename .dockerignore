@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.github
+docs
+supabase
+*.log
+.env
+.env.*
+.DS_Store
+packages/client
+.claude
+.worktrees
