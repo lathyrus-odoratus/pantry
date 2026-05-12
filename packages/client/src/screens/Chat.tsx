@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from "react";
-import { Box, Text, useInput } from "ink";
+import React, { useEffect, useRef, useState } from "react";
+import { Box, Text, useInput, useStdout } from "ink";
+import type { Message } from "@pantry/shared";
 import { useStore } from "../store.js";
 import { TransportClient } from "../transport/client.js";
 import { MessageList } from "./components/MessageList.js";
@@ -9,6 +10,57 @@ import { StatusBar } from "./components/StatusBar.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
 
 type Props = { serverUrl: string };
+
+const ONLINE_LIST_WIDTH = 22;
+// Reserved rows: header (1) + InputBar (1) + StatusBar (1) + slack (1).
+const RESERVED_ROWS = 4;
+
+function useTerminalSize(): { rows: number; cols: number } {
+  const { stdout } = useStdout();
+  const [size, setSize] = useState({
+    rows: stdout?.rows ?? 24,
+    cols: stdout?.columns ?? 80,
+  });
+  useEffect(() => {
+    if (!stdout) return;
+    const onResize = () =>
+      setSize({ rows: stdout.rows ?? 24, cols: stdout.columns ?? 80 });
+    stdout.on("resize", onResize);
+    return () => {
+      stdout.off("resize", onResize);
+    };
+  }, [stdout]);
+  return size;
+}
+
+/**
+ * Pick the most recent messages that fit within `maxRows` of vertical space,
+ * accounting for body wraps at `width` columns. Slicing keeps the message
+ * column from overflowing — otherwise the flex row's intrinsic height pushes
+ * the OnlineList off-screen and Ink ends up redrawing more than the terminal
+ * can keep up with (visible flicker on every keystroke).
+ */
+function sliceToFit(messages: Message[], maxRows: number, width: number): Message[] {
+  if (maxRows <= 0 || messages.length === 0) return [];
+  const usableWidth = Math.max(1, width);
+  let used = 0;
+  const result: Message[] = [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (!msg) continue;
+    const labelLen =
+      msg.author.nickname.length + msg.author.discriminator.length + 3; // '#' + ': '
+    const rowsNeeded = Math.max(
+      1,
+      Math.ceil((labelLen + msg.body.length) / usableWidth),
+    );
+    if (used + rowsNeeded > maxRows && result.length > 0) break;
+    result.unshift(msg);
+    used += rowsNeeded;
+    if (used >= maxRows) break;
+  }
+  return result;
+}
 
 export function Chat({ serverUrl }: Props): React.JSX.Element {
   const messages = useStore((s) => s.messages);
@@ -123,10 +175,15 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
     });
   });
 
+  const { rows: termRows, cols: termCols } = useTerminalSize();
+  const messageAreaRows = Math.max(3, termRows - RESERVED_ROWS);
+  const messageAreaCols = Math.max(20, termCols - ONLINE_LIST_WIDTH - 2);
+  const visibleMessages = sliceToFit(messages, messageAreaRows, messageAreaCols);
+
   return (
-    <Box flexDirection="column" height="100%">
-      <Box flexDirection="row" flexGrow={1}>
-        <Box flexDirection="column" flexGrow={1} paddingX={1}>
+    <Box flexDirection="column" height={termRows}>
+      <Box flexDirection="row" flexGrow={1} flexShrink={1}>
+        <Box flexDirection="column" flexGrow={1} flexShrink={1} paddingX={1}>
           <Box marginBottom={1}>
             <Text bold>Room: {roomName}</Text>
             {authedUser ? (
@@ -136,11 +193,11 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
               </Text>
             ) : null}
           </Box>
-          <MessageList messages={messages} />
+          <MessageList messages={visibleMessages} />
         </Box>
         <OnlineList users={onlineUsers} />
       </Box>
-      <Box flexDirection="column">
+      <Box flexDirection="column" flexShrink={0}>
         <InputBar onSend={onSend} onNick={onNick} />
         <StatusBar status={status} reconnectAttempt={reconnectAttempt} updateAvailable={updateAvailable} />
       </Box>
