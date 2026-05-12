@@ -34,6 +34,14 @@ export async function runOAuthFlow(input: RunOAuthInput): Promise<OAuthResult> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ provider: input.provider }),
   });
+  if (startRes.status === 503) {
+    const body = (await startRes.json().catch(() => ({}))) as {
+      provider?: string;
+    };
+    throw new Error(
+      `OAuth provider "${body.provider ?? input.provider}" is not configured on this server.`,
+    );
+  }
   if (!startRes.ok) {
     throw new Error(`oauth start failed (${startRes.status})`);
   }
