@@ -6,6 +6,7 @@ import { MessageList } from "./components/MessageList.js";
 import { OnlineList } from "./components/OnlineList.js";
 import { InputBar } from "./components/InputBar.js";
 import { StatusBar } from "./components/StatusBar.js";
+import { CLIENT_VERSION, compareSemver } from "../version.js";
 
 type Props = { serverUrl: string };
 
@@ -17,11 +18,13 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const reconnectAttempt = useStore((s) => s.reconnectAttempt);
   const pending = useStore((s) => s.pendingIdentity);
   const roomName = useStore((s) => s.roomName);
+  const updateAvailable = useStore((s) => s.updateAvailable);
   const setStatus = useStore((s) => s.setStatus);
   const onAuthOk = useStore((s) => s.onAuthOk);
   const setSnapshot = useStore((s) => s.setSnapshot);
   const addMessage = useStore((s) => s.addMessage);
   const setPresence = useStore((s) => s.setPresence);
+  const setUpdateAvailable = useStore((s) => s.setUpdateAvailable);
   const setError = useStore((s) => s.setError);
 
   const transportRef = useRef<TransportClient | null>(null);
@@ -33,9 +36,14 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
       onStatus: (s, attempt) => setStatus(s, attempt),
       onMessage: (m) => {
         switch (m.type) {
-          case "auth.ok":
+          case "auth.ok": {
             onAuthOk(m.user, "");
+            const latest = m.latestClientVersion;
+            if (latest && compareSemver(latest, CLIENT_VERSION) > 0) {
+              setUpdateAvailable(latest);
+            }
             break;
+          }
           case "auth.error":
             setError(`Auth failed: ${m.reason}`);
             client.close();
@@ -74,12 +82,14 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
             type: "auth.anon",
             nickname: pending.nickname,
             roomName,
+            clientVersion: CLIENT_VERSION,
           });
         } else {
           client.send({
             type: "auth.oauth",
             token: pending.token,
             roomName,
+            clientVersion: CLIENT_VERSION,
           });
         }
       }
@@ -89,7 +99,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
       client.close();
       transportRef.current = null;
     };
-  }, [pending, roomName, serverUrl, setStatus, onAuthOk, setSnapshot, addMessage, setPresence, setError]);
+  }, [pending, roomName, serverUrl, setStatus, onAuthOk, setSnapshot, addMessage, setPresence, setUpdateAvailable, setError]);
 
   const onSend = (body: string) => {
     transportRef.current?.send({ type: "message.send", body });
@@ -132,7 +142,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
       </Box>
       <Box flexDirection="column">
         <InputBar onSend={onSend} onNick={onNick} />
-        <StatusBar status={status} reconnectAttempt={reconnectAttempt} />
+        <StatusBar status={status} reconnectAttempt={reconnectAttempt} updateAvailable={updateAvailable} />
       </Box>
     </Box>
   );

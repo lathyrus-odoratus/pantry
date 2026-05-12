@@ -62,4 +62,11 @@ describe("store", () => {
     expect(useStore.getState().screen).toBe("error");
     expect(useStore.getState().errorMessage).toBe("oops");
   });
+
+  it("setUpdateAvailable stores and clears the latest version", () => {
+    useStore.getState().setUpdateAvailable("0.2.0");
+    expect(useStore.getState().updateAvailable).toBe("0.2.0");
+    useStore.getState().setUpdateAvailable(null);
+    expect(useStore.getState().updateAvailable).toBeNull();
+  });
 });

@@ -48,6 +48,9 @@ export type Store = {
   onlineUsers: PresenceUser[];
   historyHasMore: boolean;
 
+  // Update awareness
+  updateAvailable: string | null;
+
   // Actions
   setScreen: (s: Screen) => void;
   commitRoomName: (name: string) => void;
@@ -63,6 +66,7 @@ export type Store = {
   prependHistory: (older: Message[], hasMore?: boolean) => void;
   setPresence: (users: PresenceUser[]) => void;
   renameSelf: (nickname: string, discriminator: string) => void;
+  setUpdateAvailable: (latest: string | null) => void;
   setError: (msg: string) => void;
   reset: () => void;
 };
@@ -79,6 +83,7 @@ const initial: Omit<
   | "prependHistory"
   | "setPresence"
   | "renameSelf"
+  | "setUpdateAvailable"
   | "setError"
   | "reset"
 > = {
@@ -93,6 +98,7 @@ const initial: Omit<
   messages: [],
   onlineUsers: [],
   historyHasMore: true,
+  updateAvailable: null,
 };
 
 export const useStore = create<Store>((set) => ({
@@ -136,6 +142,8 @@ export const useStore = create<Store>((set) => ({
         ? { authedUser: { ...s.authedUser, nickname, discriminator } }
         : s,
     ),
+
+  setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
 
   setError: (errorMessage) => set({ errorMessage, screen: "error" }),
 
