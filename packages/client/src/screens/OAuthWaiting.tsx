@@ -44,25 +44,32 @@ export function OAuthWaiting({ backendHttpUrl }: Props): React.JSX.Element {
     pending && pending.kind === "oauth" ? pending.provider : "?";
 
   return (
-    <Box flexDirection="column" padding={1}>
-      <Box marginBottom={1}>
-        <Text bold>Sign in with {providerName}</Text>
-      </Box>
-      {authUrl ? (
-        <Box flexDirection="column">
+    <Box flexDirection="column">
+      <Box flexDirection="column" paddingX={1} paddingTop={1}>
+        <Box marginBottom={1}>
+          <Text bold>Sign in with {providerName}</Text>
+        </Box>
+        {authUrl ? (
           <Box>
             <Text>Open this URL in your browser:</Text>
           </Box>
-          <Box marginTop={1} marginBottom={1}>
-            <Text color="cyan">{authUrl}</Text>
-          </Box>
-          <Box>
-            <Text dimColor>Waiting for authorization... (Ctrl+C to cancel)</Text>
-          </Box>
+        ) : (
+          <Text dimColor>Preparing authorization request…</Text>
+        )}
+      </Box>
+      {/* URL is intentionally rendered at column 0 (outside paddingX) so that
+          when it wraps, no leading whitespace is inserted — keeps copy-paste
+          intact in environments where `open` can't launch a browser. */}
+      {authUrl ? (
+        <Box marginY={1}>
+          <Text color="cyan">{authUrl}</Text>
         </Box>
-      ) : (
-        <Text dimColor>Preparing authorization request…</Text>
-      )}
+      ) : null}
+      {authUrl ? (
+        <Box paddingX={1} paddingBottom={1}>
+          <Text dimColor>Waiting for authorization... (Ctrl+C to cancel)</Text>
+        </Box>
+      ) : null}
     </Box>
   );
 }
