@@ -1,65 +1,32 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Text, useInput, useStdout } from "ink";
+import React, { useCallback, useEffect, useRef } from "react";
+import { Box, Static, Text } from "ink";
 import type { Message } from "@pantry/shared";
 import { useStore } from "../store.js";
 import { TransportClient } from "../transport/client.js";
-import { MessageList } from "./components/MessageList.js";
-import { OnlineList } from "./components/OnlineList.js";
 import { InputBar } from "./components/InputBar.js";
 import { StatusBar } from "./components/StatusBar.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
 
 type Props = { serverUrl: string };
 
-const ONLINE_LIST_WIDTH = 22;
-// Reserved rows: header (1) + InputBar (1) + StatusBar (1) + slack (1).
-const RESERVED_ROWS = 4;
-
-function useTerminalSize(): { rows: number; cols: number } {
-  const { stdout } = useStdout();
-  const [size, setSize] = useState({
-    rows: stdout?.rows ?? 24,
-    cols: stdout?.columns ?? 80,
-  });
-  useEffect(() => {
-    if (!stdout) return;
-    const onResize = () =>
-      setSize({ rows: stdout.rows ?? 24, cols: stdout.columns ?? 80 });
-    stdout.on("resize", onResize);
-    return () => {
-      stdout.off("resize", onResize);
-    };
-  }, [stdout]);
-  return size;
+function hashColor(label: string): string {
+  let h = 0;
+  for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) | 0;
+  const palette = ["cyan", "green", "yellow", "magenta", "blueBright", "redBright"];
+  return palette[Math.abs(h) % palette.length] ?? "white";
 }
 
-/**
- * Pick the most recent messages that fit within `maxRows` of vertical space,
- * accounting for body wraps at `width` columns. Slicing keeps the message
- * column from overflowing — otherwise the flex row's intrinsic height pushes
- * the OnlineList off-screen and Ink ends up redrawing more than the terminal
- * can keep up with (visible flicker on every keystroke).
- */
-function sliceToFit(messages: Message[], maxRows: number, width: number): Message[] {
-  if (maxRows <= 0 || messages.length === 0) return [];
-  const usableWidth = Math.max(1, width);
-  let used = 0;
-  const result: Message[] = [];
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (!msg) continue;
-    const labelLen =
-      msg.author.nickname.length + msg.author.discriminator.length + 3; // '#' + ': '
-    const rowsNeeded = Math.max(
-      1,
-      Math.ceil((labelLen + msg.body.length) / usableWidth),
-    );
-    if (used + rowsNeeded > maxRows && result.length > 0) break;
-    result.unshift(msg);
-    used += rowsNeeded;
-    if (used >= maxRows) break;
-  }
-  return result;
+function MessageRow({ m }: { m: Message }): React.JSX.Element {
+  const label = `${m.author.nickname}#${m.author.discriminator}`;
+  return (
+    <Box>
+      <Text color={hashColor(label)} bold>
+        {label}
+      </Text>
+      <Text dimColor>: </Text>
+      <Text>{m.body}</Text>
+    </Box>
+  );
 }
 
 export function Chat({ serverUrl }: Props): React.JSX.Element {
@@ -118,7 +85,11 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
             setPresence(m.onlineUsers);
             break;
           case "history":
-            useStore.getState().prependHistory(m.messages, m.hasMore);
+            // Static renders new items at the bottom regardless of array
+            // position, so prepending historical messages would visually
+            // confuse the order. History loading is intentionally disabled
+            // in the Static-based layout; users can use their terminal's
+            // own scrollback to read older messages.
             break;
           case "error":
             break;
@@ -160,56 +131,37 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
     transportRef.current?.send({ type: "nick.change", newNickname });
   }, []);
 
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
-  useInput((_input, key) => {
-    if (!(key.pageUp ?? false)) return;
-    const list = messagesRef.current;
-    const oldest = list[0];
-    if (!oldest) return;
-    if (!useStore.getState().historyHasMore) return;
-    transportRef.current?.send({
-      type: "history.load",
-      beforeId: oldest.id,
-      limit: 50,
-    });
-  });
+  const onlineSummary =
+    onlineUsers.length === 0
+      ? "no one"
+      : onlineUsers.map((u) => `${u.nickname}#${u.discriminator}`).join(", ");
 
-  const { rows: termRows, cols: termCols } = useTerminalSize();
-  const messageAreaRows = Math.max(3, termRows - RESERVED_ROWS);
-  const messageAreaCols = Math.max(20, termCols - ONLINE_LIST_WIDTH - 2);
-  // Stable reference so memoised MessageList skips re-render unless the
-  // visible slice actually changed (typing in InputBar must not invalidate
-  // this — otherwise every keystroke re-renders the whole message column
-  // and Ink's frame redraw becomes the visible flicker).
-  const visibleMessages = useMemo(
-    () => sliceToFit(messages, messageAreaRows, messageAreaCols),
-    [messages, messageAreaRows, messageAreaCols],
-  );
-
+  // Messages are rendered via <Static>: each item writes to terminal
+  // scrollback exactly once, then is never redrawn. This keeps the live
+  // Ink frame tiny (header + online + input + status) so keystrokes don't
+  // flicker the message history.
   return (
-    // No explicit height: with sliceToFit already limiting the message list,
-    // letting Ink intrinsic-size the frame keeps the rendered region small.
-    // Ink redraws the entire frame on every render, so a frame ~as tall as
-    // the terminal is what made keystrokes flicker visibly.
-    <Box flexDirection="column">
-      <Box flexDirection="row">
-        <Box flexDirection="column" flexGrow={1} paddingX={1}>
-          <Box marginBottom={1}>
-            <Text bold>Room: {roomName}</Text>
-            {authedUser ? (
-              <Text dimColor>
-                {" "}
-                (you are {authedUser.nickname}#{authedUser.discriminator})
-              </Text>
-            ) : null}
-          </Box>
-          <MessageList messages={visibleMessages} />
+    <>
+      <Static items={messages}>
+        {(m) => <MessageRow key={m.id} m={m} />}
+      </Static>
+      <Box flexDirection="column">
+        <Box>
+          <Text bold>Room: {roomName}</Text>
+          {authedUser ? (
+            <Text dimColor>
+              {" "}
+              (you are {authedUser.nickname}#{authedUser.discriminator})
+            </Text>
+          ) : null}
         </Box>
-        <OnlineList users={onlineUsers} />
+        <Box>
+          <Text dimColor>Online ({onlineUsers.length}): </Text>
+          <Text>{onlineSummary}</Text>
+        </Box>
+        <InputBar onSend={onSend} onNick={onNick} />
+        <StatusBar status={status} reconnectAttempt={reconnectAttempt} updateAvailable={updateAvailable} />
       </Box>
-      <InputBar onSend={onSend} onNick={onNick} />
-      <StatusBar status={status} reconnectAttempt={reconnectAttempt} updateAvailable={updateAvailable} />
-    </Box>
+    </>
   );
 }
