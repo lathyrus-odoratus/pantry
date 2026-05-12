@@ -3,6 +3,7 @@ import type { ServerMessage, AuthAnon, AuthOAuth } from "@pantry/shared";
 
 import type { Config } from "../../config.js";
 import { logger } from "../../logger.js";
+import { LATEST_CLIENT_VERSION } from "../../version.js";
 import { validateNickname } from "../../utils/nickname.js";
 import { verifySessionToken } from "../../utils/jwt.js";
 import type { RoomsRepo } from "../../db/rooms.js";
@@ -40,6 +41,11 @@ export async function handleAnonAuth(
   const room = await resolveRoomOrError(deps.rooms, raw.roomName);
   if (!room.ok) return { ok: false, reason: "room_not_found" };
 
+  logger.info(
+    { clientVersion: raw.clientVersion ?? "unknown", flow: "anon" },
+    "client connected",
+  );
+
   const nickResult = validateNickname(raw.nickname);
   if (!nickResult.ok) return { ok: false, reason: "nickname_invalid" };
 
@@ -67,6 +73,11 @@ export async function handleOAuthAuth(
 ): Promise<AuthResolution> {
   const room = await resolveRoomOrError(deps.rooms, raw.roomName);
   if (!room.ok) return { ok: false, reason: "room_not_found" };
+
+  logger.info(
+    { clientVersion: raw.clientVersion ?? "unknown", flow: "oauth" },
+    "client connected",
+  );
 
   let payload: { userId: string; provider: string };
   try {
@@ -104,6 +115,7 @@ export async function admitConnection(
       nickname: conn.nickname,
       discriminator: conn.discriminator,
     },
+    latestClientVersion: LATEST_CLIENT_VERSION,
   };
   send(conn, okMsg);
 
