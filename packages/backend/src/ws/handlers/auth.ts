@@ -58,18 +58,35 @@ export async function handleAnonAuth(
   if (!room.ok) return { ok: false, reason: "room_not_found" };
 
   logger.info(
-    { clientVersion: raw.clientVersion ?? "unknown", flow: "anon" },
+    {
+      clientVersion: raw.clientVersion ?? "unknown",
+      flow: "anon",
+      reused: !!raw.subject,
+    },
     "client connected",
   );
 
   const nickResult = validateNickname(raw.nickname);
   if (!nickResult.ok) return { ok: false, reason: "nickname_invalid" };
 
-  const user = await deps.users.createWithDiscriminator({
-    provider: "anon",
-    subject: `anon:${randomUUID()}`,
-    nickname: nickResult.value,
-  });
+  let user;
+  if (raw.subject) {
+    const existing = await deps.users.findByProviderSubject("anon", raw.subject);
+    user =
+      existing ??
+      (await deps.users.createWithDiscriminator({
+        provider: "anon",
+        subject: raw.subject,
+        nickname: nickResult.value,
+      }));
+  } else {
+    user = await deps.users.createWithDiscriminator({
+      provider: "anon",
+      subject: `anon:${randomUUID()}`,
+      nickname: nickResult.value,
+    });
+  }
+
   const conn: AuthedConnection = {
     id: pending.id,
     userId: user.id,

@@ -124,6 +124,35 @@ cli
   });
 
 cli
+  .command(
+    "announce <room> <message>",
+    "Broadcast a system announcement to a room (ephemeral; not persisted)",
+  )
+  .action(async (room: string, message: string) => {
+    const config = loadConfig();
+    if (!config.adminKey) {
+      console.error("ADMIN_KEY is not set in backend .env");
+      process.exit(1);
+    }
+    const url = `${config.publicBackendUrl.replace(/\/$/, "")}/admin/broadcast`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-admin-key": config.adminKey,
+      },
+      body: JSON.stringify({ room, body: message }),
+    });
+    if (res.status === 204) {
+      console.log(`✓ Announced to "${room}"`);
+      return;
+    }
+    const text = await res.text().catch(() => "");
+    console.error(`Announce failed: ${res.status} ${text}`);
+    process.exit(1);
+  });
+
+cli
   .command("user list", "List users (by recent activity in a room)")
   .option("--room <name>", "Limit to users active in this room")
   .action(async (opts: { room?: string }) => {
@@ -161,9 +190,10 @@ cli
 cli.help();
 
 // cac matches commands by their first positional arg only.
-// Merge the first two non-flag args into a single "group action" token
-// so that "room list", "room create", "room delete", "user list" are
-// recognised as compound command names (e.g. "room list" → args[0]).
+// Merge the first two non-flag args into a single "group action" token for
+// known compound groups ("room", "user"), so "room list" etc. are recognised
+// as one command name. Single-word commands like "announce" are left alone.
+const COMPOUND_GROUPS = new Set(["room", "user"]);
 const raw = process.argv;
 const userArgs = raw.slice(2);
 const u0 = userArgs[0];
@@ -174,7 +204,8 @@ if (
   u0 !== undefined &&
   u1 !== undefined &&
   !u0.startsWith("-") &&
-  !u1.startsWith("-")
+  !u1.startsWith("-") &&
+  COMPOUND_GROUPS.has(u0)
 ) {
   argv = [raw[0] ?? "", raw[1] ?? "", `${u0} ${u1}`, ...userArgs.slice(2)];
 }

@@ -16,6 +16,10 @@ const EnvSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   DISCORD_CLIENT_ID: z.string().min(1),
   DISCORD_CLIENT_SECRET: z.string().min(1),
+
+  // Shared secret for the /admin/broadcast endpoint. Optional — when unset,
+  // the endpoint returns 503 so the surface stays gated by absence of a key.
+  ADMIN_KEY: z.string().min(16).optional(),
 });
 
 export type ProviderCreds = { clientId: string; clientSecret: string };
@@ -31,6 +35,7 @@ export type Config = {
     google?: ProviderCreds;
     discord: ProviderCreds;
   };
+  adminKey: string | null;
 };
 
 export function parseConfig(env: Record<string, string | undefined>): Config {
@@ -58,6 +63,7 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
         clientSecret: parsed.DISCORD_CLIENT_SECRET,
       },
     },
+    adminKey: parsed.ADMIN_KEY ?? null,
   };
 }
 

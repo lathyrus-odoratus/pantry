@@ -8,6 +8,15 @@ export const AuthAnonSchema = z.object({
   nickname: z.string().min(1).max(20),
   roomName: z.string().min(1).max(64),
   clientVersion: z.string().optional(),
+  // Client-generated stable identity. When provided, the server reuses or
+  // creates a users row keyed on (provider=anon, subject) so re-launches keep
+  // the same nickname/discriminator instead of minting a fresh "joined" user.
+  subject: z
+    .string()
+    .min(1)
+    .max(128)
+    .regex(/^anon:[A-Za-z0-9._-]+$/)
+    .optional(),
 });
 
 export const AuthOAuthSchema = z.object({
@@ -85,7 +94,7 @@ export const NewMessageSchema = z.object({
 
 export const SystemMessageSchema = z.object({
   type: z.literal("system"),
-  event: z.enum(["join", "leave", "rename"]),
+  event: z.enum(["join", "leave", "rename", "announce"]),
   body: z.string(),
 });
 

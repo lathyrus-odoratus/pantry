@@ -22,6 +22,7 @@ import { handleNick } from "./handlers/nick.js";
 import { handleHistory } from "./handlers/history.js";
 
 const AUTH_TIMEOUT_MS = 5000;
+const HEARTBEAT_MS = 30_000;
 
 export type WsServerDeps = {
   config: Config;
@@ -37,7 +38,26 @@ export function attachWebSocketServer(
 ): WebSocketServer {
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
 
+  // Liveness tracking — Cloudflare Tunnel closes idle WS around ~100s with no
+  // traffic, so we ping every 30s and terminate sockets that miss a pong.
+  const alive = new WeakMap<WebSocket, boolean>();
+  const heartbeat = setInterval(() => {
+    for (const client of wss.clients) {
+      if (alive.get(client) === false) {
+        client.terminate();
+        continue;
+      }
+      alive.set(client, false);
+      try {
+        client.ping();
+      } catch {}
+    }
+  }, HEARTBEAT_MS);
+  wss.on("close", () => clearInterval(heartbeat));
+
   wss.on("connection", (ws: WebSocket) => {
+    alive.set(ws, true);
+    ws.on("pong", () => alive.set(ws, true));
     const connId = randomUUID();
     const sendRaw = (text: string) => {
       if (ws.readyState === ws.OPEN) ws.send(text);

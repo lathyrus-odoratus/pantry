@@ -7,6 +7,7 @@ import { UsersRepo } from "./db/users.js";
 import { MessagesRepo } from "./db/messages.js";
 import { OAuthStateStore } from "./auth/state-store.js";
 import { registerAuthRoutes } from "./auth/routes.js";
+import { registerAdminRoutes } from "./admin/routes.js";
 import { ConnectionRegistry } from "./ws/connection-registry.js";
 import { attachWebSocketServer } from "./ws/server.js";
 
@@ -24,6 +25,7 @@ export async function startServer(): Promise<void> {
   app.get("/health", async () => ({ ok: true }));
 
   await registerAuthRoutes(app, { config, stateStore, usersRepo: users });
+  await registerAdminRoutes(app, { config, rooms, registry });
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
   attachWebSocketServer(app.server, { config, rooms, users, messages, registry });
