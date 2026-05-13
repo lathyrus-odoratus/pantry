@@ -5,6 +5,8 @@ import {
   pushToDiscord,
   notify,
   targetFromRoom,
+  flushWebhookQueues,
+  _resetWebhookBatching,
 } from "./webhook.js";
 
 describe("formatChat", () => {
@@ -91,11 +93,59 @@ describe("pushToDiscord", () => {
   });
 });
 
-describe("notify", () => {
-  it("is a no-op when target is null", () => {
-    const spy = vi.fn();
-    globalThis.fetch = spy as typeof fetch;
+describe("notify (batching)", () => {
+  const origFetch = globalThis.fetch;
+  beforeEach(() => {
+    _resetWebhookBatching();
+    globalThis.fetch = vi.fn(async () => new Response(null, { status: 204 })) as typeof fetch;
+  });
+  afterEach(() => {
+    _resetWebhookBatching();
+    globalThis.fetch = origFetch;
+  });
+
+  it("is a no-op when target is null", async () => {
     notify(null, "anything");
-    expect(spy).not.toHaveBeenCalled();
+    await flushWebhookQueues();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not POST synchronously — accumulates until flush", async () => {
+    const target = { url: "https://example.com/hook", threadId: null };
+    notify(target, "a");
+    notify(target, "b");
+    notify(target, "c");
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    await flushWebhookQueues();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    const init = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(init.body as string).content).toBe("a\nb\nc");
+  });
+
+  it("keeps different (url, thread) pairs in separate batches", async () => {
+    const a = { url: "https://example.com/hook", threadId: "1" };
+    const b = { url: "https://example.com/hook", threadId: "2" };
+    notify(a, "alpha");
+    notify(b, "beta");
+    await flushWebhookQueues();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("splits into multiple POSTs when one batch would exceed 2000 chars", async () => {
+    const target = { url: "https://example.com/hook", threadId: null };
+    // Three lines × 800 chars + newlines = 2402 chars → needs 2 chunks
+    notify(target, "a".repeat(800));
+    notify(target, "b".repeat(800));
+    notify(target, "c".repeat(800));
+    await flushWebhookQueues();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears queue after flush so a second flush does nothing", async () => {
+    const target = { url: "https://example.com/hook", threadId: null };
+    notify(target, "once");
+    await flushWebhookQueues();
+    await flushWebhookQueues();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 });
