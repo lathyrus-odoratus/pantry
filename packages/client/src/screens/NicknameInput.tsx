@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { Box, Text } from "ink";
 import TextInput from "ink-text-input";
 import { useStore } from "../store.js";
+import { newAnonSubject } from "../auth/anon.js";
 
 export function NicknameInput(): React.JSX.Element {
   const [value, setValue] = useState("");
@@ -15,7 +16,7 @@ export function NicknameInput(): React.JSX.Element {
   const onSubmit = (_v: string) => {
     const v = valueRef.current;
     if (!v.trim()) return;
-    setPending({ kind: "anon", nickname: v.trim() });
+    setPending({ kind: "anon", nickname: v.trim(), subject: newAnonSubject() });
     setScreen("chat");
   };
   return (

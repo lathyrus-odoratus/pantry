@@ -17,7 +17,7 @@ export type ConnStatus =
   | "disconnected";
 
 export type Identity =
-  | { kind: "anon"; nickname: string }
+  | { kind: "anon"; nickname: string; subject: string }
   | { kind: "oauth"; provider: "github" | "google" | "discord"; token: string };
 
 export type PresenceUser = { nickname: string; discriminator: string };

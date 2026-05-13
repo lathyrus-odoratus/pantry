@@ -6,6 +6,7 @@ import { TransportClient } from "../transport/client.js";
 import { InputBar } from "./components/InputBar.js";
 import { StatusBar } from "./components/StatusBar.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
+import { saveAnon } from "../auth/anon.js";
 
 type Props = { serverUrl: string };
 
@@ -61,6 +62,9 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
             if (latest && compareSemver(latest, CLIENT_VERSION) > 0) {
               setUpdateAvailable(latest);
             }
+            if (pending.kind === "anon") {
+              void saveAnon({ subject: pending.subject, nickname: m.user.nickname });
+            }
             break;
           }
           case "auth.error":
@@ -106,6 +110,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
             nickname: pending.nickname,
             roomName,
             clientVersion: CLIENT_VERSION,
+            subject: pending.subject,
           });
         } else {
           client.send({

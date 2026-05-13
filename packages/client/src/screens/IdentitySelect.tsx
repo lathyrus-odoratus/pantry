@@ -1,24 +1,44 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Text } from "ink";
 import SelectInput from "ink-select-input";
 import { useStore } from "../store.js";
+import { loadAnon, type AnonIdentity } from "../auth/anon.js";
 
 type ItemValue = "anon" | "github" | "google" | "discord";
-
-const items: { label: string; value: ItemValue }[] = [
-  { label: "Anonymous (just a nickname)", value: "anon" },
-  { label: "Sign in with GitHub", value: "github" },
-  { label: "Sign in with Google", value: "google" },
-  { label: "Sign in with Discord", value: "discord" },
-];
 
 export function IdentitySelect(): React.JSX.Element {
   const roomName = useStore((s) => s.roomName);
   const setScreen = useStore((s) => s.setScreen);
   const setPending = useStore((s) => s.setPendingIdentity);
+  const [saved, setSaved] = useState<AnonIdentity | null>(null);
+
+  useEffect(() => {
+    void loadAnon().then(setSaved);
+  }, []);
+
+  const items: { label: string; value: ItemValue }[] = [
+    {
+      label: saved
+        ? `Anonymous (continue as ${saved.nickname})`
+        : "Anonymous (just a nickname)",
+      value: "anon",
+    },
+    { label: "Sign in with GitHub", value: "github" },
+    { label: "Sign in with Google", value: "google" },
+    { label: "Sign in with Discord", value: "discord" },
+  ];
 
   const onSelect = (item: { value: ItemValue }) => {
     if (item.value === "anon") {
+      if (saved) {
+        setPending({
+          kind: "anon",
+          nickname: saved.nickname,
+          subject: saved.subject,
+        });
+        setScreen("chat");
+        return;
+      }
       setPending(null);
       setScreen("nickname_input");
       return;
