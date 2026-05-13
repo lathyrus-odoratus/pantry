@@ -11,6 +11,12 @@ import type { UsersRepo } from "../../db/users.js";
 import type { MessagesRepo } from "../../db/messages.js";
 import type { ConnectionRegistry, AuthedConnection } from "../connection-registry.js";
 import { broadcastToRoom, presenceFor, send } from "../broadcast.js";
+import {
+  formatSystem,
+  notify,
+  targetFromRoom,
+  type WebhookTarget,
+} from "../../discord/webhook.js";
 
 export type AuthDeps = {
   config: Config;
@@ -27,10 +33,20 @@ export type AuthResolution =
 async function resolveRoomOrError(
   rooms: RoomsRepo,
   roomName: string,
-): Promise<{ ok: true; roomId: string } | { ok: false }> {
+): Promise<
+  | { ok: true; roomId: string; webhook: WebhookTarget | null }
+  | { ok: false }
+> {
   const room = await rooms.findByName(roomName);
   if (!room) return { ok: false };
-  return { ok: true, roomId: room.id };
+  return {
+    ok: true,
+    roomId: room.id,
+    webhook: targetFromRoom({
+      url: room.webhook_url,
+      threadId: room.webhook_thread_id,
+    }),
+  };
 }
 
 export async function handleAnonAuth(
@@ -60,6 +76,7 @@ export async function handleAnonAuth(
     roomId: room.roomId,
     nickname: user.nickname,
     discriminator: user.discriminator,
+    webhook: room.webhook,
     sendRaw: pending.sendRaw,
     close: pending.close,
   };
@@ -96,6 +113,7 @@ export async function handleOAuthAuth(
     roomId: room.roomId,
     nickname: user.nickname,
     discriminator: user.discriminator,
+    webhook: room.webhook,
     sendRaw: pending.sendRaw,
     close: pending.close,
   };
@@ -128,12 +146,14 @@ export async function admitConnection(
   };
   send(conn, snapshot);
 
+  const joinBody = `${conn.nickname}#${conn.discriminator} joined`;
   const joinNotice: ServerMessage = {
     type: "system",
     event: "join",
-    body: `${conn.nickname}#${conn.discriminator} joined`,
+    body: joinBody,
   };
   broadcastToRoom(deps.registry, conn.roomId, joinNotice, conn);
+  notify(conn.webhook, formatSystem("join", joinBody));
 
   const presence: ServerMessage = {
     type: "presence",

@@ -5,6 +5,8 @@ export type RoomRow = {
   name: string;
   created_at: string;
   created_by: string | null;
+  webhook_url: string | null;
+  webhook_thread_id: string | null;
 };
 
 export class RoomsRepo {
@@ -42,5 +44,22 @@ export class RoomsRepo {
   async deleteByName(name: string): Promise<void> {
     const { error } = await this.db.from("rooms").delete().eq("name", name);
     if (error) throw error;
+  }
+
+  async setWebhook(
+    name: string,
+    webhook: { url: string | null; threadId: string | null },
+  ): Promise<RoomRow> {
+    const { data, error } = await this.db
+      .from("rooms")
+      .update({
+        webhook_url: webhook.url,
+        webhook_thread_id: webhook.threadId,
+      })
+      .eq("name", name)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data;
   }
 }

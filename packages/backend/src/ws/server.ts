@@ -11,6 +11,7 @@ import type { MessagesRepo } from "../db/messages.js";
 
 import { ConnectionRegistry, type AuthedConnection } from "./connection-registry.js";
 import { broadcastToRoom, presenceFor, send } from "./broadcast.js";
+import { formatSystem, notify } from "../discord/webhook.js";
 import {
   handleAnonAuth,
   handleOAuthAuth,
@@ -123,6 +124,7 @@ export function attachWebSocketServer(
         event: "leave",
         body: leaveLabel,
       });
+      notify(authed.webhook, formatSystem("leave", leaveLabel));
       broadcastToRoom(deps.registry, authed.roomId, {
         type: "presence",
         onlineUsers: presenceFor(deps.registry, authed.roomId),

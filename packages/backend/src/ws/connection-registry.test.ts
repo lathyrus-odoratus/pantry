@@ -8,6 +8,7 @@ function fakeConn(id: string, userId: string, roomId: string): AuthedConnection 
     roomId,
     nickname: "n",
     discriminator: "abcd",
+    webhook: null,
     sendRaw: () => {},
     close: () => {},
   };

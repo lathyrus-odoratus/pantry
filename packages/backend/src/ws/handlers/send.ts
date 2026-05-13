@@ -4,6 +4,7 @@ import type { MessagesRepo } from "../../db/messages.js";
 import type { ConnectionRegistry, AuthedConnection } from "../connection-registry.js";
 import { broadcastToRoom, send } from "../broadcast.js";
 import { logger } from "../../logger.js";
+import { formatChat, notify } from "../../discord/webhook.js";
 
 export type SendDeps = {
   messages: MessagesRepo;
@@ -23,6 +24,7 @@ export async function handleSend(
   };
   const out: ServerMessage = { type: "message", data: message };
   broadcastToRoom(deps.registry, conn.roomId, out);
+  notify(conn.webhook, formatChat(message.author, message.body));
 
   // Persist with retry; failure only reported to sender
   let lastErr: unknown;

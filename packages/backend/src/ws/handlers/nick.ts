@@ -3,6 +3,7 @@ import { validateNickname } from "../../utils/nickname.js";
 import type { UsersRepo } from "../../db/users.js";
 import type { ConnectionRegistry, AuthedConnection } from "../connection-registry.js";
 import { broadcastToRoom, presenceFor, send } from "../broadcast.js";
+import { formatSystem, notify } from "../../discord/webhook.js";
 
 export type NickDeps = {
   users: UsersRepo;
@@ -31,12 +32,14 @@ export async function handleNick(
   deps.registry.rename(conn.id, updated.nickname, updated.discriminator);
 
   const newLabel = `${updated.nickname}#${updated.discriminator}`;
+  const renameBody = `${oldLabel} → ${newLabel}`;
   const sys: ServerMessage = {
     type: "system",
     event: "rename",
-    body: `${oldLabel} → ${newLabel}`,
+    body: renameBody,
   };
   broadcastToRoom(deps.registry, conn.roomId, sys);
+  notify(conn.webhook, formatSystem("rename", renameBody));
 
   const presence: ServerMessage = {
     type: "presence",

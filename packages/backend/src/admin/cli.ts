@@ -49,14 +49,55 @@ cli
       console.log("(no rooms)");
       return;
     }
-    console.log("NAME".padEnd(24) + "ID".padEnd(40) + "CREATED");
+    console.log(
+      "NAME".padEnd(24) + "ID".padEnd(40) + "WEBHOOK".padEnd(10) + "CREATED",
+    );
     for (const r of list) {
+      const webhook = r.webhook_url
+        ? r.webhook_thread_id
+          ? "url+thr"
+          : "url"
+        : "—";
       console.log(
         r.name.padEnd(24) +
           r.id.padEnd(40) +
+          webhook.padEnd(10) +
           new Date(r.created_at).toISOString(),
       );
     }
+  });
+
+cli
+  .command("room set-webhook <name> <url>", "Bind a Discord webhook to a room")
+  .option("--thread <id>", "Discord forum/thread id (optional)")
+  .action(async (name: string, url: string, opts: { thread?: string }) => {
+    const { rooms } = makeRepos();
+    const existing = await rooms.findByName(name);
+    if (!existing) {
+      console.error(`Room "${name}" not found.`);
+      process.exit(1);
+    }
+    const updated = await rooms.setWebhook(name, {
+      url,
+      threadId: opts.thread ?? null,
+    });
+    console.log(
+      `✓ Bound webhook for "${updated.name}"` +
+        (updated.webhook_thread_id ? ` (thread ${updated.webhook_thread_id})` : ""),
+    );
+  });
+
+cli
+  .command("room clear-webhook <name>", "Remove the Discord webhook from a room")
+  .action(async (name: string) => {
+    const { rooms } = makeRepos();
+    const existing = await rooms.findByName(name);
+    if (!existing) {
+      console.error(`Room "${name}" not found.`);
+      process.exit(1);
+    }
+    await rooms.setWebhook(name, { url: null, threadId: null });
+    console.log(`✓ Cleared webhook for "${name}"`);
   });
 
 cli

@@ -1,9 +1,12 @@
+import type { WebhookTarget } from "../discord/webhook.js";
+
 export type AuthedConnection = {
   id: string;
   userId: string;
   roomId: string;
   nickname: string;
   discriminator: string;
+  webhook: WebhookTarget | null;
   sendRaw: (text: string) => void;
   close: (code?: number, reason?: string) => void;
 };
