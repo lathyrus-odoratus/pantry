@@ -28,8 +28,8 @@ export function formatChat(
     : `${content.slice(0, MAX_DISCORD_CONTENT - 1)}…`;
 }
 
-export function formatSystem(event: string, body: string): string {
-  return `_${event}_ ${body}`;
+export function formatSystem(_event: string, body: string): string {
+  return `> ${body}`;
 }
 
 function buildUrl(target: WebhookTarget): string {

@@ -23,9 +23,9 @@ describe("formatChat", () => {
 });
 
 describe("formatSystem", () => {
-  it("italicises with event tag", () => {
+  it("renders body as a Discord blockquote", () => {
     expect(formatSystem("join", "alice#ab12 joined")).toBe(
-      "_join_ alice#ab12 joined",
+      "> alice#ab12 joined",
     );
   });
 });
