@@ -8,6 +8,7 @@ export type UserRow = {
   auth_subject: string;
   nickname: string;
   discriminator: string;
+  color: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -130,6 +131,14 @@ export class UsersRepo {
     throw new Error(
       `Failed to rename user after ${MAX_DISCRIMINATOR_RETRIES} attempts: ${String(lastError)}`,
     );
+  }
+
+  async setColor(userId: string, color: string | null): Promise<void> {
+    const { error } = await this.db
+      .from("users")
+      .update({ color, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+    if (error) throw error;
   }
 
   async listByRoomActivity(roomId: string, limit = 200): Promise<UserRow[]> {

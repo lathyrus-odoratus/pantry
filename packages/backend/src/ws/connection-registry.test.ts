@@ -8,6 +8,7 @@ function fakeConn(id: string, userId: string, roomId: string): AuthedConnection 
     roomId,
     nickname: "n",
     discriminator: "abcd",
+    color: null,
     webhook: null,
     sendRaw: () => {},
     close: () => {},
@@ -45,5 +46,32 @@ describe("ConnectionRegistry", () => {
   it("listByRoom returns empty for unknown room", () => {
     const r = new ConnectionRegistry();
     expect(r.listByRoom("nope")).toEqual([]);
+  });
+
+  it("setColor updates a connection's color across all its sockets sharing userId", () => {
+    const r = new ConnectionRegistry();
+    const a = fakeConn("c1", "u1", "r1");
+    const b = fakeConn("c2", "u1", "r1"); // same user, different socket
+    const c = fakeConn("c3", "u2", "r1"); // different user
+    r.add(a);
+    r.add(b);
+    r.add(c);
+    r.setColor("u1", "#FF6B6B");
+    const list = r.listByRoom("r1");
+    const aGot = list.find((x) => x.id === "c1");
+    const bGot = list.find((x) => x.id === "c2");
+    const cGot = list.find((x) => x.id === "c3");
+    expect(aGot?.color).toBe("#FF6B6B");
+    expect(bGot?.color).toBe("#FF6B6B");
+    expect(cGot?.color).toBeNull();
+  });
+
+  it("setColor with null clears the color", () => {
+    const r = new ConnectionRegistry();
+    const a = fakeConn("c1", "u1", "r1");
+    a.color = "#ABCDEF";
+    r.add(a);
+    r.setColor("u1", null);
+    expect(r.listByRoom("r1")[0]?.color).toBeNull();
   });
 });

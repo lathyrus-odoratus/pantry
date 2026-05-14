@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ClientMessageSchema, ServerMessageSchema } from "./protocol.js";
-import { MessageSchema } from "./models.js";
+import { MessageSchema, UserSchema } from "./models.js";
 
 describe("forward-compat: Message.createdAt accepts both UTC and offset formats", () => {
   const base = {
@@ -80,5 +80,89 @@ describe("forward-compat: optional version fields", () => {
     expect(
       (result as { latestClientVersion?: string }).latestClientVersion,
     ).toBe("0.3.0");
+  });
+});
+
+describe("color.change client message", () => {
+  it("accepts uppercase hex with #", () => {
+    const r = ClientMessageSchema.parse({ type: "color.change", color: "#FF6B6B" });
+    expect(r.type).toBe("color.change");
+    expect((r as { color: string | null }).color).toBe("#FF6B6B");
+  });
+
+  it("accepts lowercase hex with #", () => {
+    const r = ClientMessageSchema.parse({ type: "color.change", color: "#ff6b6b" });
+    expect((r as { color: string | null }).color).toBe("#ff6b6b");
+  });
+
+  it("accepts hex without #", () => {
+    const r = ClientMessageSchema.parse({ type: "color.change", color: "ff6b6b" });
+    expect((r as { color: string | null }).color).toBe("ff6b6b");
+  });
+
+  it("accepts mixed-case hex without #", () => {
+    const r = ClientMessageSchema.parse({ type: "color.change", color: "Ff6B6b" });
+    expect((r as { color: string | null }).color).toBe("Ff6B6b");
+  });
+
+  it("accepts null (reset)", () => {
+    const r = ClientMessageSchema.parse({ type: "color.change", color: null });
+    expect((r as { color: string | null }).color).toBeNull();
+  });
+
+  it("rejects color name 'red'", () => {
+    expect(() =>
+      ClientMessageSchema.parse({ type: "color.change", color: "red" }),
+    ).toThrow();
+  });
+
+  it("rejects 3-digit hex shorthand", () => {
+    expect(() =>
+      ClientMessageSchema.parse({ type: "color.change", color: "#fff" }),
+    ).toThrow();
+  });
+
+  it("rejects 8-digit hex (alpha channel)", () => {
+    expect(() =>
+      ClientMessageSchema.parse({ type: "color.change", color: "#ff6b6bff" }),
+    ).toThrow();
+  });
+
+  it("rejects non-hex characters", () => {
+    expect(() =>
+      ClientMessageSchema.parse({ type: "color.change", color: "#gghhii" }),
+    ).toThrow();
+  });
+
+  it("rejects empty string", () => {
+    expect(() =>
+      ClientMessageSchema.parse({ type: "color.change", color: "" }),
+    ).toThrow();
+  });
+});
+
+describe("UserSchema with optional color (forward-compat)", () => {
+  it("parses user WITHOUT color (old server)", () => {
+    const u = UserSchema.parse({ nickname: "alice", discriminator: "ab12" });
+    expect(u.nickname).toBe("alice");
+    expect((u as { color?: string | null }).color).toBeUndefined();
+  });
+
+  it("parses user WITH color hex", () => {
+    const u = UserSchema.parse({
+      nickname: "alice",
+      discriminator: "ab12",
+      color: "#FF6B6B",
+    });
+    expect((u as { color?: string | null }).color).toBe("#FF6B6B");
+  });
+
+  it("parses user WITH color null (explicit reset)", () => {
+    const u = UserSchema.parse({
+      nickname: "alice",
+      discriminator: "ab12",
+      color: null,
+    });
+    expect((u as { color?: string | null }).color).toBeNull();
   });
 });

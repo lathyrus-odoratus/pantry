@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MessageSchema, UserSchema } from "./models.js";
+import { HexColorSchema, MessageSchema, UserSchema } from "./models.js";
 
 // ─── Client → Server ──────────────────────────────────────────────────────────
 
@@ -42,12 +42,18 @@ export const HistoryLoadSchema = z.object({
   limit: z.number().int().min(1).max(100).default(50),
 });
 
+export const ColorChangeSchema = z.object({
+  type: z.literal("color.change"),
+  color: HexColorSchema.nullable(),
+});
+
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   AuthAnonSchema,
   AuthOAuthSchema,
   MessageSendSchema,
   NickChangeSchema,
   HistoryLoadSchema,
+  ColorChangeSchema,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
@@ -56,6 +62,7 @@ export type AuthOAuth = z.infer<typeof AuthOAuthSchema>;
 export type MessageSend = z.infer<typeof MessageSendSchema>;
 export type NickChange = z.infer<typeof NickChangeSchema>;
 export type HistoryLoad = z.infer<typeof HistoryLoadSchema>;
+export type ColorChange = z.infer<typeof ColorChangeSchema>;
 
 // ─── Server → Client ──────────────────────────────────────────────────────────
 

@@ -20,6 +20,7 @@ import {
 import { handleSend } from "./handlers/send.js";
 import { handleNick } from "./handlers/nick.js";
 import { handleHistory } from "./handlers/history.js";
+import { handleColor } from "./handlers/color.js";
 
 const AUTH_TIMEOUT_MS = 5000;
 const HEARTBEAT_MS = 30_000;
@@ -119,6 +120,9 @@ export function attachWebSocketServer(
             break;
           case "nick.change":
             await handleNick(authed, parsed, deps);
+            break;
+          case "color.change":
+            await handleColor(authed, parsed, deps);
             break;
           case "history.load":
             await handleHistory(authed, parsed, deps);

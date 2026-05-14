@@ -5,9 +5,12 @@ import TextInput from "ink-text-input";
 type Props = {
   onSend: (body: string) => void;
   onNick: (newNickname: string) => void;
+  onColor: (color: string | null) => void;
 };
 
-export function InputBar({ onSend, onNick }: Props): React.JSX.Element {
+const HEX_COLOR_RE = /^#?[0-9a-fA-F]{6}$/;
+
+export function InputBar({ onSend, onNick, onColor }: Props): React.JSX.Element {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
 
@@ -26,6 +29,12 @@ export function InputBar({ onSend, onNick }: Props): React.JSX.Element {
       const arg = rest.join(" ").trim();
       if (cmd === "nick" && arg) {
         onNick(arg);
+      } else if (cmd === "color") {
+        if (!arg || arg === "reset") {
+          onColor(null);
+        } else if (HEX_COLOR_RE.test(arg)) {
+          onColor(arg);
+        }
       }
       return;
     }

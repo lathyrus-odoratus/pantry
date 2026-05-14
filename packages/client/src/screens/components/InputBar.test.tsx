@@ -42,12 +42,96 @@ describe("InputBar", () => {
   it("ignores unknown slash commands", async () => {
     const onSend = vi.fn();
     const onNick = vi.fn();
-    const { stdin } = render(<InputBar onSend={onSend} onNick={onNick} />);
+    const { stdin } = render(<InputBar onSend={onSend} onNick={onNick} onColor={() => {}} />);
     await flush();
     stdin.write("/foo bar");
     stdin.write("\r");
     await flush();
     expect(onSend).not.toHaveBeenCalled();
     expect(onNick).not.toHaveBeenCalled();
+  });
+
+  it("calls onColor with hex including #", async () => {
+    const onColor = vi.fn();
+    const { stdin } = render(
+      <InputBar onSend={() => {}} onNick={() => {}} onColor={onColor} />,
+    );
+    await flush();
+    stdin.write("/color #ff6b6b");
+    stdin.write("\r");
+    await flush();
+    expect(onColor).toHaveBeenCalledWith("#ff6b6b");
+  });
+
+  it("calls onColor with bare hex (no #)", async () => {
+    const onColor = vi.fn();
+    const { stdin } = render(
+      <InputBar onSend={() => {}} onNick={() => {}} onColor={onColor} />,
+    );
+    await flush();
+    stdin.write("/color FF6B6B");
+    stdin.write("\r");
+    await flush();
+    expect(onColor).toHaveBeenCalledWith("FF6B6B");
+  });
+
+  it("calls onColor(null) for /color reset", async () => {
+    const onColor = vi.fn();
+    const { stdin } = render(
+      <InputBar onSend={() => {}} onNick={() => {}} onColor={onColor} />,
+    );
+    await flush();
+    stdin.write("/color reset");
+    stdin.write("\r");
+    await flush();
+    expect(onColor).toHaveBeenCalledWith(null);
+  });
+
+  it("calls onColor(null) for /color with no argument", async () => {
+    const onColor = vi.fn();
+    const { stdin } = render(
+      <InputBar onSend={() => {}} onNick={() => {}} onColor={onColor} />,
+    );
+    await flush();
+    stdin.write("/color");
+    stdin.write("\r");
+    await flush();
+    expect(onColor).toHaveBeenCalledWith(null);
+  });
+
+  it("ignores /color with a color name (e.g. red)", async () => {
+    const onColor = vi.fn();
+    const { stdin } = render(
+      <InputBar onSend={() => {}} onNick={() => {}} onColor={onColor} />,
+    );
+    await flush();
+    stdin.write("/color red");
+    stdin.write("\r");
+    await flush();
+    expect(onColor).not.toHaveBeenCalled();
+  });
+
+  it("ignores /color with 3-digit hex shorthand", async () => {
+    const onColor = vi.fn();
+    const { stdin } = render(
+      <InputBar onSend={() => {}} onNick={() => {}} onColor={onColor} />,
+    );
+    await flush();
+    stdin.write("/color #fff");
+    stdin.write("\r");
+    await flush();
+    expect(onColor).not.toHaveBeenCalled();
+  });
+
+  it("ignores /color with 8-digit hex (alpha)", async () => {
+    const onColor = vi.fn();
+    const { stdin } = render(
+      <InputBar onSend={() => {}} onNick={() => {}} onColor={onColor} />,
+    );
+    await flush();
+    stdin.write("/color #ff6b6bff");
+    stdin.write("\r");
+    await flush();
+    expect(onColor).not.toHaveBeenCalled();
   });
 });

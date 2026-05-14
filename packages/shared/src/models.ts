@@ -20,9 +20,14 @@ export const RoomSchema = z.object({
 });
 export type Room = z.infer<typeof RoomSchema>;
 
+export const HexColorSchema = z
+  .string()
+  .regex(/^#?[0-9a-fA-F]{6}$/, "must be 6-digit hex, optional leading #");
+
 export const UserSchema = z.object({
   nickname: z.string(),
   discriminator: z.string().length(4),
+  color: HexColorSchema.nullable().optional(),
 });
 export type User = z.infer<typeof UserSchema>;
 

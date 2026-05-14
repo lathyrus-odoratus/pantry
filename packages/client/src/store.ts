@@ -20,7 +20,11 @@ export type Identity =
   | { kind: "anon"; nickname: string; subject: string }
   | { kind: "oauth"; provider: "github" | "google" | "discord"; token: string };
 
-export type PresenceUser = { nickname: string; discriminator: string };
+export type PresenceUser = {
+  nickname: string;
+  discriminator: string;
+  color?: string | null;
+};
 
 export type AuthedUser = {
   id: string;

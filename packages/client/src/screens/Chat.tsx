@@ -19,9 +19,19 @@ function hashColor(label: string): string {
 
 function MessageRow({ m }: { m: Message }): React.JSX.Element {
   const label = `${m.author.nickname}#${m.author.discriminator}`;
+  // Static items render exactly once; resolve the author's current color at
+  // that moment via getState() to avoid subscribing (which would defeat Static).
+  const author = useStore
+    .getState()
+    .onlineUsers.find(
+      (u) =>
+        u.nickname === m.author.nickname &&
+        u.discriminator === m.author.discriminator,
+    );
+  const color = author?.color ?? hashColor(label);
   return (
     <Box>
-      <Text color={hashColor(label)} bold>
+      <Text color={color} bold>
         {label}
       </Text>
       <Text dimColor>: </Text>
@@ -135,6 +145,9 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const onNick = useCallback((newNickname: string) => {
     transportRef.current?.send({ type: "nick.change", newNickname });
   }, []);
+  const onColor = useCallback((color: string | null) => {
+    transportRef.current?.send({ type: "color.change", color });
+  }, []);
 
   const onlineSummary =
     onlineUsers.length === 0
@@ -164,7 +177,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
           <Text dimColor>Online ({onlineUsers.length}): </Text>
           <Text>{onlineSummary}</Text>
         </Box>
-        <InputBar onSend={onSend} onNick={onNick} />
+        <InputBar onSend={onSend} onNick={onNick} onColor={onColor} />
         <StatusBar status={status} reconnectAttempt={reconnectAttempt} updateAvailable={updateAvailable} />
       </Box>
     </>

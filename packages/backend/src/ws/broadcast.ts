@@ -1,4 +1,4 @@
-import type { ServerMessage } from "@pantry/shared";
+import type { ServerMessage, User } from "@pantry/shared";
 import type { ConnectionRegistry, AuthedConnection } from "./connection-registry.js";
 
 function serialize(msg: ServerMessage): string {
@@ -25,14 +25,17 @@ export function broadcastToRoom(
 export function presenceFor(
   registry: ConnectionRegistry,
   roomId: string,
-): { nickname: string; discriminator: string }[] {
+): User[] {
   const seen = new Set<string>();
-  const out: { nickname: string; discriminator: string }[] = [];
+  const out: User[] = [];
   for (const c of registry.listByRoom(roomId)) {
-    const key = `${c.userId}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ nickname: c.nickname, discriminator: c.discriminator });
+    if (seen.has(c.userId)) continue;
+    seen.add(c.userId);
+    out.push({
+      nickname: c.nickname,
+      discriminator: c.discriminator,
+      color: c.color,
+    });
   }
   return out;
 }

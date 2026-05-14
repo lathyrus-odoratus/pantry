@@ -6,6 +6,7 @@ export type AuthedConnection = {
   roomId: string;
   nickname: string;
   discriminator: string;
+  color: string | null;
   webhook: WebhookTarget | null;
   sendRaw: (text: string) => void;
   close: (code?: number, reason?: string) => void;
@@ -53,5 +54,11 @@ export class ConnectionRegistry {
     if (!c) return;
     c.nickname = nickname;
     c.discriminator = discriminator;
+  }
+
+  setColor(userId: string, color: string | null): void {
+    for (const c of this.byId.values()) {
+      if (c.userId === userId) c.color = color;
+    }
   }
 }
