@@ -21,15 +21,18 @@ function hashColor(label: string): string {
   return palette[Math.abs(h) % palette.length] ?? "white";
 }
 
-// Easter egg: while a world is active, prefix each player message with this
-// emoji so the TRPG cast reads visually distinct from regular chat. NPC
-// messages (which already carry their own emoji in the body) are skipped.
+// While a world is active, render an emoji in front of each speaker's nick
+// — 🌫 for the NPC traveler, 🎲 for players (easter egg / TRPG cast marker).
+// NPC is detected by nickname match (only one NPC in V1; revisit when
+// multiple personas land — likely via a `kind` field in UserSchema).
+const NPC_NICKNAME = "灰袍旅人";
+const NPC_EMOJI = "🌫";
 const PLAYER_WORLD_EMOJI = "🎲";
-const NPC_BODY_PREFIX = "🌫 ";
 
 function MessageRow({ m }: { m: Message }): React.JSX.Element {
-  // System notices (joins, leaves, renames, local /h help, world.open/end)
-  // render as a dim block without the `nick#disc:` prefix. Body may be multi-line.
+  // System notices (joins, leaves, renames, local /h help, world.open/end,
+  // dice rolls) render as a dim block without the `nick#disc:` prefix. Body
+  // may be multi-line.
   if (m.author.discriminator === "sys") {
     return (
       <Box flexDirection="column">
@@ -52,11 +55,15 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
       u.discriminator === m.author.discriminator,
   );
   const color = author?.color ?? hashColor(label);
-  const isNpc = m.body.startsWith(NPC_BODY_PREFIX);
-  const showPlayerEmoji = snapshot.worldActive && !isNpc;
+  const isNpc = m.author.nickname === NPC_NICKNAME;
+  const prefixEmoji = isNpc
+    ? NPC_EMOJI
+    : snapshot.worldActive
+      ? PLAYER_WORLD_EMOJI
+      : null;
   return (
     <Box>
-      {showPlayerEmoji ? <Text>{PLAYER_WORLD_EMOJI} </Text> : null}
+      {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
       <Text color={color} bold>
         {label}
       </Text>
@@ -199,6 +206,9 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const onWorldOpen = useCallback(() => {
     transportRef.current?.send({ type: "world.open" });
   }, []);
+  const onDiceRoll = useCallback((expression: string) => {
+    transportRef.current?.send({ type: "dice.roll", expression });
+  }, []);
 
   const worldActive = useStore((s) => s.worldActive);
   const worldCreditUsed = useStore((s) => s.worldCreditUsed);
@@ -260,6 +270,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
               onChangelog={openChangelog}
               onHelp={onHelp}
               onWorldOpen={onWorldOpen}
+              onDiceRoll={onDiceRoll}
             />
             <StatusBar
               status={status}

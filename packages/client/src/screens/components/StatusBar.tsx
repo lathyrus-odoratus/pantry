@@ -49,7 +49,7 @@ export function StatusBar({
         ) : null}
       </Box>
       <Box>
-        <Text dimColor>/h · /changelog · /nick · /color · /the-world</Text>
+        <Text dimColor>/h · /changelog · /nick · /color · /the-world · /roll</Text>
       </Box>
     </Box>
   );

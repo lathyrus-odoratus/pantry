@@ -23,6 +23,7 @@ import { handleNick } from "./handlers/nick.js";
 import { handleHistory } from "./handlers/history.js";
 import { handleColor } from "./handlers/color.js";
 import { handleWorldOpen } from "./handlers/world.js";
+import { handleDiceRoll } from "./handlers/dice.js";
 import type { WorldStateStore } from "../world/state.js";
 
 const AUTH_TIMEOUT_MS = 5000;
@@ -149,6 +150,12 @@ export function attachWebSocketServer(
               registry: deps.registry,
               worldState: deps.worldState,
               creditTotal: deps.config.worldCreditTotal,
+            });
+            break;
+          case "dice.roll":
+            await handleDiceRoll(authed, parsed, {
+              registry: deps.registry,
+              worldState: deps.worldState,
             });
             break;
           case "history.load":

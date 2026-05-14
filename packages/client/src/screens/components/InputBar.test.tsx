@@ -20,6 +20,7 @@ describe("InputBar", () => {
         onChangelog={() => {}}
         onHelp={() => {}}
         onWorldOpen={() => {}}
+        onDiceRoll={() => {}}
       />,
     );
     await flush();
@@ -39,6 +40,7 @@ describe("InputBar", () => {
         onChangelog={() => {}}
         onHelp={() => {}}
         onWorldOpen={() => {}}
+        onDiceRoll={() => {}}
       />,
     );
     await flush();
@@ -58,6 +60,7 @@ describe("InputBar", () => {
         onChangelog={() => {}}
         onHelp={() => {}}
         onWorldOpen={() => {}}
+        onDiceRoll={() => {}}
       />,
     );
     await flush();
@@ -207,6 +210,7 @@ describe("InputBar", () => {
         onChangelog={() => {}}
         onHelp={onHelp}
         onWorldOpen={() => {}}
+        onDiceRoll={() => {}}
       />,
     );
     await flush();
@@ -226,6 +230,7 @@ describe("InputBar", () => {
         onChangelog={() => {}}
         onHelp={onHelp}
         onWorldOpen={() => {}}
+        onDiceRoll={() => {}}
       />,
     );
     await flush();
@@ -245,6 +250,7 @@ describe("InputBar", () => {
         onChangelog={() => {}}
         onHelp={() => {}}
         onWorldOpen={onWorldOpen}
+        onDiceRoll={() => {}}
       />,
     );
     await flush();
@@ -252,5 +258,45 @@ describe("InputBar", () => {
     stdin.write("\r");
     await flush();
     expect(onWorldOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onDiceRoll with the expression on /roll d20", async () => {
+    const onDiceRoll = vi.fn();
+    const { stdin } = render(
+      <InputBar
+        onSend={() => {}}
+        onNick={() => {}}
+        onColor={() => {}}
+        onChangelog={() => {}}
+        onHelp={() => {}}
+        onWorldOpen={() => {}}
+        onDiceRoll={onDiceRoll}
+      />,
+    );
+    await flush();
+    stdin.write("/roll d20");
+    stdin.write("\r");
+    await flush();
+    expect(onDiceRoll).toHaveBeenCalledWith("d20");
+  });
+
+  it("/roll without an argument is ignored", async () => {
+    const onDiceRoll = vi.fn();
+    const { stdin } = render(
+      <InputBar
+        onSend={() => {}}
+        onNick={() => {}}
+        onColor={() => {}}
+        onChangelog={() => {}}
+        onHelp={() => {}}
+        onWorldOpen={() => {}}
+        onDiceRoll={onDiceRoll}
+      />,
+    );
+    await flush();
+    stdin.write("/roll");
+    stdin.write("\r");
+    await flush();
+    expect(onDiceRoll).not.toHaveBeenCalled();
   });
 });

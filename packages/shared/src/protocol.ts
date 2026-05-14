@@ -51,6 +51,13 @@ export const WorldOpenSchema = z.object({
   type: z.literal("world.open"),
 });
 
+// Dice notation. Server validates + rolls; broadcasts a system event with
+// the formatted outcome. Examples: `d20`, `3d6`, `d8+2`, `2d10-1`.
+export const DiceRollSchema = z.object({
+  type: z.literal("dice.roll"),
+  expression: z.string().min(1).max(32),
+});
+
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   AuthAnonSchema,
   AuthOAuthSchema,
@@ -59,6 +66,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   HistoryLoadSchema,
   ColorChangeSchema,
   WorldOpenSchema,
+  DiceRollSchema,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
@@ -69,6 +77,7 @@ export type NickChange = z.infer<typeof NickChangeSchema>;
 export type HistoryLoad = z.infer<typeof HistoryLoadSchema>;
 export type ColorChange = z.infer<typeof ColorChangeSchema>;
 export type WorldOpen = z.infer<typeof WorldOpenSchema>;
+export type DiceRoll = z.infer<typeof DiceRollSchema>;
 
 // ─── Server → Client ──────────────────────────────────────────────────────────
 
@@ -107,7 +116,15 @@ export const NewMessageSchema = z.object({
 
 export const SystemMessageSchema = z.object({
   type: z.literal("system"),
-  event: z.enum(["join", "leave", "rename", "announce", "world.open", "world.end"]),
+  event: z.enum([
+    "join",
+    "leave",
+    "rename",
+    "announce",
+    "world.open",
+    "world.end",
+    "dice",
+  ]),
   body: z.string(),
 });
 

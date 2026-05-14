@@ -9,6 +9,16 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.15",
+    date: "2026-05-14",
+    title: "Dice, NPC emoji moves, summary stays 正體",
+    highlights: [
+      "/roll <expr> — server-rolled dice (d20, 3d6+2, 2d10-1, …). Broadcast as a 🎲 system event and Discord-relayed; outcome enters the world transcript so the NPC sees it directly.",
+      "NPC's 🌫 emoji now renders in front of the nickname (parallel with the 🎲 player marker) instead of being part of the message body.",
+      "End-of-world summary now follows the same language rule as in-world dialogue — 台灣正體中文, never simplified characters (previous releases let the closing recap drift back to 简体).",
+    ],
+  },
+  {
     version: "0.1.14",
     date: "2026-05-14",
     title: "World polish + testing mode",

@@ -45,6 +45,19 @@ const SYSTEM_PROMPT = `你是「灰袍旅人」，一位行旅四方、來路不
 
 當下處於一場有限資源的世界，世界結束會留下一份摘要。`;
 
+// Used by generateEndSummary so the language rule applies to the closing
+// recap too — without this the model defaulted to simplified Chinese in
+// at least one observed run.
+const SUMMARY_SYSTEM_PROMPT = `你是一位中立、簡短的「世界記事官」。剛結束的 TRPG 副本對話會接著傳給你，請濃縮成一份讀起來自然的紀錄。
+
+語言規則（極重要）：
+- **絕對使用台灣正體中文**。**任何**簡體字都不可以出現。
+- 對照例：「為」不是「为」、「實」不是「实」、「對」不是「对」、「過」不是「过」、「來」不是「来」、「個」不是「个」、「們」不是「们」、「現」不是「现」、「時」不是「时」、「會」不是「会」、「點」不是「点」、「沒」不是「没」、「說」不是「说」、「聽」不是「听」⋯所有字務必正體。
+- 台灣慣用語：「整合」不是「集成」、「預設」不是「默認」、「視訊」不是「视频」、「網路」不是「网络」、「程式」不是「程序」。
+- 玩家對話中的日文、英文保留原樣。
+
+風格：冷靜、簡短、不感情用事；像在寫一份事後紀錄。`;
+
 export type BrainDeps = {
   client: Anthropic;
   messages: MessagesRepo;
@@ -190,9 +203,12 @@ export async function runNpcTurn(
     deps.worldState.addCreditUsage(result.tokensUsed);
 
     if (result.response.trim()) {
+      // NPC emoji is now a *client-side render prefix* (in front of the
+      // nickname label), not part of the body — keeps it parallel to the
+      // 🎲 player prefix and out of the persisted message text.
       const npcMessage: Message = {
         id: randomUUID(),
-        body: `${NPC.emoji} ${result.response}`,
+        body: result.response,
         createdAt: new Date().toISOString(),
         author: {
           nickname: npcConn.nickname,
@@ -284,6 +300,13 @@ export async function generateEndSummary(
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: END_SUMMARY_MAX_TOKENS,
+    system: [
+      {
+        type: "text",
+        text: SUMMARY_SYSTEM_PROMPT,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
     messages: [
       {
         role: "user",
