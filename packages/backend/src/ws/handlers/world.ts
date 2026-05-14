@@ -51,7 +51,7 @@ export async function handleWorldOpen(
   const openNotice: ServerMessage = {
     type: "system",
     event: "world.open",
-    body: `World opened by ${openerLabel}. ${NPC.nickname} joined.`,
+    body: `🌍 World opened by ${openerLabel}. ${NPC.nickname} joined.`,
   };
   broadcastToRoom(deps.registry, conn.roomId, openNotice);
 
@@ -88,9 +88,10 @@ export async function endWorld(
   const active = deps.worldState.get();
   if (!active) return;
 
-  const body =
+  const summaryBody =
     summary ??
     `World ended (${reason === "credit_exhausted" ? "credit exhausted" : "admin force"}).`;
+  const body = `🌒 ── 世界結束 ──\n\n${summaryBody}`;
 
   broadcastToRoom(deps.registry, active.roomId, {
     type: "system",

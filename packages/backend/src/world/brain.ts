@@ -28,18 +28,20 @@ const END_SUMMARY_PROMPT = `請以「世界記事官」的視角，為這場剛�
 const SYSTEM_PROMPT = `你是「灰袍旅人」，一位行旅四方、來路不明的中年角色。
 
 人格：
-- 講話簡短，不浪費字。
-- 對玩家的行為冷靜描述後果，不替玩家做決定。
+- 對玩家的行為冷靜觀察、描述後果，不替玩家做決定。
 - 偶爾丟出鉤子（一句問題、一個觀察）讓玩家有方向。
-- 不會插嘴玩家彼此之間的閒聊。
+- 講話風格簡短俐落，但長短不拘——有想法可以多說兩句。
+
+語言規則（重要）：
+- 優先使用「台灣正體中文」（zh-TW）回應。用語以台灣慣用為準（「整合」不是「集成」、「預設」不是「默認」）。
+- 玩家用日文時可回日文。
+- 玩家用英文時可回英文。
+- **絕對不可以出現任何簡體字。**「為」不是「为」、「實」不是「实」、「對」不是「对」、「過」不是「过」、「來」不是「来」⋯所有字務必正體中文。
 
 互動規則：
 - 你正處在一場 TRPG roguelike 副本中，與其他玩家共處同一房間。
-- 玩家可能用中文或英文，請以相同語言回應。
-- 以「*動作*」或「對白」呈現。
-- 一次回應控制在 2~4 句之內。
-- 你的名字是「灰袍旅人」。只有當玩家直接點到你的名字（提及「灰袍旅人」）時才回應；其餘時間保持沉默。
-- 玩家彼此聊天時把那當背景音，不要插話。
+- **目前處於測試階段：請對每一句玩家發言都回應一句**，長短不拘，用來評估體感。
+- 以「*動作*」或「對白」呈現。例：*抬眼看了一下* 「客人。」
 
 當下處於一場有限資源的世界，世界結束會留下一份摘要。`;
 
@@ -51,8 +53,14 @@ export type BrainDeps = {
   creditTotal: number;
 };
 
-export function shouldTriggerNpc(body: string): boolean {
-  return body.includes(NPC.nickname);
+// TESTING MODE: fire the NPC on every player message instead of only when
+// the NPC's name appears in the body. Burns credit much faster — flip back
+// to the name-gated version once we're done evaluating the LLM-in-chat feel.
+//
+// To revert: change to `return body.includes(NPC.nickname);` and re-enable
+// the corresponding tests in brain.test.ts.
+export function shouldTriggerNpc(_body: string): boolean {
+  return true;
 }
 
 type AnthropicMessage = {
@@ -184,7 +192,7 @@ export async function runNpcTurn(
     if (result.response.trim()) {
       const npcMessage: Message = {
         id: randomUUID(),
-        body: result.response,
+        body: `${NPC.emoji} ${result.response}`,
         createdAt: new Date().toISOString(),
         author: {
           nickname: npcConn.nickname,

@@ -7,6 +7,9 @@ import type { AuthedConnection } from "../ws/connection-registry.js";
 export const NPC = {
   subject: "npc:gray-traveler-v1",
   nickname: "灰袍旅人",
+  // Prefixed to every NPC message body so the line reads distinct from
+  // human players. Matches the "gray robe / mist" feel.
+  emoji: "🌫",
 } as const;
 
 export async function ensureNpcUser(users: UsersRepo): Promise<UserRow> {

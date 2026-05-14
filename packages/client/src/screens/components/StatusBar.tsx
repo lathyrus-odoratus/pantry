@@ -34,18 +34,23 @@ export function StatusBar({
       ? ` (attempt ${reconnectAttempt})`
       : "";
   return (
-    <Box>
-      <Text color={COLORS[status]} bold>
-        {LABELS[status]}
-        {extra}
-      </Text>
-      <Text dimColor> · Ctrl+C to quit · /h · /changelog · /nick · /color</Text>
-      {updateAvailable ? (
-        <Text color="cyan">
-          {" "}
-          · ↑ {updateAvailable} available (run `npx @lathyrus-odoratus/pantry@latest`)
+    <Box flexDirection="column">
+      <Box>
+        <Text color={COLORS[status]} bold>
+          {LABELS[status]}
+          {extra}
         </Text>
-      ) : null}
+        <Text dimColor> · Ctrl+C to quit</Text>
+        {updateAvailable ? (
+          <Text color="cyan">
+            {" "}
+            · ↑ {updateAvailable} available (run `npx @lathyrus-odoratus/pantry@latest`)
+          </Text>
+        ) : null}
+      </Box>
+      <Box>
+        <Text dimColor>/h · /changelog · /nick · /color · /the-world</Text>
+      </Box>
     </Box>
   );
 }

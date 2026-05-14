@@ -9,6 +9,19 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.14",
+    date: "2026-05-14",
+    title: "World polish + testing mode",
+    highlights: [
+      "NPC speech is now prefixed with 🌫 so the traveler's lines stand out from human players.",
+      "Easter egg: while a world is active, each player's nick gets a 🎲 in front — testing-period only, marks the TRPG cast.",
+      "World open/end notices carry an emoji (🌍 / 🌒); the multi-line end summary no longer gets ── ── wrapped.",
+      "Slash commands wrap to their own line in the StatusBar; /the-world is listed alongside /h, /changelog, /nick, /color.",
+      "NPC prompt: replies in 台灣正體中文 by default (never simplified characters); Japanese / English when the player uses those.",
+      "TESTING MODE: NPC now replies to every player message instead of only when its name appears. Burns credit faster — temporary while we evaluate the chat-flow feel.",
+    ],
+  },
+  {
     version: "0.1.13",
     date: "2026-05-14",
     title: "/the-world — TRPG roguelike MVP",

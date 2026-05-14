@@ -21,9 +21,15 @@ function hashColor(label: string): string {
   return palette[Math.abs(h) % palette.length] ?? "white";
 }
 
+// Easter egg: while a world is active, prefix each player message with this
+// emoji so the TRPG cast reads visually distinct from regular chat. NPC
+// messages (which already carry their own emoji in the body) are skipped.
+const PLAYER_WORLD_EMOJI = "🎲";
+const NPC_BODY_PREFIX = "🌫 ";
+
 function MessageRow({ m }: { m: Message }): React.JSX.Element {
-  // System notices (joins, leaves, renames, local /h help) render as a dim
-  // block without the `nick#disc:` prefix. Body may be multi-line.
+  // System notices (joins, leaves, renames, local /h help, world.open/end)
+  // render as a dim block without the `nick#disc:` prefix. Body may be multi-line.
   if (m.author.discriminator === "sys") {
     return (
       <Box flexDirection="column">
@@ -36,18 +42,21 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
     );
   }
   const label = `${m.author.nickname}#${m.author.discriminator}`;
-  // Static items render exactly once; resolve the author's current color at
-  // that moment via getState() to avoid subscribing (which would defeat Static).
-  const author = useStore
-    .getState()
-    .onlineUsers.find(
-      (u) =>
-        u.nickname === m.author.nickname &&
-        u.discriminator === m.author.discriminator,
-    );
+  // Static items render exactly once; resolve the author's current color and
+  // world-active state at that moment via getState() to avoid subscribing
+  // (which would defeat Static).
+  const snapshot = useStore.getState();
+  const author = snapshot.onlineUsers.find(
+    (u) =>
+      u.nickname === m.author.nickname &&
+      u.discriminator === m.author.discriminator,
+  );
   const color = author?.color ?? hashColor(label);
+  const isNpc = m.body.startsWith(NPC_BODY_PREFIX);
+  const showPlayerEmoji = snapshot.worldActive && !isNpc;
   return (
     <Box>
+      {showPlayerEmoji ? <Text>{PLAYER_WORLD_EMOJI} </Text> : null}
       <Text color={color} bold>
         {label}
       </Text>
@@ -105,14 +114,20 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
           case "message":
             addMessage(m.data);
             break;
-          case "system":
+          case "system": {
+            // Single-line notices (join/leave/rename/announce/world.open) get
+            // the visual `── … ──` brackets. Multi-line bodies (world.end with
+            // the LLM summary) render as-is — bracketing a paragraph block
+            // looks broken.
+            const isMultiline = m.body.includes("\n");
             addMessage({
               id: `sys-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
-              body: `── ${m.body} ──`,
+              body: isMultiline ? m.body : `── ${m.body} ──`,
               createdAt: new Date().toISOString(),
               author: { nickname: "·", discriminator: "sys" },
             });
             break;
+          }
           case "presence":
             setPresence(m.onlineUsers);
             break;

@@ -63,7 +63,10 @@ describe("buildAnthropicMessages", () => {
   });
 });
 
-describe("shouldTriggerNpc", () => {
+describe("shouldTriggerNpc (testing mode — always returns true)", () => {
+  // The codebase is currently in testing mode (every player message fires the
+  // NPC). When name-gating is restored, swap these for the original assertions
+  // (trigger on "灰袍旅人" mention, not on unrelated chitchat).
   it("triggers on bare name mention", () => {
     expect(shouldTriggerNpc("灰袍旅人 你好")).toBe(true);
   });
@@ -72,12 +75,11 @@ describe("shouldTriggerNpc", () => {
     expect(shouldTriggerNpc("@灰袍旅人 在嗎")).toBe(true);
   });
 
-  it("does not trigger on unrelated chitchat", () => {
-    expect(shouldTriggerNpc("我們去探險吧")).toBe(false);
+  it("triggers on chitchat (testing mode)", () => {
+    expect(shouldTriggerNpc("我們去探險吧")).toBe(true);
   });
 
-  it("does not trigger on partial-name fragments", () => {
-    // "灰袍" alone shouldn't trigger; full name "灰袍旅人" required
-    expect(shouldTriggerNpc("灰袍披風的人")).toBe(false);
+  it("triggers on partial-name fragments (testing mode)", () => {
+    expect(shouldTriggerNpc("灰袍披風的人")).toBe(true);
   });
 });
