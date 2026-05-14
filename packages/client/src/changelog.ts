@@ -9,6 +9,18 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.13",
+    date: "2026-05-14",
+    title: "/the-world — TRPG roguelike MVP",
+    highlights: [
+      "/the-world opens a globally-singleton world in this room with one LLM NPC, 「灰袍旅人」.",
+      "Progress bar above the input shows credit (100k tokens) burning down as you address the NPC.",
+      "NPC only responds when its name appears in your message; player-to-player chat is free.",
+      "World ends when credit hits zero or an operator force-ends it; an LLM-written summary is broadcast either way.",
+      "Cross-session memory is not built yet — the next world starts fresh (closing summary footer reminds you).",
+    ],
+  },
+  {
     version: "0.1.12",
     date: "2026-05-14",
     title: "/h help + status bar refresh",

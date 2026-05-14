@@ -11,6 +11,19 @@ import type { TranscriptEntry, WorldStateStore } from "./state.js";
 
 const MODEL = "claude-haiku-4-5";
 const MAX_OUTPUT_TOKENS = 300;
+const END_SUMMARY_MAX_TOKENS = 700;
+
+// Appended to every world-end summary so players know cross-session memory
+// isn't implemented yet. Remove when chronicle persistence lands.
+export const END_FOOTER = "（下一場世界開啟時，NPC 不會記得這次。）";
+
+const END_SUMMARY_PROMPT = `請以「世界記事官」的視角，為這場剛結束的 TRPG 副本寫簡短摘要：
+
+1. 這次發生了什麼（3~5 句敘事體）
+2. 誰做了什麼明顯的事（用 nick#disc 點名）
+3. 體感觀察：這套「LLM 在聊天室裡跑 TRPG」感覺如何？哪些瞬間有意思？哪些地方卡住？
+
+不超過 300 字。用中文。語氣冷靜、簡短。如果對話過短或沒有實質互動，直接說出來。`;
 
 const SYSTEM_PROMPT = `你是「灰袍旅人」，一位行旅四方、來路不明的中年角色。
 
@@ -215,15 +228,22 @@ export async function runNpcTurn(
     broadcastToRoom(deps.registry, world.roomId, stateMsg);
 
     if (world.creditUsed >= world.creditTotal) {
+      let summary: string;
+      try {
+        summary = await generateEndSummary(deps.client, world.transcript);
+      } catch (err) {
+        logger.warn({ err }, "end-summary generation failed");
+        summary = `世界結束（credit 用盡）。摘要產生失敗。\n\n${END_FOOTER}`;
+      }
       await endWorld(
         {
-          // endWorld doesn't actually read users; pass a stub-compatible shape.
           users: undefined as never,
           registry: deps.registry,
           worldState: deps.worldState,
           creditTotal: deps.creditTotal,
         },
         "credit_exhausted",
+        summary,
       );
     }
   } catch (err) {
@@ -231,4 +251,42 @@ export async function runNpcTurn(
   } finally {
     if (world) world.brainBusy = false;
   }
+}
+
+/**
+ * One-shot LLM call that summarizes the world's transcript at end time.
+ * Appends a fixed footer reminding players that cross-session memory isn't
+ * implemented yet — remove that line once chronicle persistence lands.
+ */
+export async function generateEndSummary(
+  client: Anthropic,
+  transcript: TranscriptEntry[],
+): Promise<string> {
+  if (transcript.length === 0) {
+    return `（世界開啟但沒有實質互動，沒什麼可說的。）\n\n${END_FOOTER}`;
+  }
+
+  const transcriptText = transcript
+    .map((e) => {
+      const role = e.role === "player" ? e.authorLabel : `${e.authorLabel} (NPC)`;
+      return `${role}: ${e.body}`;
+    })
+    .join("\n");
+
+  const response = await client.messages.create({
+    model: MODEL,
+    max_tokens: END_SUMMARY_MAX_TOKENS,
+    messages: [
+      {
+        role: "user",
+        content: `${END_SUMMARY_PROMPT}\n\n──完整對話──\n${transcriptText}\n──結束──`,
+      },
+    ],
+  });
+
+  const textBlock = response.content.find(
+    (b): b is Anthropic.TextBlock => b.type === "text",
+  );
+  const summary = textBlock?.text?.trim() ?? "（摘要產生失敗。）";
+  return `${summary}\n\n${END_FOOTER}`;
 }

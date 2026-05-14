@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { Config } from "../config.js";
 import type { RoomsRepo } from "../db/rooms.js";
@@ -12,6 +13,7 @@ import {
 import { logger } from "../logger.js";
 import type { WorldStateStore } from "../world/state.js";
 import { endWorld } from "../ws/handlers/world.js";
+import { generateEndSummary, END_FOOTER } from "../world/brain.js";
 
 const BroadcastBodySchema = z.object({
   room: z.string().min(1).max(64),
@@ -23,6 +25,7 @@ export type AdminRoutesDeps = {
   rooms: RoomsRepo;
   registry: ConnectionRegistry;
   worldState: WorldStateStore;
+  anthropic: Anthropic | null;
 };
 
 export async function registerAdminRoutes(
@@ -74,6 +77,18 @@ export async function registerAdminRoutes(
     const active = deps.worldState.get();
     if (!active) return reply.code(404).send({ error: "no_active_world" });
 
+    let summary: string | undefined;
+    if (deps.anthropic) {
+      try {
+        summary = await generateEndSummary(deps.anthropic, active.transcript);
+      } catch (err) {
+        logger.warn({ err }, "admin force-end summary failed");
+        summary = `世界結束（admin force）。摘要產生失敗。\n\n${END_FOOTER}`;
+      }
+    } else {
+      summary = `世界結束（admin force）。\n\n${END_FOOTER}`;
+    }
+
     await endWorld(
       {
         users: undefined as never,
@@ -82,6 +97,7 @@ export async function registerAdminRoutes(
         creditTotal: active.creditTotal,
       },
       "admin_force",
+      summary,
     );
     logger.info({ roomId: active.roomId }, "admin force-ended world");
     return reply.code(204).send({});
