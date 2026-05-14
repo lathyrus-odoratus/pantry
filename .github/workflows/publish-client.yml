@@ -32,10 +32,7 @@ jobs:
           fi
           echo "Tag matches package version: $PKG_VERSION"
 
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Build
+      - name: Build (also typechecks)
         run: pnpm build
 
       - name: Publish to npm
