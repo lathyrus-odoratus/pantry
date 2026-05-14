@@ -147,6 +147,21 @@ pnpm run deploy:with-notice <room>
 
 `pnpm run deploy` rsyncs source to `wisp:/opt/pantry/` and rebuilds the container. The in-memory connection registry can't broadcast leaves on container death, so use `pnpm run deploy:with-notice <room> [delay-seconds]` when active users would notice — it posts an admin announcement, sleeps, then deploys.
 
+## World feature — credit accounting
+
+The `/the-world` feature uses an LLM-backed NPC. `WORLD_CREDIT_TOTAL` (default `100000`) is the per-world budget in a **weighted-cost unit**, not raw tokens. Weights are pinned to Anthropic's Haiku 4.5 list price so 1 credit ≈ 1 input token at full rate (≈ `$0.000001`). The formula lives in `packages/backend/src/world/brain.ts` as `weightedTokens()`:
+
+```
+input          × 1.0     ($1.00 / 1M tokens)
+cache_create   × 1.25    ($1.25 / 1M tokens, 5-min TTL)
+cache_read     × 0.1     ($0.10 / 1M tokens)
+output         × 5.0     ($5.00 / 1M tokens)
+```
+
+Cost conversion: **1 credit ≈ $0.000001**, so the default 100k-credit world budget ≈ **$0.10** of Haiku spend. The TUI progress bar shows `creditUsed / creditTotal`; it tracks $ spend, not raw token throughput.
+
+This pegs to **`claude-haiku-4-5`** specifically. Switching model means revisiting both the weight constants and the `MODEL` const in `brain.ts` (e.g. Sonnet 4.6 input $3 / output $15 would shift the ratios). Keep these together — the weighting is meaningless if it doesn't match the model's pricing.
+
 ## Version awareness (the "update available" hint)
 
 Pull-on-connect, not pushed: `auth.ok` carries `latestClientVersion` (from backend's `LATEST_CLIENT_VERSION`). Client's `version.ts` exports `CLIENT_VERSION` + `compareSemver`; when latest > self, store sets `updateAvailable` and `StatusBar` renders the hint.
