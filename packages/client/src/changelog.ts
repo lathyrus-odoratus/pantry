@@ -9,6 +9,16 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.18",
+    date: "2026-05-15",
+    title: "Admin scene (--admin) + room close/reopen",
+    highlights: [
+      "`pantry --admin` enters a Discord-authenticated admin TUI for managing rooms (list / create / close / reopen / delete). Requires admin grant on the server.",
+      "Rooms can be 'closed' — history preserved, new joins rejected (`Auth failed: room_closed`); existing connections stay until they drop. Admin can reopen.",
+      "Admin's Discord token cached at ~/.pantry/credentials.json (mode 600, 7-day) so repeat `--admin` launches skip the OAuth dance.",
+    ],
+  },
+  {
     version: "0.1.17",
     date: "2026-05-14",
     title: "Cheaper LLM, NPC reacts to dice, clearer /roll prompt",
