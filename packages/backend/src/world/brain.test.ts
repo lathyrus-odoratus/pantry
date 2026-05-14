@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildAnthropicMessages, shouldTriggerNpc } from "./brain.js";
+import { buildAnthropicMessages, shouldTriggerNpc, extractRollMarker } from "./brain.js";
 import type { TranscriptEntry } from "./state.js";
 
 function p(label: string, body: string, at = 0): TranscriptEntry {
@@ -60,6 +60,44 @@ describe("buildAnthropicMessages", () => {
       { role: "assistant", content: "嗯。\n*繼續沉默*" },
       { role: "user", content: "alice#ab12: 你說啊" },
     ]);
+  });
+});
+
+describe("extractRollMarker", () => {
+  it("returns null when no marker is present", () => {
+    expect(extractRollMarker("*點點頭* 客人。")).toBeNull();
+  });
+
+  it("returns null for an unparseable expression", () => {
+    expect(extractRollMarker("試試 [[roll:d7]] 看看")).toBeNull();
+  });
+
+  it("extracts a d20 spec and replaces the marker with 🎲(d20) inline", () => {
+    const out = extractRollMarker("*揮拳* [[roll:d20]] 看你能不能閃過。");
+    expect(out).not.toBeNull();
+    expect(out!.spec).toEqual({ count: 1, sides: 20, modifier: 0 });
+    expect(out!.bodyAfter).toBe("*揮拳* 🎲(d20) 看你能不能閃過。");
+  });
+
+  it("extracts a complex spec (3d6+2) and pretty-prints it", () => {
+    const out = extractRollMarker("[[roll:3d6+2]] 看傷害");
+    expect(out).not.toBeNull();
+    expect(out!.spec).toEqual({ count: 3, sides: 6, modifier: 2 });
+    expect(out!.bodyAfter).toBe("🎲(3d6+2) 看傷害");
+  });
+
+  it("keeps only the first marker; strips any subsequent ones", () => {
+    const out = extractRollMarker(
+      "先 [[roll:d20]] 看命中再 [[roll:2d6]] 看傷害",
+    );
+    expect(out).not.toBeNull();
+    expect(out!.spec).toEqual({ count: 1, sides: 20, modifier: 0 });
+    expect(out!.bodyAfter).toBe("先 🎲(d20) 看命中再 看傷害");
+  });
+
+  it("is case-insensitive on the roll keyword", () => {
+    const out = extractRollMarker("[[ROLL:d10]] OK");
+    expect(out!.spec.sides).toBe(10);
   });
 });
 

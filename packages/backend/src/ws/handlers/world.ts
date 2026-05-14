@@ -47,6 +47,7 @@ export async function handleWorldOpen(
     transcript: [],
     webhook: conn.webhook,
     brainBusy: false,
+    pendingRoll: null,
   });
 
   const openerLabel = `${conn.nickname}#${conn.discriminator}`;

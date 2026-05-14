@@ -9,13 +9,13 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.1.15",
+    version: "0.1.16",
     date: "2026-05-14",
-    title: "Dice, NPC emoji moves, summary stays 正體",
+    title: "GM-driven dice + NPC emoji moves + summary stays 正體",
     highlights: [
-      "/roll <expr> — server-rolled dice (d20, 3d6+2, 2d10-1, …). Broadcast as a 🎲 system event and Discord-relayed; outcome enters the world transcript so the NPC sees it directly.",
-      "NPC's 🌫 emoji now renders in front of the nickname (parallel with the 🎲 player marker) instead of being part of the message body.",
-      "End-of-world summary now follows the same language rule as in-world dialogue — 台灣正體中文, never simplified characters (previous releases let the closing recap drift back to 简体).",
+      "Dice flow flipped: /roll takes no argument. The NPC asks for a roll via `[[roll:d20]]` markers in its responses (server replaces the marker with an inline 🎲(d20) hint and parks the spec in world state). /roll consumes the pending spec and broadcasts the result; outcome enters the transcript so the NPC sees it on its next turn. /roll only works inside an active world.",
+      "NPC's 🌫 emoji renders in front of the nickname (parallel with the 🎲 player marker) instead of being part of the body.",
+      "End-of-world summary now hard-bans simplified characters via its own focused system prompt (previous releases let the closing recap drift back to 简体).",
     ],
   },
   {

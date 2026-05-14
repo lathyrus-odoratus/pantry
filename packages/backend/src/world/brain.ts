@@ -7,6 +7,8 @@ import type { ConnectionRegistry } from "../ws/connection-registry.js";
 import { broadcastToRoom } from "../ws/broadcast.js";
 import { endWorld } from "../ws/handlers/world.js";
 import { NPC } from "./npc.js";
+import { parseDiceExpression, formatExpression } from "./dice.js";
+import type { Dice } from "./dice.js";
 import type { TranscriptEntry, WorldStateStore } from "./state.js";
 
 const MODEL = "claude-haiku-4-5";
@@ -43,7 +45,22 @@ const SYSTEM_PROMPT = `你是「灰袍旅人」，一位行旅四方、來路不
 - **目前處於測試階段：請對每一句玩家發言都回應一句**，長短不拘，用來評估體感。
 - 以「*動作*」或「對白」呈現。例：*抬眼看了一下* 「客人。」
 
-當下處於一場有限資源的世界，世界結束會留下一份摘要。`;
+當下處於一場有限資源的世界，世界結束會留下一份摘要。
+
+──── 擲骰規則 ────
+當情境出現「真正的不確定性」需要骰子裁決時——攻擊、閃避、技能檢定、運氣、命中、洞察⋯，**在你回應中插入一個 \`[[roll:EXPR]]\` 標記**。例：
+
+  *巨魔轉身，揮出粗壯的拳頭* [[roll:d20]] 看你能不能閃過。
+
+EXPR 用標準 TRPG 表記：
+- d4 / d6 / d8 / d10 / d12 / d20 / d100
+- 可加數量（如 3d6），可加修正（如 d20+2、2d8-1）
+- 通用裁決用 d20；小事件用 d6；百分比用 d100
+
+重要原則：
+- **每回應最多一個 marker**——不要連續要求兩擲。
+- 不是每句話都要 marker——只在真的需要骰子裁決時。日常閒聊、敘事描寫、情緒反應**都不要**用 marker。
+- 玩家會打 \`/roll\`，server 擲完你下一回合會看到結果（會以 \`🎲 dice: …\` 出現在對話裡）。看到結果後再描寫後果（命中/閃過/翻倍/慘敗）。`;
 
 // Used by generateEndSummary so the language rule applies to the closing
 // recap too — without this the model defaulted to simplified Chinese in
@@ -74,6 +91,39 @@ export type BrainDeps = {
 // the corresponding tests in brain.test.ts.
 export function shouldTriggerNpc(_body: string): boolean {
   return true;
+}
+
+const ROLL_MARKER_RE = /\[\[roll:([^\]\n]+)\]\]/gi;
+
+/**
+ * Extract the FIRST `[[roll:EXPR]]` marker from an NPC response. Returns the
+ * parsed Dice plus a body with the marker replaced by an inline pretty form
+ * (` 🎲(d20) `). Any subsequent markers in the same response are stripped
+ * (per the prompt: at most one marker per turn). Returns null if there are
+ * no markers or the first one's expression is unparseable.
+ */
+export function extractRollMarker(
+  text: string,
+): { spec: Dice; bodyAfter: string } | null {
+  const matches = [...text.matchAll(ROLL_MARKER_RE)];
+  if (matches.length === 0) return null;
+  const first = matches[0]!;
+  const spec = parseDiceExpression(first[1]!.trim());
+  if (!spec) return null;
+  const pretty = `🎲(${formatExpression(spec)})`;
+  // Replace first marker with the pretty form, strip the rest.
+  let body = text;
+  let firstReplaced = false;
+  body = body.replace(ROLL_MARKER_RE, (whole) => {
+    if (!firstReplaced) {
+      firstReplaced = true;
+      return pretty;
+    }
+    return "";
+  });
+  // Collapse the runs of whitespace that the strip can leave behind.
+  body = body.replace(/[ \t]{2,}/g, " ").replace(/ +\n/g, "\n");
+  return { spec, bodyAfter: body };
 }
 
 type AnthropicMessage = {
@@ -203,12 +253,24 @@ export async function runNpcTurn(
     deps.worldState.addCreditUsage(result.tokensUsed);
 
     if (result.response.trim()) {
+      // If the NPC asked for a roll, peel the marker out of the body and
+      // park the spec in pendingRoll for /roll to consume.
+      let body = result.response;
+      const extraction = extractRollMarker(body);
+      if (extraction) {
+        world.pendingRoll = extraction.spec;
+        body = extraction.bodyAfter;
+        logger.info(
+          { roomId: world.roomId, dice: extraction.spec },
+          "NPC requested a roll",
+        );
+      }
       // NPC emoji is now a *client-side render prefix* (in front of the
       // nickname label), not part of the body — keeps it parallel to the
       // 🎲 player prefix and out of the persisted message text.
       const npcMessage: Message = {
         id: randomUUID(),
-        body: result.response,
+        body,
         createdAt: new Date().toISOString(),
         author: {
           nickname: npcConn.nickname,
@@ -224,7 +286,7 @@ export async function runNpcTurn(
       deps.worldState.appendTranscript({
         role: "npc",
         authorLabel: `${npcConn.nickname}#${npcConn.discriminator}`,
-        body: result.response,
+        body: npcMessage.body,
         at: Date.now(),
       });
 

@@ -153,7 +153,7 @@ export function attachWebSocketServer(
             });
             break;
           case "dice.roll":
-            await handleDiceRoll(authed, parsed, {
+            await handleDiceRoll(authed, {
               registry: deps.registry,
               worldState: deps.worldState,
             });

@@ -5,6 +5,12 @@ export type TranscriptEntry = {
   at: number;
 };
 
+export type PendingRoll = {
+  count: number;
+  sides: number;
+  modifier: number;
+};
+
 export type ActiveWorld = {
   roomId: string;
   npcUserId: string;
@@ -20,6 +26,9 @@ export type ActiveWorld = {
   // Set to true while an LLM call is in flight so a second concurrent
   // trigger drops the turn rather than racing the in-flight one.
   brainBusy: boolean;
+  // Dice spec the NPC last requested via a `[[roll:…]]` marker. /roll
+  // consumes this slot; null means no roll is currently being requested.
+  pendingRoll: PendingRoll | null;
 };
 
 export class WorldStateStore {

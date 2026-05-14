@@ -51,11 +51,11 @@ export const WorldOpenSchema = z.object({
   type: z.literal("world.open"),
 });
 
-// Dice notation. Server validates + rolls; broadcasts a system event with
-// the formatted outcome. Examples: `d20`, `3d6`, `d8+2`, `2d10-1`.
+// Bare command. The dice spec is whatever the NPC last requested via a
+// [[roll:…]] marker in its response; the server keeps the pending spec in
+// the active world's state and consumes it on /roll.
 export const DiceRollSchema = z.object({
   type: z.literal("dice.roll"),
-  expression: z.string().min(1).max(32),
 });
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [

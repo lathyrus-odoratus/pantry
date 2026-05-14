@@ -1,9 +1,9 @@
-import type { DiceRoll, ServerMessage } from "@pantry/shared";
+import type { ServerMessage } from "@pantry/shared";
 import { logger } from "../../logger.js";
 import type { ConnectionRegistry, AuthedConnection } from "../connection-registry.js";
 import { broadcastToRoom, send } from "../broadcast.js";
 import { notify } from "../../discord/webhook.js";
-import { parseDiceExpression, rollDice, formatRoll } from "../../world/dice.js";
+import { rollDice, formatRoll } from "../../world/dice.js";
 import type { WorldStateStore } from "../../world/state.js";
 
 export type DiceDeps = {
@@ -11,20 +11,39 @@ export type DiceDeps = {
   worldState: WorldStateStore;
 };
 
+/**
+ * /roll has no arguments. The dice spec comes from worldState.pendingRoll,
+ * which the NPC set via a `[[roll:…]]` marker on its previous turn. Server
+ * is authoritative for the roll; outcome is broadcast as a 'dice' system
+ * event, mirrored to Discord, and fed into the transcript so the NPC sees
+ * it on its next turn.
+ */
 export async function handleDiceRoll(
   conn: AuthedConnection,
-  raw: DiceRoll,
   deps: DiceDeps,
 ): Promise<void> {
-  const dice = parseDiceExpression(raw.expression);
-  if (!dice) {
+  const world = deps.worldState.get();
+  if (!world || world.roomId !== conn.roomId) {
     send(conn, {
       type: "error",
-      code: "invalid_dice",
-      message: `Bad dice expression. Try d20, 3d6, d8+2 (sides: 2/3/4/6/8/10/12/20/100, count ≤ 20).`,
+      code: "no_active_world",
+      message: "/roll only works while a world is active in this room.",
     });
     return;
   }
+  const dice = world.pendingRoll;
+  if (!dice) {
+    send(conn, {
+      type: "error",
+      code: "no_pending_roll",
+      message:
+        "No pending roll — the NPC hasn't asked for one yet. Provoke the world first.",
+    });
+    return;
+  }
+
+  // Consume the slot before broadcasting so a double /roll doesn't reuse it.
+  world.pendingRoll = null;
 
   const result = rollDice(dice);
   const authorLabel = `${conn.nickname}#${conn.discriminator}`;
@@ -34,24 +53,19 @@ export async function handleDiceRoll(
   broadcastToRoom(deps.registry, conn.roomId, sysMsg);
   notify(conn.webhook, `> ${body}`);
 
-  // If a world is active in this room, feed the outcome into the transcript
-  // so the NPC sees the roll on its next turn (treat dice as a player
-  // utterance so it lands in the next merged `user` message).
-  const world = deps.worldState.get();
-  if (world && world.roomId === conn.roomId) {
-    world.transcript.push({
-      role: "player",
-      authorLabel: "🎲 dice",
-      body,
-      at: Date.now(),
-    });
-  }
+  // Feed outcome into transcript so NPC sees it on next turn.
+  world.transcript.push({
+    role: "player",
+    authorLabel: "🎲 dice",
+    body,
+    at: Date.now(),
+  });
 
   logger.info(
     {
       userId: conn.userId,
       roomId: conn.roomId,
-      expression: raw.expression,
+      dice,
       total: result.total,
     },
     "dice rolled",

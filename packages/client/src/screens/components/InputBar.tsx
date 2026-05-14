@@ -9,7 +9,7 @@ type Props = {
   onChangelog: () => void;
   onHelp: () => void;
   onWorldOpen: () => void;
-  onDiceRoll: (expression: string) => void;
+  onDiceRoll: () => void;
 };
 
 const HEX_COLOR_RE = /^#?[0-9a-fA-F]{6}$/;
@@ -53,9 +53,10 @@ export function InputBar({
         onHelp();
       } else if (cmd === "the-world") {
         onWorldOpen();
-      } else if (cmd === "roll" && arg) {
-        // Validation lives server-side so the bar can stay terse.
-        onDiceRoll(arg);
+      } else if (cmd === "roll") {
+        // Bare /roll — server reads the dice spec from world state's
+        // pendingRoll (set by the NPC's [[roll:…]] marker).
+        onDiceRoll();
       }
       return;
     }

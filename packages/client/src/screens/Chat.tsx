@@ -206,8 +206,8 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const onWorldOpen = useCallback(() => {
     transportRef.current?.send({ type: "world.open" });
   }, []);
-  const onDiceRoll = useCallback((expression: string) => {
-    transportRef.current?.send({ type: "dice.roll", expression });
+  const onDiceRoll = useCallback(() => {
+    transportRef.current?.send({ type: "dice.roll" });
   }, []);
 
   const worldActive = useStore((s) => s.worldActive);

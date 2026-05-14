@@ -135,6 +135,7 @@ describe("handleWorldOpen", () => {
       transcript: [],
       webhook: null,
       brainBusy: false,
+      pendingRoll: null,
     });
 
     const opener = fakeOpener("room-1");

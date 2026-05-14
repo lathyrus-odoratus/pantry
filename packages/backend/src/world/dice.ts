@@ -46,7 +46,7 @@ export function rollDice(d: Dice): RollResult {
   return { rolls, total: sum + d.modifier };
 }
 
-function formatExpression(d: Dice): string {
+export function formatExpression(d: Dice): string {
   const countPart = d.count === 1 ? "" : String(d.count);
   const modifierPart =
     d.modifier === 0

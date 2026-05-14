@@ -260,27 +260,7 @@ describe("InputBar", () => {
     expect(onWorldOpen).toHaveBeenCalledTimes(1);
   });
 
-  it("calls onDiceRoll with the expression on /roll d20", async () => {
-    const onDiceRoll = vi.fn();
-    const { stdin } = render(
-      <InputBar
-        onSend={() => {}}
-        onNick={() => {}}
-        onColor={() => {}}
-        onChangelog={() => {}}
-        onHelp={() => {}}
-        onWorldOpen={() => {}}
-        onDiceRoll={onDiceRoll}
-      />,
-    );
-    await flush();
-    stdin.write("/roll d20");
-    stdin.write("\r");
-    await flush();
-    expect(onDiceRoll).toHaveBeenCalledWith("d20");
-  });
-
-  it("/roll without an argument is ignored", async () => {
+  it("calls onDiceRoll on bare /roll (server reads pending spec)", async () => {
     const onDiceRoll = vi.fn();
     const { stdin } = render(
       <InputBar
@@ -297,6 +277,26 @@ describe("InputBar", () => {
     stdin.write("/roll");
     stdin.write("\r");
     await flush();
-    expect(onDiceRoll).not.toHaveBeenCalled();
+    expect(onDiceRoll).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onDiceRoll even with trailing argument (server ignores arg)", async () => {
+    const onDiceRoll = vi.fn();
+    const { stdin } = render(
+      <InputBar
+        onSend={() => {}}
+        onNick={() => {}}
+        onColor={() => {}}
+        onChangelog={() => {}}
+        onHelp={() => {}}
+        onWorldOpen={() => {}}
+        onDiceRoll={onDiceRoll}
+      />,
+    );
+    await flush();
+    stdin.write("/roll d20");
+    stdin.write("\r");
+    await flush();
+    expect(onDiceRoll).toHaveBeenCalledTimes(1);
   });
 });
