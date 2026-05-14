@@ -1,6 +1,7 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import type { Server as HTTPServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import type Anthropic from "@anthropic-ai/sdk";
 import { ClientMessageSchema, type ServerMessage } from "@pantry/shared";
 
 import type { Config } from "../config.js";
@@ -34,6 +35,7 @@ export type WsServerDeps = {
   messages: MessagesRepo;
   registry: ConnectionRegistry;
   worldState: WorldStateStore;
+  anthropic: Anthropic | null;
 };
 
 export function attachWebSocketServer(
@@ -119,7 +121,13 @@ export function attachWebSocketServer(
 
         switch (parsed.type) {
           case "message.send":
-            await handleSend(authed, parsed, deps);
+            await handleSend(authed, parsed, {
+              messages: deps.messages,
+              registry: deps.registry,
+              worldState: deps.worldState,
+              anthropic: deps.anthropic,
+              worldCreditTotal: deps.config.worldCreditTotal,
+            });
             break;
           case "nick.change":
             await handleNick(authed, parsed, deps);
@@ -128,6 +136,14 @@ export function attachWebSocketServer(
             await handleColor(authed, parsed, deps);
             break;
           case "world.open":
+            if (deps.anthropic === null) {
+              sendMsg({
+                type: "error",
+                code: "world_not_configured",
+                message: "World feature is not configured on this server.",
+              });
+              break;
+            }
             await handleWorldOpen(authed, {
               users: deps.users,
               registry: deps.registry,

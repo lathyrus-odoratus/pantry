@@ -133,6 +133,7 @@ describe("handleWorldOpen", () => {
       creditUsed: 0,
       creditTotal: 100_000,
       transcript: [],
+      brainBusy: false,
     });
 
     const opener = fakeOpener("room-1");

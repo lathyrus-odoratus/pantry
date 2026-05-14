@@ -10,6 +10,7 @@ function fakeActive(roomId = "r1"): ActiveWorld {
     creditUsed: 0,
     creditTotal: 100_000,
     transcript: [],
+    brainBusy: false,
   };
 }
 

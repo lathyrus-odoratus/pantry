@@ -14,6 +14,7 @@
     "admin": "tsx --env-file=.env src/admin/cli.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.96.0",
     "@pantry/shared": "workspace:*",
     "@supabase/supabase-js": "^2.45.0",
     "cac": "^6.7.14",

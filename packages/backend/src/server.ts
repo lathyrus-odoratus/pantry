@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import Anthropic from "@anthropic-ai/sdk";
 import { loadConfig } from "./config.js";
 import { logger } from "./logger.js";
 import { createSupabaseClient } from "./db/supabase.js";
@@ -22,6 +23,14 @@ export async function startServer(): Promise<void> {
   const stateStore = new OAuthStateStore();
   const registry = new ConnectionRegistry();
   const worldState = new WorldStateStore();
+  const anthropic = config.anthropicApiKey
+    ? new Anthropic({ apiKey: config.anthropicApiKey })
+    : null;
+  if (anthropic) {
+    logger.info("anthropic client ready (world feature enabled)");
+  } else {
+    logger.info("ANTHROPIC_API_KEY not set; world feature disabled");
+  }
 
   const app = Fastify({ logger: false });
   app.get("/health", async () => ({ ok: true }));
@@ -37,6 +46,7 @@ export async function startServer(): Promise<void> {
     messages,
     registry,
     worldState,
+    anthropic,
   });
 
   logger.info({ port: config.port }, "backend listening");

@@ -13,6 +13,9 @@ export type ActiveWorld = {
   creditUsed: number;
   creditTotal: number;
   transcript: TranscriptEntry[];
+  // Set to true while an LLM call is in flight so a second concurrent
+  // trigger drops the turn rather than racing the in-flight one.
+  brainBusy: boolean;
 };
 
 export class WorldStateStore {

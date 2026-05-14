@@ -44,6 +44,7 @@ export async function handleWorldOpen(
     creditUsed: 0,
     creditTotal: deps.creditTotal,
     transcript: [],
+    brainBusy: false,
   });
 
   const openerLabel = `${conn.nickname}#${conn.discriminator}`;

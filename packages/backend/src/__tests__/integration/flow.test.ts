@@ -121,6 +121,7 @@ describe("backend integration flow", () => {
       messages,
       registry,
       worldState,
+      anthropic: null,
     });
     const addr = app.server.address();
     if (typeof addr !== "object" || !addr) throw new Error("no addr");
