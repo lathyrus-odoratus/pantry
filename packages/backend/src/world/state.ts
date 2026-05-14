@@ -13,6 +13,10 @@ export type ActiveWorld = {
   creditUsed: number;
   creditTotal: number;
   transcript: TranscriptEntry[];
+  // Captured at world.open from the opener's connection so the end-summary
+  // can be pushed to the same Discord webhook even though endWorld doesn't
+  // have a triggering connection in hand.
+  webhook: { url: string; threadId: string | null } | null;
   // Set to true while an LLM call is in flight so a second concurrent
   // trigger drops the turn rather than racing the in-flight one.
   brainBusy: boolean;

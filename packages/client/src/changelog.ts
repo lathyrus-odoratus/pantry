@@ -16,6 +16,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "NPC speech is now prefixed with 🌫 so the traveler's lines stand out from human players.",
       "Easter egg: while a world is active, each player's nick gets a 🎲 in front — testing-period only, marks the TRPG cast.",
       "World open/end notices carry an emoji (🌍 / 🌒); the multi-line end summary no longer gets ── ── wrapped.",
+      "World open + end notices (including the end summary) now relay to the room's Discord webhook if one is configured.",
       "Slash commands wrap to their own line in the StatusBar; /the-world is listed alongside /h, /changelog, /nick, /color.",
       "NPC prompt: replies in 台灣正體中文 by default (never simplified characters); Japanese / English when the player uses those.",
       "TESTING MODE: NPC now replies to every player message instead of only when its name appears. Burns credit faster — temporary while we evaluate the chat-flow feel.",

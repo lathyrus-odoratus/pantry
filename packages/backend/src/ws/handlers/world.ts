@@ -5,6 +5,7 @@ import type { ConnectionRegistry, AuthedConnection } from "../connection-registr
 import { broadcastToRoom, presenceFor, send } from "../broadcast.js";
 import { ensureNpcUser, buildNpcConnection, NPC } from "../../world/npc.js";
 import type { WorldStateStore } from "../../world/state.js";
+import { notify, formatSystem } from "../../discord/webhook.js";
 
 export type WorldDeps = {
   users: UsersRepo;
@@ -44,16 +45,19 @@ export async function handleWorldOpen(
     creditUsed: 0,
     creditTotal: deps.creditTotal,
     transcript: [],
+    webhook: conn.webhook,
     brainBusy: false,
   });
 
   const openerLabel = `${conn.nickname}#${conn.discriminator}`;
+  const openBody = `🌍 World opened by ${openerLabel}. ${NPC.nickname} joined.`;
   const openNotice: ServerMessage = {
     type: "system",
     event: "world.open",
-    body: `🌍 World opened by ${openerLabel}. ${NPC.nickname} joined.`,
+    body: openBody,
   };
   broadcastToRoom(deps.registry, conn.roomId, openNotice);
+  notify(conn.webhook, formatSystem("world.open", openBody));
 
   const presence: ServerMessage = {
     type: "presence",
@@ -98,6 +102,10 @@ export async function endWorld(
     event: "world.end",
     body,
   });
+  // Discord blockquotes work line-by-line; `>>>` makes the rest of the
+  // message a single blockquote which keeps the multi-paragraph summary
+  // visually grouped.
+  notify(active.webhook, `>>> ${body}`);
 
   const npcConn = deps.registry.get(active.npcConnectionId);
   if (npcConn) deps.registry.remove(npcConn);
