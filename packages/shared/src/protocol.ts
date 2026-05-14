@@ -58,26 +58,72 @@ export const DiceRollSchema = z.object({
   type: z.literal("dice.roll"),
 });
 
+// ── Admin mode ──
+// `--admin` on the client enters a pure-admin connection: no roomName, no
+// chat. The server requires a Discord JWT whose user.is_admin = true.
+
+export const AuthAdminSchema = z.object({
+  type: z.literal("auth.admin"),
+  token: z.string(),
+  clientVersion: z.string().optional(),
+});
+
+export const AdminRoomsListSchema = z.object({
+  type: z.literal("admin.rooms.list"),
+});
+
+export const AdminRoomCreateSchema = z.object({
+  type: z.literal("admin.room.create"),
+  name: z.string().min(1).max(64),
+});
+
+export const AdminRoomCloseSchema = z.object({
+  type: z.literal("admin.room.close"),
+  name: z.string().min(1).max(64),
+});
+
+export const AdminRoomReopenSchema = z.object({
+  type: z.literal("admin.room.reopen"),
+  name: z.string().min(1).max(64),
+});
+
+export const AdminRoomDeleteSchema = z.object({
+  type: z.literal("admin.room.delete"),
+  name: z.string().min(1).max(64),
+});
+
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   AuthAnonSchema,
   AuthOAuthSchema,
+  AuthAdminSchema,
   MessageSendSchema,
   NickChangeSchema,
   HistoryLoadSchema,
   ColorChangeSchema,
   WorldOpenSchema,
   DiceRollSchema,
+  AdminRoomsListSchema,
+  AdminRoomCreateSchema,
+  AdminRoomCloseSchema,
+  AdminRoomReopenSchema,
+  AdminRoomDeleteSchema,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
 export type AuthAnon = z.infer<typeof AuthAnonSchema>;
 export type AuthOAuth = z.infer<typeof AuthOAuthSchema>;
+export type AuthAdmin = z.infer<typeof AuthAdminSchema>;
 export type MessageSend = z.infer<typeof MessageSendSchema>;
 export type NickChange = z.infer<typeof NickChangeSchema>;
 export type HistoryLoad = z.infer<typeof HistoryLoadSchema>;
 export type ColorChange = z.infer<typeof ColorChangeSchema>;
 export type WorldOpen = z.infer<typeof WorldOpenSchema>;
 export type DiceRoll = z.infer<typeof DiceRollSchema>;
+export type AdminRoomsList = z.infer<typeof AdminRoomsListSchema>;
+export type AdminRoomCreate = z.infer<typeof AdminRoomCreateSchema>;
+export type AdminRoomClose = z.infer<typeof AdminRoomCloseSchema>;
+export type AdminRoomReopen = z.infer<typeof AdminRoomReopenSchema>;
+export type AdminRoomDelete = z.infer<typeof AdminRoomDeleteSchema>;
 
 // ─── Server → Client ──────────────────────────────────────────────────────────
 
@@ -93,8 +139,10 @@ export const AuthOkSchema = z.object({
 
 export const AuthErrorReason = z.enum([
   "room_not_found",
+  "room_closed",
   "invalid_token",
   "nickname_invalid",
+  "not_admin",
 ]);
 
 export const AuthErrorSchema = z.object({
@@ -152,6 +200,44 @@ export const WorldStateSchema = z.object({
   creditTotal: z.number().int().positive(),
 });
 
+// ── Admin mode (server → client) ──
+
+export const AdminAuthOkSchema = z.object({
+  type: z.literal("admin.auth.ok"),
+  user: z.object({
+    id: z.string().uuid(),
+    nickname: z.string(),
+    discriminator: z.string().length(4),
+  }),
+  latestClientVersion: z.string().optional(),
+});
+
+export const AdminRoomSummarySchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  createdAt: z.string(),
+  closedAt: z.string().nullable(),
+  onlineCount: z.number().int().nonnegative(),
+});
+
+export const AdminRoomsSchema = z.object({
+  type: z.literal("admin.rooms"),
+  rooms: z.array(AdminRoomSummarySchema),
+});
+
+export const AdminOkSchema = z.object({
+  type: z.literal("admin.ok"),
+  op: z.enum(["create", "close", "reopen", "delete"]),
+  roomName: z.string(),
+});
+
+export const AdminErrorSchema = z.object({
+  type: z.literal("admin.error"),
+  op: z.enum(["create", "close", "reopen", "delete", "list"]),
+  code: z.string(),
+  message: z.string().optional(),
+});
+
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   AuthOkSchema,
   AuthErrorSchema,
@@ -162,6 +248,15 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   HistoryResponseSchema,
   ErrorSchema,
   WorldStateSchema,
+  AdminAuthOkSchema,
+  AdminRoomsSchema,
+  AdminOkSchema,
+  AdminErrorSchema,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
 export type WorldState = z.infer<typeof WorldStateSchema>;
+export type AdminRoomSummary = z.infer<typeof AdminRoomSummarySchema>;
+export type AdminAuthOk = z.infer<typeof AdminAuthOkSchema>;
+export type AdminRooms = z.infer<typeof AdminRoomsSchema>;
+export type AdminOk = z.infer<typeof AdminOkSchema>;
+export type AdminError = z.infer<typeof AdminErrorSchema>;

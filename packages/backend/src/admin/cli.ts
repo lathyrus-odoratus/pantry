@@ -4,7 +4,7 @@ import readline from "node:readline";
 import { loadConfig } from "../config.js";
 import { createSupabaseClient } from "../db/supabase.js";
 import { RoomsRepo } from "../db/rooms.js";
-import { UsersRepo } from "../db/users.js";
+import { UsersRepo, type UserRow } from "../db/users.js";
 
 const cli = cac("pantry-admin");
 
@@ -50,7 +50,11 @@ cli
       return;
     }
     console.log(
-      "NAME".padEnd(24) + "ID".padEnd(40) + "WEBHOOK".padEnd(10) + "CREATED",
+      "NAME".padEnd(24) +
+        "ID".padEnd(40) +
+        "WEBHOOK".padEnd(10) +
+        "STATE".padEnd(8) +
+        "CREATED",
     );
     for (const r of list) {
       const webhook = r.webhook_url
@@ -58,10 +62,12 @@ cli
           ? "url+thr"
           : "url"
         : "—";
+      const state = r.closed_at ? "closed" : "open";
       console.log(
         r.name.padEnd(24) +
           r.id.padEnd(40) +
           webhook.padEnd(10) +
+          state.padEnd(8) +
           new Date(r.created_at).toISOString(),
       );
     }
@@ -98,6 +104,46 @@ cli
     }
     await rooms.setWebhook(name, { url: null, threadId: null });
     console.log(`✓ Cleared webhook for "${name}"`);
+  });
+
+cli
+  .command(
+    "room close <name>",
+    "Close a room: history preserved, new joins rejected",
+  )
+  .action(async (name: string) => {
+    const { rooms } = makeRepos();
+    const existing = await rooms.findByName(name);
+    if (!existing) {
+      console.error(`Room "${name}" not found.`);
+      process.exit(1);
+    }
+    if (existing.closed_at) {
+      console.log(`Room "${name}" is already closed (since ${existing.closed_at}).`);
+      return;
+    }
+    const updated = await rooms.close(name);
+    console.log(`✓ Closed room "${updated.name}" at ${updated.closed_at}`);
+    console.log(
+      "  Note: existing connections stay alive; only new joins are rejected.",
+    );
+  });
+
+cli
+  .command("room reopen <name>", "Reopen a previously closed room")
+  .action(async (name: string) => {
+    const { rooms } = makeRepos();
+    const existing = await rooms.findByName(name);
+    if (!existing) {
+      console.error(`Room "${name}" not found.`);
+      process.exit(1);
+    }
+    if (!existing.closed_at) {
+      console.log(`Room "${name}" is already open.`);
+      return;
+    }
+    const updated = await rooms.reopen(name);
+    console.log(`✓ Reopened room "${updated.name}"`);
   });
 
 cli
@@ -153,28 +199,45 @@ cli
   });
 
 cli
-  .command("user list", "List users (by recent activity in a room)")
+  .command("user list", "List users (all, or by recent activity in a room)")
   .option("--room <name>", "Limit to users active in this room")
-  .action(async (opts: { room?: string }) => {
+  .option("--provider <name>", "Filter by auth provider (anon|discord|github|google)")
+  .option("--limit <n>", "Cap rows (default 100 when --room not given)")
+  .action(async (opts: { room?: string; provider?: string; limit?: string }) => {
     const { rooms, users } = makeRepos();
-    if (!opts.room) {
-      console.error("--room <name> is required for now.");
-      process.exit(1);
-    }
-    const room = await rooms.findByName(opts.room);
-    if (!room) {
-      console.error(`Room "${opts.room}" not found.`);
-      process.exit(1);
-    }
-    const list = await users.listByRoomActivity(room.id);
-    if (list.length === 0) {
-      console.log("(no users have messaged in this room)");
-      return;
+    let list;
+    if (opts.room) {
+      const room = await rooms.findByName(opts.room);
+      if (!room) {
+        console.error(`Room "${opts.room}" not found.`);
+        process.exit(1);
+      }
+      list = await users.listByRoomActivity(room.id);
+      if (list.length === 0) {
+        console.log("(no users have messaged in this room)");
+        return;
+      }
+    } else {
+      const limit = opts.limit ? Number(opts.limit) : 100;
+      list = await users.listAll({
+        provider: opts.provider as
+          | "anon"
+          | "discord"
+          | "github"
+          | "google"
+          | undefined,
+        limit,
+      });
+      if (list.length === 0) {
+        console.log("(no users)");
+        return;
+      }
     }
     console.log(
       "NICKNAME".padEnd(20) +
         "DISC".padEnd(8) +
         "PROVIDER".padEnd(10) +
+        "ADMIN".padEnd(8) +
         "ID",
     );
     for (const u of list) {
@@ -182,9 +245,63 @@ cli
         u.nickname.padEnd(20) +
           u.discriminator.padEnd(8) +
           u.auth_provider.padEnd(10) +
+          (u.is_admin ? "yes" : "—").padEnd(8) +
           u.id,
       );
     }
+  });
+
+async function resolveUser(
+  users: UsersRepo,
+  ref: string,
+): Promise<UserRow | null> {
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (UUID.test(ref)) return users.findById(ref);
+  const hashIdx = ref.indexOf("#");
+  if (hashIdx === -1) return null;
+  const nick = ref.slice(0, hashIdx);
+  const disc = ref.slice(hashIdx + 1);
+  return users.findByNicknameDiscriminator(nick, disc);
+}
+
+cli
+  .command(
+    "user promote <ref>",
+    "Grant admin to a user. <ref> is either UUID or nickname#discriminator",
+  )
+  .action(async (ref: string) => {
+    const { users } = makeRepos();
+    const user = await resolveUser(users, ref);
+    if (!user) {
+      console.error(`User "${ref}" not found.`);
+      process.exit(1);
+    }
+    if (user.is_admin) {
+      console.log(`User ${user.nickname}#${user.discriminator} is already admin.`);
+      return;
+    }
+    const updated = await users.setAdmin(user.id, true);
+    console.log(`✓ Promoted ${updated.nickname}#${updated.discriminator} to admin.`);
+  });
+
+cli
+  .command(
+    "user demote <ref>",
+    "Revoke admin from a user. <ref> is either UUID or nickname#discriminator",
+  )
+  .action(async (ref: string) => {
+    const { users } = makeRepos();
+    const user = await resolveUser(users, ref);
+    if (!user) {
+      console.error(`User "${ref}" not found.`);
+      process.exit(1);
+    }
+    if (!user.is_admin) {
+      console.log(`User ${user.nickname}#${user.discriminator} is not an admin.`);
+      return;
+    }
+    const updated = await users.setAdmin(user.id, false);
+    console.log(`✓ Demoted ${updated.nickname}#${updated.discriminator}.`);
   });
 
 cli

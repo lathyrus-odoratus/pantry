@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Message } from "@pantry/shared";
+import type { AdminRoomSummary, Message } from "@pantry/shared";
 
 export type Screen =
   | "room_input"
@@ -7,6 +7,8 @@ export type Screen =
   | "nickname_input"
   | "oauth_waiting"
   | "chat"
+  | "admin_oauth"
+  | "admin_menu"
   | "error";
 
 export type ConnStatus =
@@ -64,6 +66,10 @@ export type Store = {
   worldCreditUsed: number;
   worldCreditTotal: number;
 
+  // Admin mode
+  adminRooms: AdminRoomSummary[];
+  adminStatusLine: string | null;
+
   // Actions
   setScreen: (s: Screen) => void;
   commitRoomName: (name: string) => void;
@@ -88,6 +94,8 @@ export type Store = {
     creditUsed: number;
     creditTotal: number;
   }) => void;
+  setAdminRooms: (rooms: AdminRoomSummary[]) => void;
+  setAdminStatusLine: (line: string | null) => void;
   setError: (msg: string) => void;
   reset: () => void;
 };
@@ -109,6 +117,8 @@ const initial: Omit<
   | "closeChangelog"
   | "setChangelogIndex"
   | "setWorldState"
+  | "setAdminRooms"
+  | "setAdminStatusLine"
   | "setError"
   | "reset"
 > = {
@@ -129,6 +139,8 @@ const initial: Omit<
   worldActive: false,
   worldCreditUsed: 0,
   worldCreditTotal: 0,
+  adminRooms: [],
+  adminStatusLine: null,
 };
 
 export const useStore = create<Store>((set) => ({
@@ -185,6 +197,9 @@ export const useStore = create<Store>((set) => ({
       worldCreditUsed: creditUsed,
       worldCreditTotal: creditTotal,
     }),
+
+  setAdminRooms: (adminRooms) => set({ adminRooms }),
+  setAdminStatusLine: (adminStatusLine) => set({ adminStatusLine }),
 
   setError: (errorMessage) => set({ errorMessage, screen: "error" }),
 

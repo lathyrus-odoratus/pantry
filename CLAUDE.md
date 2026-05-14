@@ -39,19 +39,28 @@ pnpm dev:backend
 # Dev — client TUI
 pnpm dev:client
 # or, with overrides:
-pnpm --filter pantry dev -- --server ws://localhost:8080/ws --room lobby
+pnpm --filter @lathyrus-odoratus/pantry dev -- --server ws://localhost:8080/ws --room lobby
 
 # Admin CLI against Supabase (uses service_role; requires packages/backend/.env)
 pnpm admin room create <name>
-pnpm admin room list
-pnpm admin room delete <name>           # prompts y/N (use -y to skip)
-pnpm admin user list --room <name>
+pnpm admin room list                    # shows OPEN/CLOSED in STATE column
+pnpm admin room close <name>            # soft gate: history kept, new joins rejected, existing conns stay
+pnpm admin room reopen <name>           # clear closed_at
+pnpm admin room delete <name>           # prompts y/N (use -y to skip) — cascades messages
+pnpm admin user list                    # all users; --provider discord, --limit N optional
+pnpm admin user list --room <name>      # users active in a specific room
+pnpm admin user promote <ref>           # ref = UUID or nickname#discriminator → users.is_admin = true
+pnpm admin user demote <ref>            # users.is_admin = false
+
+# Admin TUI (in-app admin scene, requires users.is_admin = true + Discord login)
+pnpm --filter @lathyrus-odoratus/pantry dev -- --admin
+# After publish, end users run: pantry --admin
 
 # Per-package
 pnpm --filter @pantry/backend test
 pnpm --filter @pantry/backend test -- src/config.test.ts   # single file
 pnpm --filter @pantry/backend test:watch
-pnpm --filter pantry test
+pnpm --filter @lathyrus-odoratus/pantry test
 pnpm --filter @pantry/backend typecheck
 
 # Single Vitest test by name
@@ -96,6 +105,20 @@ Provider config lives in `auth/providers.ts`. **Discord is required**; GitHub an
 ### Client state
 
 Single Zustand store in `client/src/store.ts`. The `screen` field is a small state machine; `app.tsx` is a `switch` over it. `transport/client.ts` wraps `ws` with reconnect (backoff `2s → 4s → 8s → 16s → 30s` capped). Default server URL is hard-coded to `wss://pantry.miao-bao.cc/ws` in `client/src/config.ts`; override with `--server <wss://…>` or `PANTRY_SERVER`.
+
+### Admin mode (`--admin`)
+
+Separate connection path from regular chat. `pantry --admin` starts in `screen=admin_oauth`, forces Discord OAuth, then connects WS and sends an `auth.admin` frame. Backend verifies (`ws/handlers/admin.ts`):
+
+1. JWT valid and signed by us
+2. `payload.provider === "discord"` (other providers are rejected as `not_admin`)
+3. `users.is_admin === true` for that user id
+
+On success the connection enters admin mode and the client switches to `admin_menu`. Admin connections are **not** added to `ConnectionRegistry` — they don't appear in any room's presence list and can't send chat messages. Conversely, regular chat connections reject `admin.*` frames with `not_in_admin_mode`.
+
+Admin operations all flow as request/response over WS: `admin.rooms.list` → `admin.rooms`; `admin.room.{create,close,reopen,delete}` → `admin.ok` or `admin.error`. The server re-broadcasts a fresh snapshot only by the client re-requesting `admin.rooms.list`, which `AdminMenu.tsx` does after every successful op.
+
+Bootstrap: the first admin must be promoted via the service-role CLI (`pnpm admin user promote <nickname#disc>`) because there's no admin to grant the privilege from inside the TUI. After that, admins can promote/demote each other via the CLI (no in-app user management in this iteration).
 
 ## Deployment
 

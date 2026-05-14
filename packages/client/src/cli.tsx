@@ -6,7 +6,9 @@ import { loadConfig } from "./config.js";
 import { useStore } from "./store.js";
 
 const config = loadConfig();
-if (config.initialRoom) {
+if (config.adminMode) {
+  useStore.getState().setScreen("admin_oauth");
+} else if (config.initialRoom) {
   useStore.getState().commitRoomName(config.initialRoom);
 }
 

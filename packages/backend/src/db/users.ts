@@ -9,6 +9,7 @@ export type UserRow = {
   nickname: string;
   discriminator: string;
   color: string | null;
+  is_admin: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -133,12 +134,52 @@ export class UsersRepo {
     );
   }
 
+  async findByNicknameDiscriminator(
+    nickname: string,
+    discriminator: string,
+  ): Promise<UserRow | null> {
+    const { data, error } = await this.db
+      .from("users")
+      .select("*")
+      .eq("nickname", nickname)
+      .eq("discriminator", discriminator)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async setAdmin(userId: string, isAdmin: boolean): Promise<UserRow> {
+    const { data, error } = await this.db
+      .from("users")
+      .update({ is_admin: isAdmin, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   async setColor(userId: string, color: string | null): Promise<void> {
     const { error } = await this.db
       .from("users")
       .update({ color, updated_at: new Date().toISOString() })
       .eq("id", userId);
     if (error) throw error;
+  }
+
+  async listAll(opts: {
+    provider?: AuthProvider;
+    limit?: number;
+  } = {}): Promise<UserRow[]> {
+    let q = this.db
+      .from("users")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (opts.provider) q = q.eq("auth_provider", opts.provider);
+    if (opts.limit) q = q.limit(opts.limit);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data ?? [];
   }
 
   async listByRoomActivity(roomId: string, limit = 200): Promise<UserRow[]> {

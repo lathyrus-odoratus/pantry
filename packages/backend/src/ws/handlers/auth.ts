@@ -28,17 +28,25 @@ export type AuthDeps = {
 
 export type AuthResolution =
   | { ok: true; conn: AuthedConnection }
-  | { ok: false; reason: "room_not_found" | "invalid_token" | "nickname_invalid" };
+  | {
+      ok: false;
+      reason:
+        | "room_not_found"
+        | "room_closed"
+        | "invalid_token"
+        | "nickname_invalid";
+    };
 
 async function resolveRoomOrError(
   rooms: RoomsRepo,
   roomName: string,
 ): Promise<
   | { ok: true; roomId: string; webhook: WebhookTarget | null }
-  | { ok: false }
+  | { ok: false; reason: "room_not_found" | "room_closed" }
 > {
   const room = await rooms.findByName(roomName);
-  if (!room) return { ok: false };
+  if (!room) return { ok: false, reason: "room_not_found" };
+  if (room.closed_at) return { ok: false, reason: "room_closed" };
   return {
     ok: true,
     roomId: room.id,
@@ -55,7 +63,7 @@ export async function handleAnonAuth(
   deps: AuthDeps,
 ): Promise<AuthResolution> {
   const room = await resolveRoomOrError(deps.rooms, raw.roomName);
-  if (!room.ok) return { ok: false, reason: "room_not_found" };
+  if (!room.ok) return { ok: false, reason: room.reason };
 
   logger.info(
     {
@@ -108,7 +116,7 @@ export async function handleOAuthAuth(
   deps: AuthDeps,
 ): Promise<AuthResolution> {
   const room = await resolveRoomOrError(deps.rooms, raw.roomName);
-  if (!room.ok) return { ok: false, reason: "room_not_found" };
+  if (!room.ok) return { ok: false, reason: room.reason };
 
   logger.info(
     { clientVersion: raw.clientVersion ?? "unknown", flow: "oauth" },

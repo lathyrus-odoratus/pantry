@@ -13,6 +13,7 @@ const NPC_USER_ROW: UserRow = {
   nickname: NPC.nickname,
   discriminator: "wxyz",
   color: null,
+  is_admin: false,
   created_at: "2026-05-14T00:00:00Z",
   updated_at: "2026-05-14T00:00:00Z",
 };

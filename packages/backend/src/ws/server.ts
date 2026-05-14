@@ -24,6 +24,16 @@ import { handleHistory } from "./handlers/history.js";
 import { handleColor } from "./handlers/color.js";
 import { handleWorldOpen } from "./handlers/world.js";
 import { handleDiceRoll } from "./handlers/dice.js";
+import {
+  handleAdminAuth,
+  makeAdminAuthOk,
+  buildRoomsSnapshot,
+  handleAdminRoomCreate,
+  handleAdminRoomClose,
+  handleAdminRoomReopen,
+  handleAdminRoomDelete,
+  type AdminSession,
+} from "./handlers/admin.js";
 import type { WorldStateStore } from "../world/state.js";
 
 const AUTH_TIMEOUT_MS = 5000;
@@ -74,9 +84,10 @@ export function attachWebSocketServer(
 
     let authed: AuthedConnection | null = null;
     let authedRoomName: string | null = null;
+    let adminSession: AdminSession | null = null;
 
     const authTimer = setTimeout(() => {
-      if (!authed) {
+      if (!authed && !adminSession) {
         logger.info({ connId }, "auth timeout; closing");
         try {
           sendMsg({ type: "auth.error", reason: "invalid_token" });
@@ -97,7 +108,23 @@ export function attachWebSocketServer(
       }
 
       try {
-        if (!authed) {
+        if (!authed && !adminSession) {
+          if (parsed.type === "auth.admin") {
+            const result = await handleAdminAuth(parsed, deps);
+            if (!result.ok) {
+              sendMsg({ type: "auth.error", reason: result.reason });
+              close(4002, result.reason);
+              return;
+            }
+            adminSession = result.session;
+            clearTimeout(authTimer);
+            sendMsg(makeAdminAuthOk(adminSession));
+            logger.info(
+              { connId, userId: adminSession.userId },
+              "admin connected",
+            );
+            return;
+          }
           if (parsed.type !== "auth.anon" && parsed.type !== "auth.oauth") {
             sendMsg({ type: "error", code: "not_authenticated" });
             close(4001, "not_authenticated");
@@ -120,9 +147,37 @@ export function attachWebSocketServer(
           return;
         }
 
+        if (adminSession) {
+          switch (parsed.type) {
+            case "admin.rooms.list": {
+              const rooms = await buildRoomsSnapshot(deps);
+              sendMsg({ type: "admin.rooms", rooms });
+              break;
+            }
+            case "admin.room.create":
+              sendMsg(await handleAdminRoomCreate(parsed, deps));
+              break;
+            case "admin.room.close":
+              sendMsg(await handleAdminRoomClose(parsed, deps));
+              break;
+            case "admin.room.reopen":
+              sendMsg(await handleAdminRoomReopen(parsed, deps));
+              break;
+            case "admin.room.delete":
+              sendMsg(await handleAdminRoomDelete(parsed, deps));
+              break;
+            default:
+              sendMsg({ type: "error", code: "not_in_chat_mode" });
+          }
+          return;
+        }
+
+        if (!authed) return;
+        const conn = authed;
+
         switch (parsed.type) {
           case "message.send":
-            await handleSend(authed, parsed, {
+            await handleSend(conn, parsed, {
               messages: deps.messages,
               registry: deps.registry,
               worldState: deps.worldState,
@@ -131,10 +186,10 @@ export function attachWebSocketServer(
             });
             break;
           case "nick.change":
-            await handleNick(authed, parsed, deps);
+            await handleNick(conn, parsed, deps);
             break;
           case "color.change":
-            await handleColor(authed, parsed, deps);
+            await handleColor(conn, parsed, deps);
             break;
           case "world.open":
             if (deps.anthropic === null) {
@@ -145,7 +200,7 @@ export function attachWebSocketServer(
               });
               break;
             }
-            await handleWorldOpen(authed, {
+            await handleWorldOpen(conn, {
               users: deps.users,
               registry: deps.registry,
               worldState: deps.worldState,
@@ -153,7 +208,7 @@ export function attachWebSocketServer(
             });
             break;
           case "dice.roll":
-            await handleDiceRoll(authed, {
+            await handleDiceRoll(conn, {
               registry: deps.registry,
               worldState: deps.worldState,
               anthropic: deps.anthropic,
@@ -162,11 +217,19 @@ export function attachWebSocketServer(
             });
             break;
           case "history.load":
-            await handleHistory(authed, parsed, deps);
+            await handleHistory(conn, parsed, deps);
             break;
           case "auth.anon":
           case "auth.oauth":
+          case "auth.admin":
             sendMsg({ type: "error", code: "already_authenticated" });
+            break;
+          case "admin.rooms.list":
+          case "admin.room.create":
+          case "admin.room.close":
+          case "admin.room.reopen":
+          case "admin.room.delete":
+            sendMsg({ type: "error", code: "not_in_admin_mode" });
             break;
         }
       } catch (err) {

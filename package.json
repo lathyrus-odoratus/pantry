@@ -8,7 +8,7 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "dev:backend": "pnpm --filter @pantry/backend dev",
-    "dev:client": "pnpm --filter pantry dev",
+    "dev:client": "pnpm --filter @lathyrus-odoratus/pantry dev",
     "admin": "pnpm --filter @pantry/backend admin",
     "deploy": "./scripts/deploy.sh",
     "deploy:with-notice": "./scripts/deploy-with-notice.sh"

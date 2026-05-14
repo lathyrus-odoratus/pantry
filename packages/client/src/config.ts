@@ -4,6 +4,7 @@ export type ClientConfig = {
   serverUrl: string;
   backendHttpUrl: string;
   initialRoom: string | undefined;
+  adminMode: boolean;
 };
 
 export type ResolveInput = {
@@ -29,10 +30,12 @@ export function resolveConfig(input: ResolveInput): ClientConfig {
   const envServer = input.env.PANTRY_SERVER;
   const serverUrl = cliServer ?? envServer ?? DEFAULT_SERVER_URL;
   const initialRoom = parseFlag(input.argv, "--room");
+  const adminMode = input.argv.includes("--admin");
   return {
     serverUrl,
     backendHttpUrl: toHttpUrl(serverUrl),
     initialRoom,
+    adminMode,
   };
 }
 

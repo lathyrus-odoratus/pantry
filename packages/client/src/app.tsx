@@ -6,6 +6,8 @@ import { IdentitySelect } from "./screens/IdentitySelect.js";
 import { NicknameInput } from "./screens/NicknameInput.js";
 import { OAuthWaiting } from "./screens/OAuthWaiting.js";
 import { Chat } from "./screens/Chat.js";
+import { AdminOAuthWaiting } from "./screens/AdminOAuthWaiting.js";
+import { AdminMenu } from "./screens/AdminMenu.js";
 import { ErrorScreen } from "./screens/ErrorScreen.js";
 
 const config = loadConfig();
@@ -23,6 +25,10 @@ export function App(): React.JSX.Element {
       return <OAuthWaiting backendHttpUrl={config.backendHttpUrl} />;
     case "chat":
       return <Chat serverUrl={config.serverUrl} />;
+    case "admin_oauth":
+      return <AdminOAuthWaiting backendHttpUrl={config.backendHttpUrl} />;
+    case "admin_menu":
+      return <AdminMenu serverUrl={config.serverUrl} />;
     case "error":
       return <ErrorScreen />;
   }
