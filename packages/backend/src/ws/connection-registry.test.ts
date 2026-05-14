@@ -12,6 +12,7 @@ function fakeConn(id: string, userId: string, roomId: string): AuthedConnection 
     webhook: null,
     sendRaw: () => {},
     close: () => {},
+    kind: "real",
   };
 }
 

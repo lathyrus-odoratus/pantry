@@ -20,6 +20,16 @@ const EnvSchema = z.object({
   // Shared secret for the /admin/broadcast endpoint. Optional — when unset,
   // the endpoint returns 503 so the surface stays gated by absence of a key.
   ADMIN_KEY: z.string().min(16).optional(),
+
+  // World feature (TRPG roguelike). Optional — when ANTHROPIC_API_KEY is
+  // unset, /the-world returns an error. WORLD_CREDIT_TOTAL is the per-world
+  // token budget (input+output, post-cache).
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  WORLD_CREDIT_TOTAL: z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .default("100000"),
 });
 
 export type ProviderCreds = { clientId: string; clientSecret: string };
@@ -36,6 +46,8 @@ export type Config = {
     discord: ProviderCreds;
   };
   adminKey: string | null;
+  anthropicApiKey: string | null;
+  worldCreditTotal: number;
 };
 
 export function parseConfig(env: Record<string, string | undefined>): Config {
@@ -64,6 +76,8 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
       },
     },
     adminKey: parsed.ADMIN_KEY ?? null,
+    anthropicApiKey: parsed.ANTHROPIC_API_KEY ?? null,
+    worldCreditTotal: parsed.WORLD_CREDIT_TOTAL,
   };
 }
 

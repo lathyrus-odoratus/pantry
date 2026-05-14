@@ -31,5 +31,11 @@ export const UserSchema = z.object({
 });
 export type User = z.infer<typeof UserSchema>;
 
-export const AuthProvider = z.enum(["anon", "github", "google", "discord"]);
+export const AuthProvider = z.enum([
+  "anon",
+  "github",
+  "google",
+  "discord",
+  "npc",
+]);
 export type AuthProvider = z.infer<typeof AuthProvider>;

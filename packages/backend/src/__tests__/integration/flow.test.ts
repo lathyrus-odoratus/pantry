@@ -9,6 +9,7 @@ import { UsersRepo } from "../../db/users.js";
 import { MessagesRepo } from "../../db/messages.js";
 import { ConnectionRegistry } from "../../ws/connection-registry.js";
 import { attachWebSocketServer } from "../../ws/server.js";
+import { WorldStateStore } from "../../world/state.js";
 import { OAuthStateStore } from "../../auth/state-store.js";
 import { registerAuthRoutes } from "../../auth/routes.js";
 import type { ServerMessage } from "@pantry/shared";
@@ -107,12 +108,20 @@ describe("backend integration flow", () => {
     const messages = new MessagesRepo(db);
     const stateStore = new OAuthStateStore();
     const registry = new ConnectionRegistry();
+    const worldState = new WorldStateStore();
 
     app = Fastify({ logger: false });
     app.get("/health", async () => ({ ok: true }));
     await registerAuthRoutes(app, { config, stateStore, usersRepo: users });
     await app.listen({ port: 0, host: "127.0.0.1" });
-    attachWebSocketServer(app.server, { config, rooms, users, messages, registry });
+    attachWebSocketServer(app.server, {
+      config,
+      rooms,
+      users,
+      messages,
+      registry,
+      worldState,
+    });
     const addr = app.server.address();
     if (typeof addr !== "object" || !addr) throw new Error("no addr");
     baseUrl = `http://127.0.0.1:${addr.port}`;

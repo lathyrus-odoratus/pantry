@@ -21,6 +21,8 @@ import { handleSend } from "./handlers/send.js";
 import { handleNick } from "./handlers/nick.js";
 import { handleHistory } from "./handlers/history.js";
 import { handleColor } from "./handlers/color.js";
+import { handleWorldOpen } from "./handlers/world.js";
+import type { WorldStateStore } from "../world/state.js";
 
 const AUTH_TIMEOUT_MS = 5000;
 const HEARTBEAT_MS = 30_000;
@@ -31,6 +33,7 @@ export type WsServerDeps = {
   users: UsersRepo;
   messages: MessagesRepo;
   registry: ConnectionRegistry;
+  worldState: WorldStateStore;
 };
 
 export function attachWebSocketServer(
@@ -123,6 +126,14 @@ export function attachWebSocketServer(
             break;
           case "color.change":
             await handleColor(authed, parsed, deps);
+            break;
+          case "world.open":
+            await handleWorldOpen(authed, {
+              users: deps.users,
+              registry: deps.registry,
+              worldState: deps.worldState,
+              creditTotal: deps.config.worldCreditTotal,
+            });
             break;
           case "history.load":
             await handleHistory(authed, parsed, deps);

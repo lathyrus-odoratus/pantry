@@ -3,7 +3,7 @@ import type { AuthProvider } from "@pantry/shared";
 
 const TTL_MS = 10 * 60 * 1000;
 
-export type OAuthProvider = Exclude<AuthProvider, "anon">;
+export type OAuthProvider = Exclude<AuthProvider, "anon" | "npc">;
 
 type Entry =
   | { status: "pending"; provider: OAuthProvider; expiresAt: number }

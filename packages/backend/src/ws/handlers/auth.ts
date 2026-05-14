@@ -97,6 +97,7 @@ export async function handleAnonAuth(
     webhook: room.webhook,
     sendRaw: pending.sendRaw,
     close: pending.close,
+    kind: "real",
   };
   return { ok: true, conn };
 }
@@ -135,6 +136,7 @@ export async function handleOAuthAuth(
     webhook: room.webhook,
     sendRaw: pending.sendRaw,
     close: pending.close,
+    kind: "real",
   };
   return { ok: true, conn };
 }

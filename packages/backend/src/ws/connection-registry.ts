@@ -10,6 +10,9 @@ export type AuthedConnection = {
   webhook: WebhookTarget | null;
   sendRaw: (text: string) => void;
   close: (code?: number, reason?: string) => void;
+  // 'real' = backed by an actual ws socket; 'virtual' = server-internal
+  // participant (e.g. an NPC). Virtual conns have a no-op sendRaw and close.
+  kind: "real" | "virtual";
 };
 
 export class ConnectionRegistry {
