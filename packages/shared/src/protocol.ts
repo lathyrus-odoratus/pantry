@@ -47,6 +47,10 @@ export const ColorChangeSchema = z.object({
   color: HexColorSchema.nullable(),
 });
 
+export const WorldOpenSchema = z.object({
+  type: z.literal("world.open"),
+});
+
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   AuthAnonSchema,
   AuthOAuthSchema,
@@ -54,6 +58,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   NickChangeSchema,
   HistoryLoadSchema,
   ColorChangeSchema,
+  WorldOpenSchema,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
@@ -63,6 +68,7 @@ export type MessageSend = z.infer<typeof MessageSendSchema>;
 export type NickChange = z.infer<typeof NickChangeSchema>;
 export type HistoryLoad = z.infer<typeof HistoryLoadSchema>;
 export type ColorChange = z.infer<typeof ColorChangeSchema>;
+export type WorldOpen = z.infer<typeof WorldOpenSchema>;
 
 // ─── Server → Client ──────────────────────────────────────────────────────────
 
@@ -101,7 +107,7 @@ export const NewMessageSchema = z.object({
 
 export const SystemMessageSchema = z.object({
   type: z.literal("system"),
-  event: z.enum(["join", "leave", "rename", "announce"]),
+  event: z.enum(["join", "leave", "rename", "announce", "world.open", "world.end"]),
   body: z.string(),
 });
 
@@ -122,6 +128,13 @@ export const ErrorSchema = z.object({
   message: z.string().optional(),
 });
 
+export const WorldStateSchema = z.object({
+  type: z.literal("world.state"),
+  active: z.boolean(),
+  creditUsed: z.number().int().nonnegative(),
+  creditTotal: z.number().int().positive(),
+});
+
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   AuthOkSchema,
   AuthErrorSchema,
@@ -131,5 +144,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   PresenceSchema,
   HistoryResponseSchema,
   ErrorSchema,
+  WorldStateSchema,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
+export type WorldState = z.infer<typeof WorldStateSchema>;

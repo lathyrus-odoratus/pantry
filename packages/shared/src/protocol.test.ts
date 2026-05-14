@@ -141,6 +141,89 @@ describe("color.change client message", () => {
   });
 });
 
+describe("world.open client message", () => {
+  it("parses world.open with no payload", () => {
+    const r = ClientMessageSchema.parse({ type: "world.open" });
+    expect(r.type).toBe("world.open");
+  });
+});
+
+describe("world.state server message", () => {
+  it("parses active world state", () => {
+    const r = ServerMessageSchema.parse({
+      type: "world.state",
+      active: true,
+      creditUsed: 1200,
+      creditTotal: 100_000,
+    });
+    expect(r.type).toBe("world.state");
+    expect((r as { active: boolean }).active).toBe(true);
+  });
+
+  it("parses inactive world state (creditUsed=0, world ended/never started)", () => {
+    const r = ServerMessageSchema.parse({
+      type: "world.state",
+      active: false,
+      creditUsed: 0,
+      creditTotal: 100_000,
+    });
+    expect((r as { active: boolean }).active).toBe(false);
+  });
+
+  it("rejects negative creditUsed", () => {
+    expect(() =>
+      ServerMessageSchema.parse({
+        type: "world.state",
+        active: true,
+        creditUsed: -1,
+        creditTotal: 100_000,
+      }),
+    ).toThrow();
+  });
+
+  it("rejects zero creditTotal", () => {
+    expect(() =>
+      ServerMessageSchema.parse({
+        type: "world.state",
+        active: true,
+        creditUsed: 0,
+        creditTotal: 0,
+      }),
+    ).toThrow();
+  });
+});
+
+describe("SystemMessage event enum (forward-compat additions)", () => {
+  it("accepts world.open event", () => {
+    const r = ServerMessageSchema.parse({
+      type: "system",
+      event: "world.open",
+      body: "World opened by alice",
+    });
+    expect((r as { event: string }).event).toBe("world.open");
+  });
+
+  it("accepts world.end event", () => {
+    const r = ServerMessageSchema.parse({
+      type: "system",
+      event: "world.end",
+      body: "World ended.",
+    });
+    expect((r as { event: string }).event).toBe("world.end");
+  });
+
+  it("still accepts existing event types (join, leave, rename, announce)", () => {
+    for (const event of ["join", "leave", "rename", "announce"]) {
+      const r = ServerMessageSchema.parse({
+        type: "system",
+        event,
+        body: "ok",
+      });
+      expect((r as { event: string }).event).toBe(event);
+    }
+  });
+});
+
 describe("UserSchema with optional color (forward-compat)", () => {
   it("parses user WITHOUT color (old server)", () => {
     const u = UserSchema.parse({ nickname: "alice", discriminator: "ab12" });
