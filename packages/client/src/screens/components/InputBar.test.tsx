@@ -134,4 +134,38 @@ describe("InputBar", () => {
     await flush();
     expect(onColor).not.toHaveBeenCalled();
   });
+
+  it("calls onChangelog when /changelog is entered", async () => {
+    const onChangelog = vi.fn();
+    const { stdin } = render(
+      <InputBar
+        onSend={() => {}}
+        onNick={() => {}}
+        onColor={() => {}}
+        onChangelog={onChangelog}
+      />,
+    );
+    await flush();
+    stdin.write("/changelog");
+    stdin.write("\r");
+    await flush();
+    expect(onChangelog).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call onSend on /changelog", async () => {
+    const onSend = vi.fn();
+    const { stdin } = render(
+      <InputBar
+        onSend={onSend}
+        onNick={() => {}}
+        onColor={() => {}}
+        onChangelog={() => {}}
+      />,
+    );
+    await flush();
+    stdin.write("/changelog");
+    stdin.write("\r");
+    await flush();
+    expect(onSend).not.toHaveBeenCalled();
+  });
 });

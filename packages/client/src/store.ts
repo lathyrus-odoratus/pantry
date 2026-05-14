@@ -55,6 +55,10 @@ export type Store = {
   // Update awareness
   updateAvailable: string | null;
 
+  // Changelog modal
+  changelogOpen: boolean;
+  changelogIndex: number;
+
   // Actions
   setScreen: (s: Screen) => void;
   commitRoomName: (name: string) => void;
@@ -71,6 +75,9 @@ export type Store = {
   setPresence: (users: PresenceUser[]) => void;
   renameSelf: (nickname: string, discriminator: string) => void;
   setUpdateAvailable: (latest: string | null) => void;
+  openChangelog: () => void;
+  closeChangelog: () => void;
+  setChangelogIndex: (i: number) => void;
   setError: (msg: string) => void;
   reset: () => void;
 };
@@ -88,6 +95,9 @@ const initial: Omit<
   | "setPresence"
   | "renameSelf"
   | "setUpdateAvailable"
+  | "openChangelog"
+  | "closeChangelog"
+  | "setChangelogIndex"
   | "setError"
   | "reset"
 > = {
@@ -103,6 +113,8 @@ const initial: Omit<
   onlineUsers: [],
   historyHasMore: true,
   updateAvailable: null,
+  changelogOpen: false,
+  changelogIndex: 0,
 };
 
 export const useStore = create<Store>((set) => ({
@@ -148,6 +160,10 @@ export const useStore = create<Store>((set) => ({
     ),
 
   setUpdateAvailable: (updateAvailable) => set({ updateAvailable }),
+
+  openChangelog: () => set({ changelogOpen: true, changelogIndex: 0 }),
+  closeChangelog: () => set({ changelogOpen: false }),
+  setChangelogIndex: (changelogIndex) => set({ changelogIndex }),
 
   setError: (errorMessage) => set({ errorMessage, screen: "error" }),
 

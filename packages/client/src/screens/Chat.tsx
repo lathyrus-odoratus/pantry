@@ -5,6 +5,8 @@ import { useStore } from "../store.js";
 import { TransportClient } from "../transport/client.js";
 import { InputBar } from "./components/InputBar.js";
 import { StatusBar } from "./components/StatusBar.js";
+import { Changelog } from "./components/Changelog.js";
+import { CHANGELOG } from "../changelog.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
 import { saveAnon } from "../auth/anon.js";
 
@@ -149,6 +151,12 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
     transportRef.current?.send({ type: "color.change", color });
   }, []);
 
+  const changelogOpen = useStore((s) => s.changelogOpen);
+  const changelogIndex = useStore((s) => s.changelogIndex);
+  const openChangelog = useStore((s) => s.openChangelog);
+  const closeChangelog = useStore((s) => s.closeChangelog);
+  const setChangelogIndex = useStore((s) => s.setChangelogIndex);
+
   const onlineSummary =
     onlineUsers.length === 0
       ? "no one"
@@ -177,8 +185,28 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
           <Text dimColor>Online ({onlineUsers.length}): </Text>
           <Text>{onlineSummary}</Text>
         </Box>
-        <InputBar onSend={onSend} onNick={onNick} onColor={onColor} />
-        <StatusBar status={status} reconnectAttempt={reconnectAttempt} updateAvailable={updateAvailable} />
+        {changelogOpen ? (
+          <Changelog
+            entries={CHANGELOG}
+            index={changelogIndex}
+            onIndexChange={setChangelogIndex}
+            onClose={closeChangelog}
+          />
+        ) : (
+          <>
+            <InputBar
+              onSend={onSend}
+              onNick={onNick}
+              onColor={onColor}
+              onChangelog={openChangelog}
+            />
+            <StatusBar
+              status={status}
+              reconnectAttempt={reconnectAttempt}
+              updateAvailable={updateAvailable}
+            />
+          </>
+        )}
       </Box>
     </>
   );

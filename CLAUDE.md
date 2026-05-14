@@ -114,13 +114,14 @@ The client publishes to npm as `@lathyrus-odoratus/pantry` (scoped, public). `bi
 
 Triggered by pushing a tag matching `client-v*`. Workflow at `.github/workflows/publish-client.yml` runs `pnpm install --frozen-lockfile`, verifies the tag matches `packages/client/package.json#version`, builds (which also typechecks), then `pnpm publish` from `packages/client/`. Auth via `NPM_TOKEN` repo secret.
 
-Three version constants must be **bumped in lockstep** before tagging:
+Three version constants must be **bumped in lockstep** before tagging, plus one new changelog entry:
 
 1. `packages/client/package.json` — `version`
 2. `packages/client/src/version.ts` — `CLIENT_VERSION`
 3. `packages/backend/src/version.ts` — `LATEST_CLIENT_VERSION`
+4. `packages/client/src/changelog.ts` — prepend a new `ChangelogEntry` at the top of `CHANGELOG`
 
-(2) is what the client tells the server it is; (3) is what the server tells clients is the newest available. Without bumping (3) **and redeploying the backend**, connected clients won't see the "update available" hint even after the new version is on npm.
+(2) is what the client tells the server it is; (3) is what the server tells clients is the newest available. Without bumping (3) **and redeploying the backend**, connected clients won't see the "update available" hint even after the new version is on npm. (4) is what `/changelog` shows users in-app — keep it short and end-user oriented (not internal commit chatter).
 
 Procedure:
 

@@ -69,4 +69,24 @@ describe("store", () => {
     useStore.getState().setUpdateAvailable(null);
     expect(useStore.getState().updateAvailable).toBeNull();
   });
+
+  it("openChangelog flips changelogOpen true and resets index to 0", () => {
+    useStore.getState().setChangelogIndex(3);
+    useStore.getState().openChangelog();
+    expect(useStore.getState().changelogOpen).toBe(true);
+    expect(useStore.getState().changelogIndex).toBe(0);
+  });
+
+  it("closeChangelog flips changelogOpen false (index unchanged)", () => {
+    useStore.getState().openChangelog();
+    useStore.getState().setChangelogIndex(2);
+    useStore.getState().closeChangelog();
+    expect(useStore.getState().changelogOpen).toBe(false);
+    expect(useStore.getState().changelogIndex).toBe(2);
+  });
+
+  it("setChangelogIndex updates the index", () => {
+    useStore.getState().setChangelogIndex(5);
+    expect(useStore.getState().changelogIndex).toBe(5);
+  });
 });
