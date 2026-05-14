@@ -9,6 +9,16 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.12",
+    date: "2026-05-14",
+    title: "/h help + status bar refresh",
+    highlights: [
+      "/h (or /help) prints a one-shot command reference in the chat.",
+      "Status bar now lists /h, /changelog, /nick, /color so new users notice them.",
+      "System notices render as dim multi-line blocks without the `·#sys:` prefix.",
+    ],
+  },
+  {
     version: "0.1.11",
     date: "2026-05-14",
     title: "/changelog command",

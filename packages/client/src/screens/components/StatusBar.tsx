@@ -39,7 +39,7 @@ export function StatusBar({
         {LABELS[status]}
         {extra}
       </Text>
-      <Text dimColor> · Ctrl+C to quit · /nick &lt;name&gt; to rename</Text>
+      <Text dimColor> · Ctrl+C to quit · /h · /changelog · /nick · /color</Text>
       {updateAvailable ? (
         <Text color="cyan">
           {" "}

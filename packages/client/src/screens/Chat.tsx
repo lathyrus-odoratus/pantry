@@ -7,6 +7,7 @@ import { InputBar } from "./components/InputBar.js";
 import { StatusBar } from "./components/StatusBar.js";
 import { Changelog } from "./components/Changelog.js";
 import { CHANGELOG } from "../changelog.js";
+import { HELP_TEXT } from "../help.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
 import { saveAnon } from "../auth/anon.js";
 
@@ -20,6 +21,19 @@ function hashColor(label: string): string {
 }
 
 function MessageRow({ m }: { m: Message }): React.JSX.Element {
+  // System notices (joins, leaves, renames, local /h help) render as a dim
+  // block without the `nick#disc:` prefix. Body may be multi-line.
+  if (m.author.discriminator === "sys") {
+    return (
+      <Box flexDirection="column">
+        {m.body.split("\n").map((line, i) => (
+          <Text key={i} dimColor>
+            {line}
+          </Text>
+        ))}
+      </Box>
+    );
+  }
   const label = `${m.author.nickname}#${m.author.discriminator}`;
   // Static items render exactly once; resolve the author's current color at
   // that moment via getState() to avoid subscribing (which would defeat Static).
@@ -150,6 +164,14 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const onColor = useCallback((color: string | null) => {
     transportRef.current?.send({ type: "color.change", color });
   }, []);
+  const onHelp = useCallback(() => {
+    addMessage({
+      id: `help-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+      body: HELP_TEXT,
+      createdAt: new Date().toISOString(),
+      author: { nickname: "·", discriminator: "sys" },
+    });
+  }, [addMessage]);
 
   const changelogOpen = useStore((s) => s.changelogOpen);
   const changelogIndex = useStore((s) => s.changelogIndex);
@@ -199,6 +221,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
               onNick={onNick}
               onColor={onColor}
               onChangelog={openChangelog}
+              onHelp={onHelp}
             />
             <StatusBar
               status={status}

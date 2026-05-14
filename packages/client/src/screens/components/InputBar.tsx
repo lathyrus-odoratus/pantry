@@ -7,6 +7,7 @@ type Props = {
   onNick: (newNickname: string) => void;
   onColor: (color: string | null) => void;
   onChangelog: () => void;
+  onHelp: () => void;
 };
 
 const HEX_COLOR_RE = /^#?[0-9a-fA-F]{6}$/;
@@ -16,6 +17,7 @@ export function InputBar({
   onNick,
   onColor,
   onChangelog,
+  onHelp,
 }: Props): React.JSX.Element {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
@@ -43,6 +45,8 @@ export function InputBar({
         }
       } else if (cmd === "changelog") {
         onChangelog();
+      } else if (cmd === "h" || cmd === "help") {
+        onHelp();
       }
       return;
     }

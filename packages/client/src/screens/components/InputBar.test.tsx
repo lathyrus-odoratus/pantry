@@ -160,6 +160,7 @@ describe("InputBar", () => {
         onNick={() => {}}
         onColor={() => {}}
         onChangelog={() => {}}
+        onHelp={() => {}}
       />,
     );
     await flush();
@@ -167,5 +168,41 @@ describe("InputBar", () => {
     stdin.write("\r");
     await flush();
     expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("calls onHelp on /h", async () => {
+    const onHelp = vi.fn();
+    const { stdin } = render(
+      <InputBar
+        onSend={() => {}}
+        onNick={() => {}}
+        onColor={() => {}}
+        onChangelog={() => {}}
+        onHelp={onHelp}
+      />,
+    );
+    await flush();
+    stdin.write("/h");
+    stdin.write("\r");
+    await flush();
+    expect(onHelp).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onHelp on /help (alias)", async () => {
+    const onHelp = vi.fn();
+    const { stdin } = render(
+      <InputBar
+        onSend={() => {}}
+        onNick={() => {}}
+        onColor={() => {}}
+        onChangelog={() => {}}
+        onHelp={onHelp}
+      />,
+    );
+    await flush();
+    stdin.write("/help");
+    stdin.write("\r");
+    await flush();
+    expect(onHelp).toHaveBeenCalledTimes(1);
   });
 });
