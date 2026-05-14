@@ -10,6 +10,8 @@ import {
   targetFromRoom,
 } from "../discord/webhook.js";
 import { logger } from "../logger.js";
+import type { WorldStateStore } from "../world/state.js";
+import { endWorld } from "../ws/handlers/world.js";
 
 const BroadcastBodySchema = z.object({
   room: z.string().min(1).max(64),
@@ -20,6 +22,7 @@ export type AdminRoutesDeps = {
   config: Config;
   rooms: RoomsRepo;
   registry: ConnectionRegistry;
+  worldState: WorldStateStore;
 };
 
 export async function registerAdminRoutes(
@@ -58,5 +61,29 @@ export async function registerAdminRoutes(
     );
     logger.info({ roomName, len: body.length }, "admin announce");
     return reply.code(204).send();
+  });
+
+  app.post("/admin/world/end", async (req, reply) => {
+    if (!deps.config.adminKey) {
+      return reply.code(503).send({ error: "admin_disabled" });
+    }
+    const provided = req.headers["x-admin-key"];
+    if (typeof provided !== "string" || provided !== deps.config.adminKey) {
+      return reply.code(401).send({ error: "unauthorized" });
+    }
+    const active = deps.worldState.get();
+    if (!active) return reply.code(404).send({ error: "no_active_world" });
+
+    await endWorld(
+      {
+        users: undefined as never,
+        registry: deps.registry,
+        worldState: deps.worldState,
+        creditTotal: active.creditTotal,
+      },
+      "admin_force",
+    );
+    logger.info({ roomId: active.roomId }, "admin force-ended world");
+    return reply.code(204).send({});
   });
 }

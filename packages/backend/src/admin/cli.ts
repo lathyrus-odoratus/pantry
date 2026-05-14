@@ -187,13 +187,40 @@ cli
     }
   });
 
+cli
+  .command("world end", "Force-end the currently-active world (admin)")
+  .action(async () => {
+    const config = loadConfig();
+    if (!config.adminKey) {
+      console.error("ADMIN_KEY is not set in backend .env");
+      process.exit(1);
+    }
+    const url = `${config.publicBackendUrl.replace(/\/$/, "")}/admin/world/end`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "x-admin-key": config.adminKey },
+    });
+    if (res.status === 204) {
+      console.log("✓ World ended.");
+      return;
+    }
+    if (res.status === 404) {
+      console.error("No active world.");
+      process.exit(1);
+    }
+    const text = await res.text().catch(() => "");
+    console.error(`Force-end failed: ${res.status} ${text}`);
+    process.exit(1);
+  });
+
 cli.help();
 
 // cac matches commands by their first positional arg only.
 // Merge the first two non-flag args into a single "group action" token for
-// known compound groups ("room", "user"), so "room list" etc. are recognised
-// as one command name. Single-word commands like "announce" are left alone.
-const COMPOUND_GROUPS = new Set(["room", "user"]);
+// known compound groups ("room", "user", "world"), so "room list" etc. are
+// recognised as one command name. Single-word commands like "announce" are
+// left alone.
+const COMPOUND_GROUPS = new Set(["room", "user", "world"]);
 const raw = process.argv;
 const userArgs = raw.slice(2);
 const u0 = userArgs[0];

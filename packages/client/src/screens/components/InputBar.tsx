@@ -8,6 +8,7 @@ type Props = {
   onColor: (color: string | null) => void;
   onChangelog: () => void;
   onHelp: () => void;
+  onWorldOpen: () => void;
 };
 
 const HEX_COLOR_RE = /^#?[0-9a-fA-F]{6}$/;
@@ -18,6 +19,7 @@ export function InputBar({
   onColor,
   onChangelog,
   onHelp,
+  onWorldOpen,
 }: Props): React.JSX.Element {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
@@ -47,6 +49,8 @@ export function InputBar({
         onChangelog();
       } else if (cmd === "h" || cmd === "help") {
         onHelp();
+      } else if (cmd === "the-world") {
+        onWorldOpen();
       }
       return;
     }

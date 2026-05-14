@@ -6,6 +6,7 @@ import { TransportClient } from "../transport/client.js";
 import { InputBar } from "./components/InputBar.js";
 import { StatusBar } from "./components/StatusBar.js";
 import { Changelog } from "./components/Changelog.js";
+import { WorldPanel } from "./components/WorldPanel.js";
 import { CHANGELOG } from "../changelog.js";
 import { HELP_TEXT } from "../help.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
@@ -71,6 +72,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const addMessage = useStore((s) => s.addMessage);
   const setPresence = useStore((s) => s.setPresence);
   const setUpdateAvailable = useStore((s) => s.setUpdateAvailable);
+  const setWorldState = useStore((s) => s.setWorldState);
   const setError = useStore((s) => s.setError);
 
   const transportRef = useRef<TransportClient | null>(null);
@@ -114,6 +116,13 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
           case "presence":
             setPresence(m.onlineUsers);
             break;
+          case "world.state":
+            setWorldState({
+              active: m.active,
+              creditUsed: m.creditUsed,
+              creditTotal: m.creditTotal,
+            });
+            break;
           case "history":
             // Static renders new items at the bottom regardless of array
             // position, so prepending historical messages would visually
@@ -153,7 +162,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
       client.close();
       transportRef.current = null;
     };
-  }, [pending, roomName, serverUrl, setStatus, onAuthOk, setSnapshot, addMessage, setPresence, setUpdateAvailable, setError]);
+  }, [pending, roomName, serverUrl, setStatus, onAuthOk, setSnapshot, addMessage, setPresence, setUpdateAvailable, setWorldState, setError]);
 
   const onSend = useCallback((body: string) => {
     transportRef.current?.send({ type: "message.send", body });
@@ -172,6 +181,13 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
       author: { nickname: "·", discriminator: "sys" },
     });
   }, [addMessage]);
+  const onWorldOpen = useCallback(() => {
+    transportRef.current?.send({ type: "world.open" });
+  }, []);
+
+  const worldActive = useStore((s) => s.worldActive);
+  const worldCreditUsed = useStore((s) => s.worldCreditUsed);
+  const worldCreditTotal = useStore((s) => s.worldCreditTotal);
 
   const changelogOpen = useStore((s) => s.changelogOpen);
   const changelogIndex = useStore((s) => s.changelogIndex);
@@ -216,12 +232,19 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
           />
         ) : (
           <>
+            {worldActive ? (
+              <WorldPanel
+                creditUsed={worldCreditUsed}
+                creditTotal={worldCreditTotal}
+              />
+            ) : null}
             <InputBar
               onSend={onSend}
               onNick={onNick}
               onColor={onColor}
               onChangelog={openChangelog}
               onHelp={onHelp}
+              onWorldOpen={onWorldOpen}
             />
             <StatusBar
               status={status}

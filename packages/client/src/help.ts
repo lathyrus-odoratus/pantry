@@ -5,4 +5,5 @@ export const HELP_TEXT = [
   "/nick <name>     Change your nickname",
   "/color <hex>     Set your nick color, e.g. /color ff6b6b (# optional)",
   "/color reset     Clear nick color",
+  "/the-world       Open a TRPG world in this room (one global at a time)",
 ].join("\n");

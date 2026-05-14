@@ -36,7 +36,7 @@ export async function startServer(): Promise<void> {
   app.get("/health", async () => ({ ok: true }));
 
   await registerAuthRoutes(app, { config, stateStore, usersRepo: users });
-  await registerAdminRoutes(app, { config, rooms, registry });
+  await registerAdminRoutes(app, { config, rooms, registry, worldState });
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
   attachWebSocketServer(app.server, {

@@ -59,6 +59,11 @@ export type Store = {
   changelogOpen: boolean;
   changelogIndex: number;
 
+  // World feature
+  worldActive: boolean;
+  worldCreditUsed: number;
+  worldCreditTotal: number;
+
   // Actions
   setScreen: (s: Screen) => void;
   commitRoomName: (name: string) => void;
@@ -78,6 +83,11 @@ export type Store = {
   openChangelog: () => void;
   closeChangelog: () => void;
   setChangelogIndex: (i: number) => void;
+  setWorldState: (state: {
+    active: boolean;
+    creditUsed: number;
+    creditTotal: number;
+  }) => void;
   setError: (msg: string) => void;
   reset: () => void;
 };
@@ -98,6 +108,7 @@ const initial: Omit<
   | "openChangelog"
   | "closeChangelog"
   | "setChangelogIndex"
+  | "setWorldState"
   | "setError"
   | "reset"
 > = {
@@ -115,6 +126,9 @@ const initial: Omit<
   updateAvailable: null,
   changelogOpen: false,
   changelogIndex: 0,
+  worldActive: false,
+  worldCreditUsed: 0,
+  worldCreditTotal: 0,
 };
 
 export const useStore = create<Store>((set) => ({
@@ -164,6 +178,13 @@ export const useStore = create<Store>((set) => ({
   openChangelog: () => set({ changelogOpen: true, changelogIndex: 0 }),
   closeChangelog: () => set({ changelogOpen: false }),
   setChangelogIndex: (changelogIndex) => set({ changelogIndex }),
+
+  setWorldState: ({ active, creditUsed, creditTotal }) =>
+    set({
+      worldActive: active,
+      worldCreditUsed: creditUsed,
+      worldCreditTotal: creditTotal,
+    }),
 
   setError: (errorMessage) => set({ errorMessage, screen: "error" }),
 

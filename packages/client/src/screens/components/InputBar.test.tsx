@@ -12,7 +12,16 @@ async function flush() {
 describe("InputBar", () => {
   it("calls onSend on Enter with the typed value", async () => {
     const onSend = vi.fn();
-    const { stdin } = render(<InputBar onSend={onSend} onNick={() => {}} />);
+    const { stdin } = render(
+      <InputBar
+        onSend={onSend}
+        onNick={() => {}}
+        onColor={() => {}}
+        onChangelog={() => {}}
+        onHelp={() => {}}
+        onWorldOpen={() => {}}
+      />,
+    );
     await flush();
     stdin.write("hello");
     stdin.write("\r");
@@ -22,7 +31,16 @@ describe("InputBar", () => {
 
   it("calls onNick when input starts with /nick", async () => {
     const onNick = vi.fn();
-    const { stdin } = render(<InputBar onSend={() => {}} onNick={onNick} />);
+    const { stdin } = render(
+      <InputBar
+        onSend={() => {}}
+        onNick={onNick}
+        onColor={() => {}}
+        onChangelog={() => {}}
+        onHelp={() => {}}
+        onWorldOpen={() => {}}
+      />,
+    );
     await flush();
     stdin.write("/nick Alicia");
     stdin.write("\r");
@@ -32,7 +50,16 @@ describe("InputBar", () => {
 
   it("ignores empty submissions", async () => {
     const onSend = vi.fn();
-    const { stdin } = render(<InputBar onSend={onSend} onNick={() => {}} />);
+    const { stdin } = render(
+      <InputBar
+        onSend={onSend}
+        onNick={() => {}}
+        onColor={() => {}}
+        onChangelog={() => {}}
+        onHelp={() => {}}
+        onWorldOpen={() => {}}
+      />,
+    );
     await flush();
     stdin.write("\r");
     await flush();
@@ -179,6 +206,7 @@ describe("InputBar", () => {
         onColor={() => {}}
         onChangelog={() => {}}
         onHelp={onHelp}
+        onWorldOpen={() => {}}
       />,
     );
     await flush();
@@ -197,6 +225,7 @@ describe("InputBar", () => {
         onColor={() => {}}
         onChangelog={() => {}}
         onHelp={onHelp}
+        onWorldOpen={() => {}}
       />,
     );
     await flush();
@@ -204,5 +233,24 @@ describe("InputBar", () => {
     stdin.write("\r");
     await flush();
     expect(onHelp).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onWorldOpen on /the-world", async () => {
+    const onWorldOpen = vi.fn();
+    const { stdin } = render(
+      <InputBar
+        onSend={() => {}}
+        onNick={() => {}}
+        onColor={() => {}}
+        onChangelog={() => {}}
+        onHelp={() => {}}
+        onWorldOpen={onWorldOpen}
+      />,
+    );
+    await flush();
+    stdin.write("/the-world");
+    stdin.write("\r");
+    await flush();
+    expect(onWorldOpen).toHaveBeenCalledTimes(1);
   });
 });
