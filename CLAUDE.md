@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `pantry` is a small real-time chat tool. Backend owns WebSocket connections and gates room access; client is an Ink TUI distributed on npm as `@lathyrus-odoratus/pantry` and runnable via `npx`. Knowledge of a `room_name` (pre-created by admin) is the only access gate; there is no public room-creation API.
 
-Full design doc: `docs/superpowers/specs/2026-05-11-pantry-design.md`. Deployment runbook (VM + Cloudflare Tunnel + npm publish): `docs/superpowers/plans/2026-05-11-pantry-plan-c-deploy.md`.
+Full design doc: `docs/superpowers/specs/2026-05-11-pantry-design.md`. Deployment runbook (VM + Cloudflare Tunnel + npm publish): `docs/superpowers/plans/2026-05-11-pantry-plan-c-deploy.md`. Future roadmap / things considered-but-deferred: `BACKLOG.md`.
 
 ## Workspace layout
 
