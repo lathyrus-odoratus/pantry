@@ -1,14 +1,20 @@
+import type Anthropic from "@anthropic-ai/sdk";
 import type { ServerMessage } from "@pantry/shared";
 import { logger } from "../../logger.js";
 import type { ConnectionRegistry, AuthedConnection } from "../connection-registry.js";
+import type { MessagesRepo } from "../../db/messages.js";
 import { broadcastToRoom, send } from "../broadcast.js";
 import { notify } from "../../discord/webhook.js";
 import { rollDice, formatRoll } from "../../world/dice.js";
 import type { WorldStateStore } from "../../world/state.js";
+import { runNpcTurn } from "../../world/brain.js";
 
 export type DiceDeps = {
   registry: ConnectionRegistry;
   worldState: WorldStateStore;
+  anthropic: Anthropic | null;
+  messages: MessagesRepo;
+  worldCreditTotal: number;
 };
 
 /**
@@ -53,14 +59,6 @@ export async function handleDiceRoll(
   broadcastToRoom(deps.registry, conn.roomId, sysMsg);
   notify(conn.webhook, `> ${body}`);
 
-  // Feed outcome into transcript so NPC sees it on next turn.
-  world.transcript.push({
-    role: "player",
-    authorLabel: "🎲 dice",
-    body,
-    at: Date.now(),
-  });
-
   logger.info(
     {
       userId: conn.userId,
@@ -70,4 +68,35 @@ export async function handleDiceRoll(
     },
     "dice rolled",
   );
+
+  // Treat the dice outcome as a player turn that immediately triggers the
+  // NPC — runNpcTurn appends it to the transcript itself and decides
+  // whether to fire (in testing mode: always). Fire-and-forget so we
+  // don't block the dice handler on the LLM call.
+  if (deps.anthropic) {
+    void runNpcTurn(
+      {
+        client: deps.anthropic,
+        messages: deps.messages,
+        registry: deps.registry,
+        worldState: deps.worldState,
+        creditTotal: deps.worldCreditTotal,
+      },
+      {
+        role: "player",
+        authorLabel: "🎲 dice",
+        body,
+        at: Date.now(),
+      },
+    );
+  } else {
+    // No LLM available — still record the outcome so a future world with
+    // anthropic enabled would have history continuity (defensive).
+    world.transcript.push({
+      role: "player",
+      authorLabel: "🎲 dice",
+      body,
+      at: Date.now(),
+    });
+  }
 }

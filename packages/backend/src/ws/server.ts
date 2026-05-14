@@ -156,6 +156,9 @@ export function attachWebSocketServer(
             await handleDiceRoll(authed, {
               registry: deps.registry,
               worldState: deps.worldState,
+              anthropic: deps.anthropic,
+              messages: deps.messages,
+              worldCreditTotal: deps.config.worldCreditTotal,
             });
             break;
           case "history.load":

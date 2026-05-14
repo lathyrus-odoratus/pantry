@@ -175,6 +175,25 @@ export function buildAnthropicMessages(
   return out;
 }
 
+// Cost weights for Haiku 4.5 ($/1M base): input 1.0, cache_create 1.25,
+// cache_read 0.1, output 5.0. Multiplying raw token counts by these gives
+// a "credit" unit that approximates real $ spend — so the world's progress
+// bar reflects actual cost, not raw token throughput (cache reads were
+// previously counted at full weight, masking the savings).
+const W_INPUT = 1.0;
+const W_CACHE_WRITE = 1.25;
+const W_CACHE_READ = 0.1;
+const W_OUTPUT = 5.0;
+
+function weightedTokens(usage: Anthropic.Messages.Usage): number {
+  return (
+    usage.input_tokens * W_INPUT +
+    (usage.cache_creation_input_tokens ?? 0) * W_CACHE_WRITE +
+    (usage.cache_read_input_tokens ?? 0) * W_CACHE_READ +
+    usage.output_tokens * W_OUTPUT
+  );
+}
+
 export async function generateNpcResponse(
   client: Anthropic,
   transcript: TranscriptEntry[],
@@ -193,6 +212,10 @@ export async function generateNpcResponse(
       },
     ],
     messages,
+    // Top-level auto-caching: the SDK appends cache_control to the last
+    // cacheable block (typically the most-recent message), so the growing
+    // transcript becomes a cache hit on the next call.
+    cache_control: { type: "ephemeral" },
   });
 
   const textBlock = response.content.find(
@@ -201,11 +224,18 @@ export async function generateNpcResponse(
   const text = textBlock?.text ?? "";
 
   const usage = response.usage;
-  const tokensUsed =
-    usage.input_tokens +
-    (usage.cache_creation_input_tokens ?? 0) +
-    (usage.cache_read_input_tokens ?? 0) +
-    usage.output_tokens;
+  const tokensUsed = Math.round(weightedTokens(usage));
+
+  logger.info(
+    {
+      input: usage.input_tokens,
+      cache_read: usage.cache_read_input_tokens ?? 0,
+      cache_write: usage.cache_creation_input_tokens ?? 0,
+      output: usage.output_tokens,
+      weighted: tokensUsed,
+    },
+    "llm call (npc turn)",
+  );
 
   return { response: text, tokensUsed };
 }
@@ -282,6 +312,18 @@ export async function runNpcTurn(
         type: "message",
         data: npcMessage,
       });
+
+      // When the NPC asks for a roll, drop a clear system hint so players
+      // know whose action provoked the dice and what command to type. The
+      // "provoker" is the player whose message triggered this turn — we
+      // address them by name so it doesn't get lost in chat scroll.
+      if (extraction) {
+        broadcastToRoom(deps.registry, world.roomId, {
+          type: "system",
+          event: "dice",
+          body: `🎲 等候 ${playerEntry.authorLabel} 打 /roll`,
+        });
+      }
 
       deps.worldState.appendTranscript({
         role: "npc",
@@ -376,6 +418,17 @@ export async function generateEndSummary(
       },
     ],
   });
+
+  logger.info(
+    {
+      input: response.usage.input_tokens,
+      cache_read: response.usage.cache_read_input_tokens ?? 0,
+      cache_write: response.usage.cache_creation_input_tokens ?? 0,
+      output: response.usage.output_tokens,
+      weighted: Math.round(weightedTokens(response.usage)),
+    },
+    "llm call (end summary)",
+  );
 
   const textBlock = response.content.find(
     (b): b is Anthropic.TextBlock => b.type === "text",

@@ -9,6 +9,18 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.17",
+    date: "2026-05-14",
+    title: "Cheaper LLM, NPC reacts to dice, clearer /roll prompt",
+    highlights: [
+      "Transcript-level prompt caching enabled — repeat history bytes now read from cache at ~10% cost, so a 100k-credit world should support ~2–3× more turns.",
+      "Credit budget now weighted by real Haiku 4.5 cost ratio (cache reads ×0.1, output ×5). Progress bar tracks $ spend, not raw tokens.",
+      "Every LLM call logs its token breakdown (input / cache_read / cache_write / output / weighted) so we can audit spend retrospectively.",
+      "After you /roll, the NPC reacts immediately to the outcome instead of waiting for someone to speak again.",
+      "When the NPC asks for a roll, a system hint follows the message — 「🎲 等候 X 打 /roll」— so it's clear whose action provoked the dice.",
+    ],
+  },
+  {
     version: "0.1.16",
     date: "2026-05-14",
     title: "GM-driven dice + NPC emoji moves + summary stays 正體",
