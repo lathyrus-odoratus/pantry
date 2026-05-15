@@ -29,5 +29,16 @@ ssh wisp '
   docker compose ps
 '
 
-echo "==> verifying /health"
-ssh wisp 'curl -fsS http://127.0.0.1:8081/health' && echo
+echo "==> verifying /health (waits for container health: starting → healthy)"
+ssh wisp '
+  set -euo pipefail
+  for i in $(seq 1 30); do
+    if curl -fsS http://127.0.0.1:8081/health; then
+      echo
+      exit 0
+    fi
+    sleep 1
+  done
+  echo "health check timed out after 30s" >&2
+  exit 1
+'
