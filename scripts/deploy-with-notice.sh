@@ -5,6 +5,14 @@ set -euo pipefail
 # Usage:
 #   ./scripts/deploy-with-notice.sh <room> [delay-seconds]
 #   pnpm deploy:with-notice <room> [delay-seconds]
+#
+# TODO(noracami): decide when notice should fire vs. plain `pnpm deploy`.
+# Open questions:
+#   - default-on for any deploy, or only when ≥ N online / world active?
+#   - per-room loop when multiple rooms are populated?
+#   - hook into deploy.sh as a pre-step instead of a separate script?
+# Memory rule "always announce before redeploy" was removed on 2026-05-16
+# pending this decision.
 
 ROOM="${1:-}"
 DELAY="${2:-30}"
