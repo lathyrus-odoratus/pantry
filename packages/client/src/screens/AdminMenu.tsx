@@ -37,7 +37,7 @@ export function AdminMenu({ serverUrl }: Props): React.JSX.Element {
     if (!pending || pending.kind !== "oauth") return;
     const client = new TransportClient({
       url: serverUrl,
-      onStatus: (s, attempt) => setStatus(s, attempt),
+      onStatus: (s, attempt, detail) => setStatus(s, attempt, detail),
       onMessage: (m) => {
         switch (m.type) {
           case "admin.auth.ok":

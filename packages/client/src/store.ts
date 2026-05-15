@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { AdminRoomSummary, Message } from "@pantry/shared";
+import type { DisconnectDetail } from "./transport/client.js";
 
 export type Screen =
   | "room_input"
@@ -46,6 +47,7 @@ export type Store = {
   // Connection state
   status: ConnStatus;
   reconnectAttempt: number;
+  lastDisconnect: DisconnectDetail | null;
 
   // Authed session state
   authedUser: AuthedUser | null;
@@ -74,7 +76,7 @@ export type Store = {
   setScreen: (s: Screen) => void;
   commitRoomName: (name: string) => void;
   setPendingIdentity: (i: Identity | null) => void;
-  setStatus: (s: ConnStatus, attempt?: number) => void;
+  setStatus: (s: ConnStatus, attempt?: number, detail?: DisconnectDetail) => void;
   onAuthOk: (user: AuthedUser, roomId: string) => void;
   setSnapshot: (
     roomId: string,
@@ -128,6 +130,7 @@ const initial: Omit<
   pendingIdentity: null,
   status: "idle",
   reconnectAttempt: 0,
+  lastDisconnect: null,
   authedUser: null,
   roomId: null,
   messages: [],
@@ -152,10 +155,12 @@ export const useStore = create<Store>((set) => ({
 
   setPendingIdentity: (pendingIdentity) => set({ pendingIdentity }),
 
-  setStatus: (status, attempt) =>
+  setStatus: (status, attempt, detail) =>
     set((s) => ({
       status,
       reconnectAttempt: attempt ?? (status === "connected" ? 0 : s.reconnectAttempt),
+      lastDisconnect:
+        status === "connected" ? null : detail ?? s.lastDisconnect,
     })),
 
   onAuthOk: (authedUser, roomId) =>

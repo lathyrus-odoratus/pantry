@@ -12,9 +12,15 @@ export type Status =
   | "reconnecting"
   | "disconnected";
 
+export type DisconnectDetail = {
+  code?: number;
+  reason?: string;
+  error?: string;
+};
+
 export type TransportOptions = {
   url: string;
-  onStatus: (s: Status, attempt?: number) => void;
+  onStatus: (s: Status, attempt?: number, detail?: DisconnectDetail) => void;
   onMessage: (m: ServerMessage) => void;
   backoffSchedule?: number[]; // milliseconds, last value caps
   maxReconnects?: number; // default: Infinity
@@ -29,6 +35,8 @@ export class TransportClient {
   private closedByUser = false;
   private backoff: number[];
   private maxReconnects: number;
+  private lastDetail: DisconnectDetail | null = null;
+  private pendingError: string | null = null;
 
   constructor(private opts: TransportOptions) {
     this.backoff = opts.backoffSchedule ?? DEFAULT_BACKOFF;
@@ -37,12 +45,19 @@ export class TransportClient {
 
   connect(): void {
     this.closedByUser = false;
-    this.opts.onStatus(this.attempts === 0 ? "connecting" : "reconnecting", this.attempts);
+    this.pendingError = null;
+    this.opts.onStatus(
+      this.attempts === 0 ? "connecting" : "reconnecting",
+      this.attempts,
+      this.lastDetail ?? undefined,
+    );
     const ws = new WebSocket(this.opts.url);
     this.ws = ws;
 
     ws.on("open", () => {
       this.attempts = 0;
+      this.lastDetail = null;
+      this.pendingError = null;
       this.opts.onStatus("connected", 0);
     });
 
@@ -58,17 +73,23 @@ export class TransportClient {
       this.opts.onMessage(result.data);
     });
 
-    const handleDown = () => {
+    ws.on("error", (err: Error) => {
+      this.pendingError = err.message;
+    });
+
+    ws.on("close", (code: number, reasonBuf: Buffer) => {
+      const reason = reasonBuf?.toString() || undefined;
+      this.lastDetail = {
+        code,
+        reason,
+        error: this.pendingError ?? undefined,
+      };
+      this.pendingError = null;
       if (this.closedByUser) {
-        this.opts.onStatus("disconnected");
+        this.opts.onStatus("disconnected", undefined, this.lastDetail);
         return;
       }
       this.scheduleReconnect();
-    };
-
-    ws.on("close", handleDown);
-    ws.on("error", () => {
-      // The close event will follow.
     });
   }
 
@@ -96,13 +117,13 @@ export class TransportClient {
 
   private scheduleReconnect(): void {
     if (this.attempts >= this.maxReconnects) {
-      this.opts.onStatus("disconnected");
+      this.opts.onStatus("disconnected", undefined, this.lastDetail ?? undefined);
       return;
     }
     const idx = Math.min(this.attempts, this.backoff.length - 1);
     const delay = this.backoff[idx] ?? this.backoff[this.backoff.length - 1] ?? 5000;
     this.attempts += 1;
-    this.opts.onStatus("reconnecting", this.attempts);
+    this.opts.onStatus("reconnecting", this.attempts, this.lastDetail ?? undefined);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();

@@ -9,6 +9,15 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.19",
+    date: "2026-05-15",
+    title: "Reconnect 畫面顯示斷線原因",
+    highlights: [
+      "重連時 StatusBar 多印一行 `· last: <code> <reason>`，把 server 主動關閉（4001 auth_timeout / 4002 room_not_found 之類）和網路層斷線（1006 abnormal、Unexpected server response: 4xx）區分開來，回報問題時直接截圖就能看出 root cause。",
+      "Pre-connect 階段的 error message（TLS 失敗、proxy 把 Upgrade header 吃掉、DNS 不通）現在也會一併顯示，不再被 transport 預設靜默。",
+    ],
+  },
+  {
     version: "0.1.18",
     date: "2026-05-15",
     title: "Admin scene (--admin) + room close/reopen",

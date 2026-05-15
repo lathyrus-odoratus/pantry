@@ -79,6 +79,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const authedUser = useStore((s) => s.authedUser);
   const status = useStore((s) => s.status);
   const reconnectAttempt = useStore((s) => s.reconnectAttempt);
+  const lastDisconnect = useStore((s) => s.lastDisconnect);
   const pending = useStore((s) => s.pendingIdentity);
   const roomName = useStore((s) => s.roomName);
   const updateAvailable = useStore((s) => s.updateAvailable);
@@ -97,7 +98,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
     if (!pending) return;
     const client = new TransportClient({
       url: serverUrl,
-      onStatus: (s, attempt) => setStatus(s, attempt),
+      onStatus: (s, attempt, detail) => setStatus(s, attempt, detail),
       onMessage: (m) => {
         switch (m.type) {
           case "auth.ok": {
@@ -276,6 +277,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
               status={status}
               reconnectAttempt={reconnectAttempt}
               updateAvailable={updateAvailable}
+              lastDisconnect={lastDisconnect}
             />
           </>
         )}
