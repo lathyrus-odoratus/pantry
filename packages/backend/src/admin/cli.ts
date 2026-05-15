@@ -17,6 +17,16 @@ function makeRepos() {
   };
 }
 
+function readRawFlag(flag: string): string | undefined {
+  const argv = process.argv;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === flag) return argv[i + 1];
+    if (a !== undefined && a.startsWith(`${flag}=`)) return a.slice(flag.length + 1);
+  }
+  return undefined;
+}
+
 async function confirm(message: string): Promise<boolean> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
@@ -76,7 +86,10 @@ cli
 cli
   .command("room set-webhook <name> <url>", "Bind a Discord webhook to a room")
   .option("--thread <id>", "Discord forum/thread id (optional)")
-  .action(async (name: string, url: string, opts: { thread?: string }) => {
+  .action(async (name: string, url: string, _opts: { thread?: string }) => {
+    // Read --thread directly from argv: cac coerces numeric strings to Number,
+    // which loses precision on Discord snowflakes (≥ 2^53).
+    const threadId = readRawFlag("--thread");
     const { rooms } = makeRepos();
     const existing = await rooms.findByName(name);
     if (!existing) {
@@ -85,7 +98,7 @@ cli
     }
     const updated = await rooms.setWebhook(name, {
       url,
-      threadId: opts.thread ?? null,
+      threadId: threadId ?? null,
     });
     console.log(
       `✓ Bound webhook for "${updated.name}"` +
