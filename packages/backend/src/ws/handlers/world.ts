@@ -49,6 +49,7 @@ export async function handleWorldOpen(
     brainBusy: false,
     pendingRoll: null,
     consecutiveInvalidRequests: 0,
+    npcDebounceTimer: null,
   });
 
   const openerLabel = `${conn.nickname}#${conn.discriminator}`;
@@ -118,6 +119,7 @@ export async function endWorld(
   const npcConn = deps.registry.get(active.npcConnectionId);
   if (npcConn) deps.registry.remove(npcConn);
 
+  deps.worldState.clearNpcDebounce();  // cancel any pending debounce before teardown
   deps.worldState.set(null);
 
   broadcastToRoom(deps.registry, active.roomId, {

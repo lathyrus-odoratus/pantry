@@ -1,3 +1,5 @@
+export const NPC_DEBOUNCE_MS = 3000;
+
 export type TranscriptEntry = {
   role: "player" | "npc";
   authorLabel: string;
@@ -33,6 +35,9 @@ export type ActiveWorld = {
   // on any successful NPC turn; when it hits BRAIN_BREAK_THRESHOLD the world
   // is ended so a poisoned transcript can't keep burning credits.
   consecutiveInvalidRequests: number;
+  // Timer handle for the debounce that batches rapid player messages into a
+  // single NPC turn. Null when no turn is pending.
+  npcDebounceTimer: ReturnType<typeof setTimeout> | null;
 };
 
 export class WorldStateStore {
@@ -60,5 +65,21 @@ export class WorldStateStore {
 
   addCreditUsage(tokens: number): void {
     if (this.active) this.active.creditUsed += tokens;
+  }
+
+  scheduleNpcTurn(fn: () => void, ms: number): void {
+    if (this.active?.npcDebounceTimer != null) {
+      clearTimeout(this.active.npcDebounceTimer);
+    }
+    if (this.active) {
+      this.active.npcDebounceTimer = setTimeout(fn, ms);
+    }
+  }
+
+  clearNpcDebounce(): void {
+    if (this.active?.npcDebounceTimer != null) {
+      clearTimeout(this.active.npcDebounceTimer);
+      this.active.npcDebounceTimer = null;
+    }
   }
 }
