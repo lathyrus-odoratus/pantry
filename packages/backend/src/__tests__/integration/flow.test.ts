@@ -175,33 +175,9 @@ describe("backend integration flow", () => {
     expect(err.reason).toBe("room_not_found");
   });
 
-  it("/color persists and broadcasts presence with the normalized color", async () => {
-    const alice = await connect(wsUrl);
-    alice.send({ type: "auth.anon", nickname: "Colora", roomName });
-    await alice.next("auth.ok");
-    await alice.next("room.snapshot");
-
-    const bob = await connect(wsUrl);
-    bob.send({ type: "auth.anon", nickname: "Boba", roomName });
-    await bob.next("auth.ok");
-    await bob.next("room.snapshot");
-    await alice.next("system"); // bob joined
-
-    // Alice sets color via bare hex (no #, lowercase)
-    alice.send({ type: "color.change", color: "ff6b6b" });
-
-    // Bob should see presence updated with normalized form
-    const presence = await bob.next("presence");
-    const aliceInPresence = presence.onlineUsers.find((u) => u.nickname === "Colora");
-    expect(aliceInPresence?.color).toBe("#FF6B6B");
-
-    // Alice resets
-    alice.send({ type: "color.change", color: null });
-    const presence2 = await bob.next("presence");
-    const aliceAfterReset = presence2.onlineUsers.find((u) => u.nickname === "Colora");
-    expect(aliceAfterReset?.color).toBeNull();
-
-    alice.close();
-    bob.close();
-  });
+  // The /color flow is covered by handlers/color.test.ts at unit level (no
+  // prod Supabase + no WS-buffer race). A full e2e variant lived here once
+  // and was flaky: ClientChannel.next() returns the first buffered message
+  // of the matching type, so bob.next("presence") would return bob's own
+  // join presence (with alice.color=null) instead of the color.change one.
 });
