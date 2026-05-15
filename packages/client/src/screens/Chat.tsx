@@ -62,7 +62,7 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
       ? PLAYER_WORLD_EMOJI
       : null;
   return (
-    <Box>
+    <Box marginTop={isNpc ? 1 : 0} marginBottom={isNpc ? 1 : 0}>
       {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
       <Text color={color} bold>
         {label}
