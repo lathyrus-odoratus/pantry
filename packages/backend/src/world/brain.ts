@@ -15,6 +15,19 @@ const MODEL = "claude-haiku-4-5";
 const MAX_OUTPUT_TOKENS = 300;
 const END_SUMMARY_MAX_TOKENS = 700;
 
+// End the world if Anthropic returns `invalid_request_error` this many turns
+// in a row — under normal operation sanitize prevents this entirely, so a
+// streak means something is producing bad data faster than we can clean it
+// and we'd rather end the world than keep burning credits in a retry storm
+// (issue #2).
+export const BRAIN_BREAK_THRESHOLD = 3;
+
+export function isInvalidRequestError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { status?: number; error?: { error?: { type?: string } } };
+  return e.status === 400 && e.error?.error?.type === "invalid_request_error";
+}
+
 // Appended to every world-end summary so players know cross-session memory
 // isn't implemented yet. Remove when chronicle persistence lands.
 export const END_FOOTER = "（下一場世界開啟時，NPC 不會記得這次。）";
@@ -94,6 +107,20 @@ export function shouldTriggerNpc(_body: string): boolean {
 }
 
 const ROLL_MARKER_RE = /\[\[roll:([^\]\n]+)\]\]/gi;
+
+// Replace orphaned UTF-16 surrogates (high or low half of a pair with no
+// matching counterpart) with U+FFFD. Anthropic's JSON parser rejects request
+// bodies containing lone surrogates with `invalid_request_error: no low
+// surrogate in string`, which once put a world into a 24-call 400 storm
+// (see issue #2). Lone surrogates can enter the transcript via player
+// messages whose body wasn't accepted by PG either (PGRST102) but had
+// already been appendTranscript'd in memory.
+const LONE_SURROGATE_RE =
+  /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+export function stripLoneSurrogates(s: string): string {
+  return s.replace(LONE_SURROGATE_RE, "�");
+}
 
 /**
  * Extract the FIRST `[[roll:EXPR]]` marker from an NPC response. Returns the
@@ -199,7 +226,10 @@ export async function generateNpcResponse(
   transcript: TranscriptEntry[],
   current: TranscriptEntry,
 ): Promise<{ response: string; tokensUsed: number }> {
-  const messages = buildAnthropicMessages(transcript, current);
+  const messages = buildAnthropicMessages(transcript, current).map((m) => ({
+    ...m,
+    content: stripLoneSurrogates(m.content),
+  }));
 
   const response = await client.messages.create({
     model: MODEL,
@@ -279,6 +309,8 @@ export async function runNpcTurn(
     // builder appends it last (matches buildAnthropicMessages contract).
     const history = world.transcript.slice(0, -1);
     const result = await generateNpcResponse(deps.client, history, playerEntry);
+
+    world.consecutiveInvalidRequests = 0;
 
     deps.worldState.addCreditUsage(result.tokensUsed);
 
@@ -375,7 +407,36 @@ export async function runNpcTurn(
       );
     }
   } catch (err) {
-    logger.error({ err }, "NPC brain turn failed");
+    logger.error({ err, roomId: world.roomId }, "NPC brain turn failed");
+    if (isInvalidRequestError(err)) {
+      world.consecutiveInvalidRequests++;
+      if (world.consecutiveInvalidRequests >= BRAIN_BREAK_THRESHOLD) {
+        logger.error(
+          {
+            roomId: world.roomId,
+            consecutive: world.consecutiveInvalidRequests,
+          },
+          "circuit breaker tripped: ending world to stop invalid-request storm",
+        );
+        try {
+          await endWorld(
+            {
+              users: undefined as never,
+              registry: deps.registry,
+              worldState: deps.worldState,
+              creditTotal: deps.creditTotal,
+            },
+            "brain_broken",
+            `🪦 NPC 連續 ${world.consecutiveInvalidRequests} 次回應失敗（invalid_request_error），世界已自動結束以避免持續消耗 credit。\n\n${END_FOOTER}`,
+          );
+        } catch (endErr) {
+          logger.error(
+            { err: endErr, roomId: world.roomId },
+            "circuit-breaker endWorld failed",
+          );
+        }
+      }
+    }
   } finally {
     if (world) world.brainBusy = false;
   }
@@ -394,12 +455,14 @@ export async function generateEndSummary(
     return `（世界開啟但沒有實質互動，沒什麼可說的。）\n\n${END_FOOTER}`;
   }
 
-  const transcriptText = transcript
-    .map((e) => {
-      const role = e.role === "player" ? e.authorLabel : `${e.authorLabel} (NPC)`;
-      return `${role}: ${e.body}`;
-    })
-    .join("\n");
+  const transcriptText = stripLoneSurrogates(
+    transcript
+      .map((e) => {
+        const role = e.role === "player" ? e.authorLabel : `${e.authorLabel} (NPC)`;
+        return `${role}: ${e.body}`;
+      })
+      .join("\n"),
+  );
 
   const response = await client.messages.create({
     model: MODEL,

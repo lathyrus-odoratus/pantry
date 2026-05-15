@@ -29,6 +29,10 @@ export type ActiveWorld = {
   // Dice spec the NPC last requested via a `[[roll:…]]` marker. /roll
   // consumes this slot; null means no roll is currently being requested.
   pendingRoll: PendingRoll | null;
+  // Number of consecutive Anthropic `invalid_request_error` 400s. Reset to 0
+  // on any successful NPC turn; when it hits BRAIN_BREAK_THRESHOLD the world
+  // is ended so a poisoned transcript can't keep burning credits.
+  consecutiveInvalidRequests: number;
 };
 
 export class WorldStateStore {

@@ -13,6 +13,7 @@ function fakeActive(roomId = "r1"): ActiveWorld {
     webhook: null,
     brainBusy: false,
     pendingRoll: null,
+    consecutiveInvalidRequests: 0,
   };
 }
 

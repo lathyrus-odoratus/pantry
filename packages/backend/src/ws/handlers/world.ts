@@ -14,7 +14,7 @@ export type WorldDeps = {
   creditTotal: number;
 };
 
-export type EndReason = "credit_exhausted" | "admin_force";
+export type EndReason = "credit_exhausted" | "admin_force" | "brain_broken";
 
 export async function handleWorldOpen(
   conn: AuthedConnection,
@@ -48,6 +48,7 @@ export async function handleWorldOpen(
     webhook: conn.webhook,
     brainBusy: false,
     pendingRoll: null,
+    consecutiveInvalidRequests: 0,
   });
 
   const openerLabel = `${conn.nickname}#${conn.discriminator}`;
@@ -95,7 +96,13 @@ export async function endWorld(
 
   const summaryBody =
     summary ??
-    `World ended (${reason === "credit_exhausted" ? "credit exhausted" : "admin force"}).`;
+    `World ended (${
+      reason === "credit_exhausted"
+        ? "credit exhausted"
+        : reason === "admin_force"
+          ? "admin force"
+          : "brain broken"
+    }).`;
   const body = `🌒 ── 世界結束 ──\n\n${summaryBody}`;
 
   broadcastToRoom(deps.registry, active.roomId, {
