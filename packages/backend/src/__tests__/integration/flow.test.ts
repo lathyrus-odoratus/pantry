@@ -2,17 +2,29 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import WebSocket from "ws";
 import { randomUUID } from "node:crypto";
 import Fastify from "fastify";
-import { loadConfig } from "../../config.js";
-import { createSupabaseClient } from "../../db/supabase.js";
-import { RoomsRepo } from "../../db/rooms.js";
-import { UsersRepo } from "../../db/users.js";
-import { MessagesRepo } from "../../db/messages.js";
+import type { Config } from "../../config.js";
+import type { RoomsRepo } from "../../db/rooms.js";
+import type { UsersRepo } from "../../db/users.js";
+import type { MessagesRepo } from "../../db/messages.js";
 import { ConnectionRegistry } from "../../ws/connection-registry.js";
 import { attachWebSocketServer } from "../../ws/server.js";
 import { WorldStateStore } from "../../world/state.js";
 import { OAuthStateStore } from "../../auth/state-store.js";
 import { registerAuthRoutes } from "../../auth/routes.js";
 import type { ServerMessage } from "@pantry/shared";
+import { FakeRoomsRepo, FakeUsersRepo, FakeMessagesRepo } from "./fake-db.js";
+
+const TEST_CONFIG: Config = {
+  port: 0,
+  nodeEnv: "test",
+  publicBackendUrl: "http://test.invalid",
+  supabase: { url: "http://test.invalid", serviceRoleKey: "test" },
+  jwtSigningKey: "x".repeat(32),
+  oauth: { discord: { clientId: "test", clientSecret: "test" } },
+  adminKey: null,
+  anthropicApiKey: null,
+  worldCreditTotal: 100_000,
+};
 
 type WaitingConsumer = {
   predicate: (m: ServerMessage) => boolean;
@@ -93,51 +105,43 @@ function connect(url: string): Promise<ClientChannel> {
   });
 }
 
-// This file talks to a real Supabase project (`packages/backend/.env`),
-// so it's gated behind TEST_INTEGRATION=1 — by default `pnpm test` skips
-// it, and CI runs with the gate off so nothing in here polluting prod.
-// Run locally with: `TEST_INTEGRATION=1 pnpm --filter @pantry/backend test`.
-const RUN_INTEGRATION = process.env.TEST_INTEGRATION === "1";
-
-describe.skipIf(!RUN_INTEGRATION)("backend integration flow", () => {
+describe("backend integration flow", () => {
   const roomName = `it-${randomUUID().slice(0, 8)}`;
-  let baseUrl = "";
   let wsUrl = "";
   let app: ReturnType<typeof Fastify>;
-  let rooms: RoomsRepo;
 
   beforeAll(async () => {
-    const config = loadConfig();
-    const db = createSupabaseClient(config);
-    rooms = new RoomsRepo(db);
-    const users = new UsersRepo(db);
-    const messages = new MessagesRepo(db);
+    const rooms = new FakeRoomsRepo();
+    const users = new FakeUsersRepo();
+    const messages = new FakeMessagesRepo();
     const stateStore = new OAuthStateStore();
     const registry = new ConnectionRegistry();
     const worldState = new WorldStateStore();
 
     app = Fastify({ logger: false });
     app.get("/health", async () => ({ ok: true }));
-    await registerAuthRoutes(app, { config, stateStore, usersRepo: users });
+    await registerAuthRoutes(app, {
+      config: TEST_CONFIG,
+      stateStore,
+      usersRepo: users as unknown as UsersRepo,
+    });
     await app.listen({ port: 0, host: "127.0.0.1" });
     attachWebSocketServer(app.server, {
-      config,
-      rooms,
-      users,
-      messages,
+      config: TEST_CONFIG,
+      rooms: rooms as unknown as RoomsRepo,
+      users: users as unknown as UsersRepo,
+      messages: messages as unknown as MessagesRepo,
       registry,
       worldState,
       anthropic: null,
     });
     const addr = app.server.address();
     if (typeof addr !== "object" || !addr) throw new Error("no addr");
-    baseUrl = `http://127.0.0.1:${addr.port}`;
     wsUrl = `ws://127.0.0.1:${addr.port}/ws`;
     await rooms.create(roomName);
   });
 
   afterAll(async () => {
-    if (rooms) await rooms.deleteByName(roomName).catch(() => {});
     if (app) await app.close();
   });
 
