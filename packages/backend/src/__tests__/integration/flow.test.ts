@@ -93,7 +93,13 @@ function connect(url: string): Promise<ClientChannel> {
   });
 }
 
-describe("backend integration flow", () => {
+// This file talks to a real Supabase project (`packages/backend/.env`),
+// so it's gated behind TEST_INTEGRATION=1 — by default `pnpm test` skips
+// it, and CI runs with the gate off so nothing in here polluting prod.
+// Run locally with: `TEST_INTEGRATION=1 pnpm --filter @pantry/backend test`.
+const RUN_INTEGRATION = process.env.TEST_INTEGRATION === "1";
+
+describe.skipIf(!RUN_INTEGRATION)("backend integration flow", () => {
   const roomName = `it-${randomUUID().slice(0, 8)}`;
   let baseUrl = "";
   let wsUrl = "";
