@@ -107,6 +107,37 @@ cli
   });
 
 cli
+  .command(
+    "room clone-webhook <src> <dst>",
+    "Copy webhook (url + thread) from one room to another",
+  )
+  .action(async (src: string, dst: string) => {
+    const { rooms } = makeRepos();
+    const source = await rooms.findByName(src);
+    if (!source) {
+      console.error(`Source room "${src}" not found.`);
+      process.exit(1);
+    }
+    if (!source.webhook_url) {
+      console.error(`Source room "${src}" has no webhook configured.`);
+      process.exit(1);
+    }
+    const target = await rooms.findByName(dst);
+    if (!target) {
+      console.error(`Target room "${dst}" not found.`);
+      process.exit(1);
+    }
+    await rooms.setWebhook(dst, {
+      url: source.webhook_url,
+      threadId: source.webhook_thread_id,
+    });
+    console.log(
+      `✓ Copied webhook from "${src}" to "${dst}"` +
+        (source.webhook_thread_id ? " (url+thread)" : " (url only)"),
+    );
+  });
+
+cli
   .command("room clear-webhook <name>", "Remove the Discord webhook from a room")
   .action(async (name: string) => {
     const { rooms } = makeRepos();
