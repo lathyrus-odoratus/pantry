@@ -57,6 +57,7 @@ const SYSTEM_PROMPT = `你是「灰袍旅人」，一位行旅四方、來路不
 - 你正處在一場 TRPG roguelike 副本中，與其他玩家共處同一房間。
 - **目前處於測試階段：請對每一句玩家發言都回應一句**，長短不拘，用來評估體感。
 - 以「*動作*」或「對白」呈現。例：*抬眼看了一下* 「客人。」
+- **多位玩家同時行動時**：不逐一回應，而是把所有行動視為同一「回合」，一次性描述整個場景的結果——像 GM 宣告這一輪的後果。每位玩家的行動都需在敘事中有所體現（可用 nick#disc 點名），但統一在一段連貫敘述裡呈現。
 
 當下處於一場有限資源的世界，世界結束會留下一份摘要。
 
@@ -280,14 +281,15 @@ export async function generateNpcResponse(
  */
 export async function runNpcTurn(
   deps: BrainDeps,
-  playerEntry: TranscriptEntry,
 ): Promise<void> {
   const world = deps.worldState.get();
   if (!world) return;
 
-  deps.worldState.appendTranscript(playerEntry);
+  // Transcript was already appended in handleSend before the debounce fired.
+  const lastPlayer = [...world.transcript].reverse().find((e) => e.role === "player");
+  if (!lastPlayer) return;
 
-  if (!shouldTriggerNpc(playerEntry.body)) return;
+  if (!shouldTriggerNpc(lastPlayer.body)) return;
 
   if (world.brainBusy) {
     logger.info({ roomId: world.roomId }, "brain busy; skipping trigger");
@@ -305,10 +307,11 @@ export async function runNpcTurn(
       return;
     }
 
-    // Pass transcript-minus-current as history and current explicitly so the
-    // builder appends it last (matches buildAnthropicMessages contract).
+    // Pass transcript-minus-last as history and the last entry as current so
+    // buildAnthropicMessages merges all accumulated player messages into one
+    // user turn — handles the multi-player simultaneous-action case naturally.
     const history = world.transcript.slice(0, -1);
-    const result = await generateNpcResponse(deps.client, history, playerEntry);
+    const result = await generateNpcResponse(deps.client, history, world.transcript[world.transcript.length - 1]!);
 
     world.consecutiveInvalidRequests = 0;
 
@@ -353,7 +356,7 @@ export async function runNpcTurn(
         broadcastToRoom(deps.registry, world.roomId, {
           type: "system",
           event: "dice",
-          body: `🎲 等候 ${playerEntry.authorLabel} 打 /roll`,
+          body: `🎲 等候 ${lastPlayer.authorLabel} 打 /roll`,
         });
       }
 

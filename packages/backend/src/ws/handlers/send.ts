@@ -6,8 +6,9 @@ import type { ConnectionRegistry, AuthedConnection } from "../connection-registr
 import { broadcastToRoom, send } from "../broadcast.js";
 import { logger } from "../../logger.js";
 import { formatChat, notify } from "../../discord/webhook.js";
+import { NPC_DEBOUNCE_MS } from "../../world/state.js";
 import type { WorldStateStore } from "../../world/state.js";
-import { runNpcTurn } from "../../world/brain.js";
+import { runNpcTurn, type BrainDeps } from "../../world/brain.js";
 
 export type SendDeps = {
   messages: MessagesRepo;
@@ -43,22 +44,23 @@ export async function handleSend(
       body: raw.body,
       at: Date.now(),
     };
+    // Always append immediately so transcript stays coherent regardless of
+    // whether LLM is configured or the debounce fires.
+    deps.worldState.appendTranscript(playerEntry);
     if (deps.anthropic) {
-      void runNpcTurn(
-        {
-          client: deps.anthropic,
-          messages: deps.messages,
-          registry: deps.registry,
-          worldState: deps.worldState,
-          creditTotal: deps.worldCreditTotal,
-        },
-        playerEntry,
-      );
-    } else {
-      // No LLM configured but world is somehow active — keep transcript
-      // coherent in case it becomes available later (defensive; the
-      // world.open handler already rejects when anthropic is null).
-      deps.worldState.appendTranscript(playerEntry);
+      const brainDeps: BrainDeps = {
+        client: deps.anthropic,
+        messages: deps.messages,
+        registry: deps.registry,
+        worldState: deps.worldState,
+        creditTotal: deps.worldCreditTotal,
+      };
+      deps.worldState.scheduleNpcTurn(() => {
+        // Guard: world may have ended between schedule and fire.
+        if (deps.worldState.isActiveInRoom(conn.roomId)) {
+          void runNpcTurn(brainDeps);
+        }
+      }, NPC_DEBOUNCE_MS);
     }
   }
 

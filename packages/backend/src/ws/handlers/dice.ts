@@ -69,34 +69,17 @@ export async function handleDiceRoll(
     "dice rolled",
   );
 
-  // Treat the dice outcome as a player turn that immediately triggers the
-  // NPC — runNpcTurn appends it to the transcript itself and decides
-  // whether to fire (in testing mode: always). Fire-and-forget so we
-  // don't block the dice handler on the LLM call.
+  // Treat the dice outcome as a player turn: append to transcript then
+  // immediately trigger the NPC (no debounce — the dice result is a direct
+  // response to the NPC's roll request, so we want the reaction right away).
+  world.transcript.push({ role: "player", authorLabel: "🎲 dice", body, at: Date.now() });
   if (deps.anthropic) {
-    void runNpcTurn(
-      {
-        client: deps.anthropic,
-        messages: deps.messages,
-        registry: deps.registry,
-        worldState: deps.worldState,
-        creditTotal: deps.worldCreditTotal,
-      },
-      {
-        role: "player",
-        authorLabel: "🎲 dice",
-        body,
-        at: Date.now(),
-      },
-    );
-  } else {
-    // No LLM available — still record the outcome so a future world with
-    // anthropic enabled would have history continuity (defensive).
-    world.transcript.push({
-      role: "player",
-      authorLabel: "🎲 dice",
-      body,
-      at: Date.now(),
+    void runNpcTurn({
+      client: deps.anthropic,
+      messages: deps.messages,
+      registry: deps.registry,
+      worldState: deps.worldState,
+      creditTotal: deps.worldCreditTotal,
     });
   }
 }

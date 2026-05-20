@@ -14,6 +14,7 @@ function fakeActive(roomId = "r1"): ActiveWorld {
     brainBusy: false,
     pendingRoll: null,
     consecutiveInvalidRequests: 0,
+    npcDebounceTimer: null,
   };
 }
 
@@ -65,5 +66,48 @@ describe("WorldStateStore", () => {
     expect(s.get()?.transcript).toHaveLength(2);
     expect(s.get()?.transcript[0]?.body).toBe("hi");
     expect(s.get()?.transcript[1]?.role).toBe("npc");
+  });
+});
+
+describe("WorldStateStore – debounce timer", () => {
+  it("scheduleNpcTurn fires after the specified delay", async () => {
+    const s = new WorldStateStore();
+    s.set(fakeActive());
+    let fired = false;
+    s.scheduleNpcTurn(() => { fired = true; }, 10);
+    expect(fired).toBe(false);
+    await new Promise((r) => setTimeout(r, 25));
+    expect(fired).toBe(true);
+  });
+
+  it("re-scheduling before the first fires cancels the first", async () => {
+    const s = new WorldStateStore();
+    s.set(fakeActive());
+    let count = 0;
+    s.scheduleNpcTurn(() => { count++; }, 30);
+    await new Promise((r) => setTimeout(r, 10));
+    s.scheduleNpcTurn(() => { count++; }, 30);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(count).toBe(1);
+  });
+
+  it("clearNpcDebounce prevents the callback from firing", async () => {
+    const s = new WorldStateStore();
+    s.set(fakeActive());
+    let fired = false;
+    s.scheduleNpcTurn(() => { fired = true; }, 20);
+    s.clearNpcDebounce();
+    await new Promise((r) => setTimeout(r, 40));
+    expect(fired).toBe(false);
+  });
+
+  it("scheduleNpcTurn is a no-op when no world is active", () => {
+    const s = new WorldStateStore();
+    expect(() => s.scheduleNpcTurn(() => {}, 100)).not.toThrow();
+  });
+
+  it("clearNpcDebounce is a no-op when no world is active", () => {
+    const s = new WorldStateStore();
+    expect(() => s.clearNpcDebounce()).not.toThrow();
   });
 });
