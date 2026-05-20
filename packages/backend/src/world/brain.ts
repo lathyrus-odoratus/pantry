@@ -411,9 +411,11 @@ export async function runNpcTurn(
     }
   } catch (err) {
     logger.error({ err, roomId: world.roomId }, "NPC brain turn failed");
+    let endingWorld = false;
     if (isInvalidRequestError(err)) {
       world.consecutiveInvalidRequests++;
       if (world.consecutiveInvalidRequests >= BRAIN_BREAK_THRESHOLD) {
+        endingWorld = true;
         logger.error(
           {
             roomId: world.roomId,
@@ -439,6 +441,16 @@ export async function runNpcTurn(
           );
         }
       }
+    }
+    // Without a visible notice, transient upstream errors (529 overloaded,
+    // 5xx, network) look indistinguishable from a frozen NPC; players give up
+    // thinking the bot is broken. Suppress when endWorld already broadcasts.
+    if (!endingWorld) {
+      broadcastToRoom(deps.registry, world.roomId, {
+        type: "system",
+        event: "announce",
+        body: "⚠️ 灰袍旅人暫時無法回應（上游 API 不穩或暫時過載），請過一陣子再送一句話試試。",
+      });
     }
   } finally {
     if (world) world.brainBusy = false;
