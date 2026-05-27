@@ -65,6 +65,7 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
       : null;
   return (
     <Box marginTop={padding}>
+    <Box marginTop={isNpc ? 1 : 0} marginBottom={isNpc ? 1 : 0}>
       {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
       <Text color={color} bold>
         {label}

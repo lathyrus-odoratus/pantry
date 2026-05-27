@@ -15,6 +15,19 @@ const MODEL = "claude-haiku-4-5";
 const MAX_OUTPUT_TOKENS = 300;
 const END_SUMMARY_MAX_TOKENS = 700;
 
+// End the world if Anthropic returns `invalid_request_error` this many turns
+// in a row — under normal operation sanitize prevents this entirely, so a
+// streak means something is producing bad data faster than we can clean it
+// and we'd rather end the world than keep burning credits in a retry storm
+// (issue #2).
+export const BRAIN_BREAK_THRESHOLD = 3;
+
+export function isInvalidRequestError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { status?: number; error?: { error?: { type?: string } } };
+  return e.status === 400 && e.error?.error?.type === "invalid_request_error";
+}
+
 // Appended to every world-end summary so players know cross-session memory
 // isn't implemented yet. Remove when chronicle persistence lands.
 export const END_FOOTER = "（下一場世界開啟時，NPC 不會記得這次。）";
@@ -44,6 +57,7 @@ const SYSTEM_PROMPT = `你是「灰袍旅人」，一位行旅四方、來路不
 - 你正處在一場 TRPG roguelike 副本中，與其他玩家共處同一房間。
 - **目前處於測試階段：請對每一句玩家發言都回應一句**，長短不拘，用來評估體感。
 - 以「*動作*」或「對白」呈現。例：*抬眼看了一下* 「客人。」
+- **多位玩家同時行動時**：不逐一回應，而是把所有行動視為同一「回合」，一次性描述整個場景的結果——像 GM 宣告這一輪的後果。每位玩家的行動都需在敘事中有所體現（可用 nick#disc 點名），但統一在一段連貫敘述裡呈現。
 
 當下處於一場有限資源的世界，世界結束會留下一份摘要。
 
@@ -94,6 +108,20 @@ export function shouldTriggerNpc(_body: string): boolean {
 }
 
 const ROLL_MARKER_RE = /\[\[roll:([^\]\n]+)\]\]/gi;
+
+// Replace orphaned UTF-16 surrogates (high or low half of a pair with no
+// matching counterpart) with U+FFFD. Anthropic's JSON parser rejects request
+// bodies containing lone surrogates with `invalid_request_error: no low
+// surrogate in string`, which once put a world into a 24-call 400 storm
+// (see issue #2). Lone surrogates can enter the transcript via player
+// messages whose body wasn't accepted by PG either (PGRST102) but had
+// already been appendTranscript'd in memory.
+const LONE_SURROGATE_RE =
+  /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+export function stripLoneSurrogates(s: string): string {
+  return s.replace(LONE_SURROGATE_RE, "�");
+}
 
 /**
  * Extract the FIRST `[[roll:EXPR]]` marker from an NPC response. Returns the
@@ -199,7 +227,10 @@ export async function generateNpcResponse(
   transcript: TranscriptEntry[],
   current: TranscriptEntry,
 ): Promise<{ response: string; tokensUsed: number }> {
-  const messages = buildAnthropicMessages(transcript, current);
+  const messages = buildAnthropicMessages(transcript, current).map((m) => ({
+    ...m,
+    content: stripLoneSurrogates(m.content),
+  }));
 
   const response = await client.messages.create({
     model: MODEL,
@@ -250,14 +281,15 @@ export async function generateNpcResponse(
  */
 export async function runNpcTurn(
   deps: BrainDeps,
-  playerEntry: TranscriptEntry,
 ): Promise<void> {
   const world = deps.worldState.get();
   if (!world) return;
 
-  deps.worldState.appendTranscript(playerEntry);
+  // Transcript was already appended in handleSend before the debounce fired.
+  const lastPlayer = [...world.transcript].reverse().find((e) => e.role === "player");
+  if (!lastPlayer) return;
 
-  if (!shouldTriggerNpc(playerEntry.body)) return;
+  if (!shouldTriggerNpc(lastPlayer.body)) return;
 
   if (world.brainBusy) {
     logger.info({ roomId: world.roomId }, "brain busy; skipping trigger");
@@ -275,10 +307,13 @@ export async function runNpcTurn(
       return;
     }
 
-    // Pass transcript-minus-current as history and current explicitly so the
-    // builder appends it last (matches buildAnthropicMessages contract).
+    // Pass transcript-minus-last as history and the last entry as current so
+    // buildAnthropicMessages merges all accumulated player messages into one
+    // user turn — handles the multi-player simultaneous-action case naturally.
     const history = world.transcript.slice(0, -1);
-    const result = await generateNpcResponse(deps.client, history, playerEntry);
+    const result = await generateNpcResponse(deps.client, history, world.transcript[world.transcript.length - 1]!);
+
+    world.consecutiveInvalidRequests = 0;
 
     deps.worldState.addCreditUsage(result.tokensUsed);
 
@@ -321,7 +356,7 @@ export async function runNpcTurn(
         broadcastToRoom(deps.registry, world.roomId, {
           type: "system",
           event: "dice",
-          body: `🎲 等候 ${playerEntry.authorLabel} 打 /roll`,
+          body: `🎲 等候 ${lastPlayer.authorLabel} 打 /roll`,
         });
       }
 
@@ -375,7 +410,48 @@ export async function runNpcTurn(
       );
     }
   } catch (err) {
-    logger.error({ err }, "NPC brain turn failed");
+    logger.error({ err, roomId: world.roomId }, "NPC brain turn failed");
+    let endingWorld = false;
+    if (isInvalidRequestError(err)) {
+      world.consecutiveInvalidRequests++;
+      if (world.consecutiveInvalidRequests >= BRAIN_BREAK_THRESHOLD) {
+        endingWorld = true;
+        logger.error(
+          {
+            roomId: world.roomId,
+            consecutive: world.consecutiveInvalidRequests,
+          },
+          "circuit breaker tripped: ending world to stop invalid-request storm",
+        );
+        try {
+          await endWorld(
+            {
+              users: undefined as never,
+              registry: deps.registry,
+              worldState: deps.worldState,
+              creditTotal: deps.creditTotal,
+            },
+            "brain_broken",
+            `🪦 NPC 連續 ${world.consecutiveInvalidRequests} 次回應失敗（invalid_request_error），世界已自動結束以避免持續消耗 credit。\n\n${END_FOOTER}`,
+          );
+        } catch (endErr) {
+          logger.error(
+            { err: endErr, roomId: world.roomId },
+            "circuit-breaker endWorld failed",
+          );
+        }
+      }
+    }
+    // Without a visible notice, transient upstream errors (529 overloaded,
+    // 5xx, network) look indistinguishable from a frozen NPC; players give up
+    // thinking the bot is broken. Suppress when endWorld already broadcasts.
+    if (!endingWorld) {
+      broadcastToRoom(deps.registry, world.roomId, {
+        type: "system",
+        event: "announce",
+        body: "⚠️ 灰袍旅人暫時無法回應（上游 API 不穩或暫時過載），請過一陣子再送一句話試試。",
+      });
+    }
   } finally {
     if (world) world.brainBusy = false;
   }
@@ -394,12 +470,14 @@ export async function generateEndSummary(
     return `（世界開啟但沒有實質互動，沒什麼可說的。）\n\n${END_FOOTER}`;
   }
 
-  const transcriptText = transcript
-    .map((e) => {
-      const role = e.role === "player" ? e.authorLabel : `${e.authorLabel} (NPC)`;
-      return `${role}: ${e.body}`;
-    })
-    .join("\n");
+  const transcriptText = stripLoneSurrogates(
+    transcript
+      .map((e) => {
+        const role = e.role === "player" ? e.authorLabel : `${e.authorLabel} (NPC)`;
+        return `${role}: ${e.body}`;
+      })
+      .join("\n"),
+  );
 
   const response = await client.messages.create({
     model: MODEL,

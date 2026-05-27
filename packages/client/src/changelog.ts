@@ -9,6 +9,14 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.20",
+    date: "2026-05-19",
+    title: "World chat 中 NPC 訊息上下加空行",
+    highlights: [
+      "在 `/the-world` TRPG 模式裡，灰袍旅人（NPC）的訊息上下各加一行空白，視覺上跟玩家訊息分開，旁白比較好讀。",
+    ],
+  },
+  {
     version: "0.1.19",
     date: "2026-05-15",
     title: "Reconnect 畫面顯示斷線原因",
