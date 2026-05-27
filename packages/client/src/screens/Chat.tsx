@@ -64,12 +64,7 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
       ? PLAYER_WORLD_EMOJI
       : null;
   return (
-<<<<<<< HEAD
-    <Box marginTop={padding}>
-    <Box marginTop={isNpc ? 1 : 0} marginBottom={isNpc ? 1 : 0}>
-=======
     <Box marginTop={padding} marginBottom={isNpc ? 1 : 0}>
->>>>>>> cacddaa (fix: 🐛 combine padding + NPC marginBottom into single Box)
       {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
       <Text color={color} bold>
         {label}
