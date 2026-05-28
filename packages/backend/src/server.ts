@@ -9,6 +9,7 @@ import { MessagesRepo } from "./db/messages.js";
 import { OAuthStateStore } from "./auth/state-store.js";
 import { registerAuthRoutes } from "./auth/routes.js";
 import { registerAdminRoutes } from "./admin/routes.js";
+import { registerWebhookRoutes } from "./webhook/routes.js";
 import { ConnectionRegistry } from "./ws/connection-registry.js";
 import { attachWebSocketServer } from "./ws/server.js";
 import { WorldStateStore } from "./world/state.js";
@@ -42,6 +43,12 @@ export async function startServer(): Promise<void> {
     registry,
     worldState,
     anthropic,
+  });
+  await registerWebhookRoutes(app, {
+    rooms,
+    users,
+    messages,
+    registry,
   });
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
