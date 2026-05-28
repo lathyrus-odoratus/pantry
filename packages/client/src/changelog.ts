@@ -9,6 +9,15 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.22",
+    date: "2026-05-28",
+    title: "聊天貼地圖連結會內嵌渲染地圖",
+    highlights: [
+      "在聊天室貼上地圖編輯器（https://lathyrus-odoratus.github.io/pantry/）的連結，pantry 會直接在那則訊息下方把地圖渲染出來（像連結預覽）。純終端顯示，訊息本體仍是原始連結，不影響 Discord 等其他客戶端。",
+      "也可用 `pantry --map \"<連結>\"` 開獨立全螢幕檢視同一張地圖。這是日後在 pantry 內建 Crazy Arcade 小遊戲的第一步。",
+    ],
+  },
+  {
     version: "0.1.21",
     date: "2026-05-28",
     title: "/settings 選單 + 長網址精簡為可點連結",
