@@ -9,6 +9,15 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.21",
+    date: "2026-05-28",
+    title: "/settings 選單 + 長網址精簡為可點連結",
+    highlights: [
+      "新增 /settings 選單，目前可調整聊天訊息的段落間距（行距）；之後其他偏好設定也會收在這裡。",
+      "過長的網址（例如從 Discord 轉發進來的附件連結）會精簡成可點擊的短標籤（如 `cdn.discordapp.com/…/image.png`），在支援超連結的終端機可直接點開；不支援的終端機仍顯示完整網址。",
+    ],
+  },
+  {
     version: "0.1.20",
     date: "2026-05-19",
     title: "World chat 中 NPC 訊息上下加空行",
