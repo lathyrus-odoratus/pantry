@@ -12,6 +12,7 @@ import { CHANGELOG } from "../changelog.js";
 import { HELP_TEXT } from "../help.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
 import { saveAnon } from "../auth/anon.js";
+import { linkify } from "../util/links.js";
 
 type Props = { serverUrl: string };
 
@@ -70,7 +71,7 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
         {label}
       </Text>
       <Text dimColor>: </Text>
-      <Text>{m.body}</Text>
+      <Text>{linkify(m.body)}</Text>
     </Box>
   );
 }
