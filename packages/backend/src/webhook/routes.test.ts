@@ -71,7 +71,8 @@ describe("POST /webhook/discord/messages", () => {
     expect(res.statusCode).toBe(202);
     const body = res.json();
     expect(body.ok).toBe(true);
-    expect(body.author.nickname).toBe("AliceFromDiscordWithL[DC]");
+    expect(body.author.nickname).toBe("AliceFromDiscord[DC]");
+    expect(body.author.nickname).toHaveLength(20);
     expect(body.author.discriminator).toMatch(/^[a-z0-9]{4}$/);
 
     expect(messages.insert).toHaveBeenCalledTimes(1);
@@ -80,14 +81,14 @@ describe("POST /webhook/discord/messages", () => {
       authorDiscriminator: string;
       body: string;
     };
-    expect(inserted.authorNickname).toBe("AliceFromDiscordWithL[DC]");
+    expect(inserted.authorNickname).toBe("AliceFromDiscord[DC]");
     expect(inserted.authorDiscriminator).toMatch(/^[a-z0-9]{4}$/);
     expect(inserted.body).toBe("hello from dc");
 
     expect(outbox).toHaveLength(1);
     const outbound = outbox[0] as { type: string; data?: { author?: { nickname: string } } };
     expect(outbound.type).toBe("message");
-    expect(outbound.data?.author?.nickname).toBe("AliceFromDiscordWithL[DC]");
+    expect(outbound.data?.author?.nickname).toBe("AliceFromDiscord[DC]");
 
     await app.close();
   });

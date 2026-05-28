@@ -20,13 +20,16 @@ const DiscordIngressBodySchema = z.object({
   message: z.string().min(1).max(2000),
 });
 
+const DC_SUFFIX = "[DC]";
+const MAX_NICKNAME_LEN = 20;
+
 function normalizeDcNickname(input: string):
   | { ok: true; value: string }
   | { ok: false; error: string } {
-  const truncated = input.trim().slice(0, 20);
+  const truncated = input.trim().slice(0, MAX_NICKNAME_LEN - DC_SUFFIX.length);
   const valid = validateNickname(truncated);
   if (!valid.ok) return { ok: false, error: valid.error };
-  return { ok: true, value: `${valid.value}[DC]` };
+  return { ok: true, value: `${valid.value}${DC_SUFFIX}` };
 }
 
 export type WebhookRoutesDeps = {
