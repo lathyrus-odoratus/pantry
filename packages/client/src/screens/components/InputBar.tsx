@@ -7,6 +7,7 @@ type Props = {
   onNick: (newNickname: string) => void;
   onColor: (color: string | null) => void;
   onChangelog: () => void;
+  onSettings: () => void;
   onHelp: () => void;
   onWorldOpen: () => void;
   onDiceRoll: () => void;
@@ -19,6 +20,7 @@ export function InputBar({
   onNick,
   onColor,
   onChangelog,
+  onSettings,
   onHelp,
   onWorldOpen,
   onDiceRoll,
@@ -49,6 +51,8 @@ export function InputBar({
         }
       } else if (cmd === "changelog") {
         onChangelog();
+      } else if (cmd === "settings") {
+        onSettings();
       } else if (cmd === "h" || cmd === "help") {
         onHelp();
       } else if (cmd === "the-world") {

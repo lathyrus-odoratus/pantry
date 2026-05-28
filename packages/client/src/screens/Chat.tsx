@@ -6,6 +6,7 @@ import { TransportClient } from "../transport/client.js";
 import { InputBar } from "./components/InputBar.js";
 import { StatusBar } from "./components/StatusBar.js";
 import { Changelog } from "./components/Changelog.js";
+import { Settings } from "./components/Settings.js";
 import { WorldPanel } from "./components/WorldPanel.js";
 import { CHANGELOG } from "../changelog.js";
 import { HELP_TEXT } from "../help.js";
@@ -30,12 +31,17 @@ const NPC_EMOJI = "🌫";
 const PLAYER_WORLD_EMOJI = "🎲";
 
 function MessageRow({ m }: { m: Message }): React.JSX.Element {
+  // Static items render exactly once; resolve store state at that moment via
+  // getState() to avoid subscribing (which would defeat Static).
+  const snapshot = useStore.getState();
+  const padding = snapshot.prefs.messagePadding;
+
   // System notices (joins, leaves, renames, local /h help, world.open/end,
   // dice rolls) render as a dim block without the `nick#disc:` prefix. Body
   // may be multi-line.
   if (m.author.discriminator === "sys") {
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" marginTop={padding}>
         {m.body.split("\n").map((line, i) => (
           <Text key={i} dimColor>
             {line}
@@ -45,10 +51,6 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
     );
   }
   const label = `${m.author.nickname}#${m.author.discriminator}`;
-  // Static items render exactly once; resolve the author's current color and
-  // world-active state at that moment via getState() to avoid subscribing
-  // (which would defeat Static).
-  const snapshot = useStore.getState();
   const author = snapshot.onlineUsers.find(
     (u) =>
       u.nickname === m.author.nickname &&
@@ -62,7 +64,7 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
       ? PLAYER_WORLD_EMOJI
       : null;
   return (
-    <Box marginTop={isNpc ? 1 : 0} marginBottom={isNpc ? 1 : 0}>
+    <Box marginTop={padding} marginBottom={isNpc ? 1 : 0}>
       {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
       <Text color={color} bold>
         {label}
@@ -221,6 +223,12 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const closeChangelog = useStore((s) => s.closeChangelog);
   const setChangelogIndex = useStore((s) => s.setChangelogIndex);
 
+  const settingsOpen = useStore((s) => s.settingsOpen);
+  const openSettings = useStore((s) => s.openSettings);
+  const closeSettings = useStore((s) => s.closeSettings);
+  const prefs = useStore((s) => s.prefs);
+  const setPrefs = useStore((s) => s.setPrefs);
+
   const onlineSummary =
     onlineUsers.length === 0
       ? "no one"
@@ -256,6 +264,12 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
             onIndexChange={setChangelogIndex}
             onClose={closeChangelog}
           />
+        ) : settingsOpen ? (
+          <Settings
+            prefs={prefs}
+            onPrefsChange={setPrefs}
+            onClose={closeSettings}
+          />
         ) : (
           <>
             {worldActive ? (
@@ -269,6 +283,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
               onNick={onNick}
               onColor={onColor}
               onChangelog={openChangelog}
+              onSettings={openSettings}
               onHelp={onHelp}
               onWorldOpen={onWorldOpen}
               onDiceRoll={onDiceRoll}

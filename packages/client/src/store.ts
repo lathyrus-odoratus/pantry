@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { AdminRoomSummary, Message } from "@pantry/shared";
 import type { DisconnectDetail } from "./transport/client.js";
+import { DEFAULT_PREFS, savePrefs, type Prefs } from "./prefs.js";
 
 export type Screen =
   | "room_input"
@@ -63,6 +64,10 @@ export type Store = {
   changelogOpen: boolean;
   changelogIndex: number;
 
+  // Settings modal
+  settingsOpen: boolean;
+  prefs: Prefs;
+
   // World feature
   worldActive: boolean;
   worldCreditUsed: number;
@@ -91,6 +96,9 @@ export type Store = {
   openChangelog: () => void;
   closeChangelog: () => void;
   setChangelogIndex: (i: number) => void;
+  openSettings: () => void;
+  closeSettings: () => void;
+  setPrefs: (p: Prefs) => void;
   setWorldState: (state: {
     active: boolean;
     creditUsed: number;
@@ -118,6 +126,9 @@ const initial: Omit<
   | "openChangelog"
   | "closeChangelog"
   | "setChangelogIndex"
+  | "openSettings"
+  | "closeSettings"
+  | "setPrefs"
   | "setWorldState"
   | "setAdminRooms"
   | "setAdminStatusLine"
@@ -139,6 +150,8 @@ const initial: Omit<
   updateAvailable: null,
   changelogOpen: false,
   changelogIndex: 0,
+  settingsOpen: false,
+  prefs: DEFAULT_PREFS,
   worldActive: false,
   worldCreditUsed: 0,
   worldCreditTotal: 0,
@@ -196,6 +209,13 @@ export const useStore = create<Store>((set) => ({
   closeChangelog: () => set({ changelogOpen: false }),
   setChangelogIndex: (changelogIndex) => set({ changelogIndex }),
 
+  openSettings: () => set({ settingsOpen: true }),
+  closeSettings: () => set({ settingsOpen: false }),
+  setPrefs: (prefs) => {
+    set({ prefs });
+    void savePrefs(prefs);
+  },
+
   setWorldState: ({ active, creditUsed, creditTotal }) =>
     set({
       worldActive: active,
@@ -208,5 +228,5 @@ export const useStore = create<Store>((set) => ({
 
   setError: (errorMessage) => set({ errorMessage, screen: "error" }),
 
-  reset: () => set(initial),
+  reset: () => set((s) => ({ ...initial, prefs: s.prefs })),
 }));
