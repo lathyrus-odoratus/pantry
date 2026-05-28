@@ -8,6 +8,7 @@ import { OAuthWaiting } from "./screens/OAuthWaiting.js";
 import { Chat } from "./screens/Chat.js";
 import { AdminOAuthWaiting } from "./screens/AdminOAuthWaiting.js";
 import { AdminMenu } from "./screens/AdminMenu.js";
+import { MapView } from "./screens/MapView.js";
 import { ErrorScreen } from "./screens/ErrorScreen.js";
 
 const config = loadConfig();
@@ -29,6 +30,8 @@ export function App(): React.JSX.Element {
       return <AdminOAuthWaiting backendHttpUrl={config.backendHttpUrl} />;
     case "admin_menu":
       return <AdminMenu serverUrl={config.serverUrl} />;
+    case "map_view":
+      return <MapView />;
     case "error":
       return <ErrorScreen />;
   }

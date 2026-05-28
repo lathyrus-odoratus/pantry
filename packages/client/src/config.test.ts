@@ -56,4 +56,14 @@ describe("resolveConfig", () => {
     });
     expect(cfg.backendHttpUrl).toBe("http://1.2.3.4:9000");
   });
+
+  it("--map captures a permalink, with PANTRY_MAP env fallback", () => {
+    const fromCli = resolveConfig({ argv: ["--map", "https://e.x/#m=1;a;1;1;.;."], env: {} });
+    expect(fromCli.mapUrl).toBe("https://e.x/#m=1;a;1;1;.;.");
+
+    const fromEnv = resolveConfig({ argv: [], env: { PANTRY_MAP: "#m=1;a;1;1;.;." } });
+    expect(fromEnv.mapUrl).toBe("#m=1;a;1;1;.;.");
+
+    expect(resolveConfig({ argv: [], env: {} }).mapUrl).toBeUndefined();
+  });
 });

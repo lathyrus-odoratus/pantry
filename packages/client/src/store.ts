@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AdminRoomSummary, Message } from "@pantry/shared";
+import type { AdminRoomSummary, Message, MapV1 } from "@pantry/shared";
 import type { DisconnectDetail } from "./transport/client.js";
 import { DEFAULT_PREFS, savePrefs, type Prefs } from "./prefs.js";
 
@@ -11,6 +11,7 @@ export type Screen =
   | "chat"
   | "admin_oauth"
   | "admin_menu"
+  | "map_view"
   | "error";
 
 export type ConnStatus =
@@ -76,6 +77,9 @@ export type Store = {
   // Admin mode
   adminRooms: AdminRoomSummary[];
   adminStatusLine: string | null;
+
+  // Map viewer (pantry --map <permalink>)
+  viewedMap: MapV1 | null;
 
   // Actions
   setScreen: (s: Screen) => void;
@@ -157,6 +161,7 @@ const initial: Omit<
   worldCreditTotal: 0,
   adminRooms: [],
   adminStatusLine: null,
+  viewedMap: null,
 };
 
 export const useStore = create<Store>((set) => ({
