@@ -13,6 +13,8 @@ import { HELP_TEXT } from "../help.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
 import { saveAnon } from "../auth/anon.js";
 import { linkify } from "../util/links.js";
+import { findMaps } from "../util/mapLinks.js";
+import { MapGrid } from "./components/MapGrid.js";
 
 type Props = { serverUrl: string };
 
@@ -64,14 +66,23 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
     : snapshot.worldActive
       ? PLAYER_WORLD_EMOJI
       : null;
+  // A pasted map-editor permalink is unfurled into a full-size map below the
+  // message, terminal-side only — the message body stays the raw URL (that's
+  // what Discord and other clients see).
+  const maps = findMaps(m.body);
   return (
-    <Box marginTop={padding} marginBottom={isNpc ? 1 : 0}>
-      {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
-      <Text color={color} bold>
-        {label}
-      </Text>
-      <Text dimColor>: </Text>
-      <Text>{linkify(m.body)}</Text>
+    <Box flexDirection="column" marginTop={padding} marginBottom={isNpc ? 1 : 0}>
+      <Box>
+        {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
+        <Text color={color} bold>
+          {label}
+        </Text>
+        <Text dimColor>: </Text>
+        <Text>{linkify(m.body)}</Text>
+      </Box>
+      {maps.map((map, i) => (
+        <MapGrid key={i} map={map} />
+      ))}
     </Box>
   );
 }
