@@ -9,6 +9,14 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.23",
+    date: "2026-05-28",
+    title: "修正：貼地圖連結沒顯示馬路",
+    highlights: [
+      "修正貼上地圖連結時「馬路」沒有渲染的問題——連結裡代表馬路的符號與網址結構衝突而在傳遞中遺失（房子、樹、木箱不受影響）。請從地圖編輯器重新複製一條新連結，舊連結需重新產生。",
+    ],
+  },
+  {
     version: "0.1.22",
     date: "2026-05-28",
     title: "聊天貼地圖連結會內嵌渲染地圖",
