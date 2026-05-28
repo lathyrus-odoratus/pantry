@@ -43,7 +43,15 @@ describe("permalink codec", () => {
   });
 
   it("rejects truncated map data", () => {
-    expect(() => decodePermalink("#m=1;x;3;2;..#;.")).toThrow();
+    expect(() => decodePermalink("#m=1;x;3;2;..-;.")).toThrow();
+  });
+
+  // "#" is the URL fragment delimiter; if it were the road sentinel it would be
+  // percent-encoded to %23 on a location.hash round-trip and silently lost.
+  it("encodes road with a URL-safe sentinel, never '#'", () => {
+    const payload = encodePermalinkPayload(sample);
+    expect(payload).not.toContain("#");
+    expect(payload).toContain("-"); // sample has road cells
   });
 });
 

@@ -109,7 +109,7 @@ export function encodePermalinkPayload(map: MapV1): string {
   let objStr = "";
   for (let r = 0; r < map.h; r++) {
     for (let c = 0; c < map.w; c++) {
-      floorStr += map.floor[r]?.[c] === "road" ? "#" : ".";
+      floorStr += map.floor[r]?.[c] === "road" ? "-" : ".";
       objStr += objToChar(map.objects[r]?.[c] ?? null);
     }
   }
@@ -143,7 +143,7 @@ export function decodePermalink(input: string): MapV1 {
     const objRow: (MapObject | null)[] = [];
     for (let c = 0; c < w; c++) {
       const i = r * w + c;
-      floorRow.push(floorStr[i] === "#" ? "road" : "grass");
+      floorRow.push(floorStr[i] === "-" ? "road" : "grass");
       objRow.push(charToObj(objStr[i] ?? "."));
     }
     floor.push(floorRow);
