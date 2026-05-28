@@ -120,6 +120,14 @@ Admin operations all flow as request/response over WS: `admin.rooms.list` → `a
 
 Bootstrap: the first admin must be promoted via the service-role CLI (`pnpm admin user promote <nickname#disc>`) because there's no admin to grant the privilege from inside the TUI. After that, admins can promote/demote each other via the CLI (no in-app user management in this iteration).
 
+### GitHub → Discord relay (`POST /relay/github`)
+
+Standalone webhook forwarder — **does not touch pantry rooms** (unlike `POST /webhook/discord/messages`, which ingests Discord messages *into* a room). Receives a GitHub webhook, rewrites it to a Discord embed, and forwards to a Discord forum thread. Lives in `relay/routes.ts` (route + HMAC verify + push) and `relay/github.ts` (pure `buildEmbed(event, payload)` transform).
+
+Gated by two env vars (`config.ts`): `DISCORD_WEBHOOK_URL` (single global webhook, no params) and `GITHUB_WEBHOOK_SECRET` (HMAC key). If either is unset the endpoint returns 503. Request handling, in order: 503 if unconfigured → **401** if `X-Hub-Signature-256` HMAC fails → **400** if `?thread_id` query is missing → **204** if `X-GitHub-Event` is unsupported/low-signal (`buildEmbed` returns `null` for `ping`, unknown events, and noisy PR/issue actions) → push embed to `DISCORD_WEBHOOK_URL?thread_id=…`; **204** on success, **502** if Discord rejects (logged, never crashes).
+
+HMAC must run over the raw request bytes, so the routes are registered in an **encapsulated** `app.register` with a buffer-based `application/json` parser (stashing the raw `Buffer` in a `WeakMap` keyed by request) — this override is scoped to the plugin and doesn't affect the global JSON parser. Supported events: `push`, `pull_request`, `issues` (extend by adding a `buildEmbed` branch).
+
 ## Deployment
 
 Backend runs on the `wisp` VM in a container built on-host (no registry):
