@@ -24,6 +24,8 @@ const TEST_CONFIG: Config = {
   adminKey: null,
   anthropicApiKey: null,
   worldCreditTotal: 100_000,
+  discordWebhookUrl: null,
+  githubWebhookSecret: null,
 };
 
 type WaitingConsumer = {
