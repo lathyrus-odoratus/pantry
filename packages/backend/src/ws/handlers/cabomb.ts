@@ -1,6 +1,7 @@
-import type { CabombInput } from "@pantry/shared";
+import type { CabombInput, CabombPing } from "@pantry/shared";
 import type { AuthedConnection } from "../connection-registry.js";
 import type { ConnectionRegistry } from "../connection-registry.js";
+import { send } from "../broadcast.js";
 import {
   startCabomb,
   inputCabomb,
@@ -29,4 +30,8 @@ export function handleCabombWatch(conn: AuthedConnection): void {
 
 export function handleCabombLeave(conn: AuthedConnection): void {
   unwatchCabomb(conn);
+}
+
+export function handleCabombPing(conn: AuthedConnection, msg: CabombPing): void {
+  send(conn, { type: "cabomb.pong", t: msg.t });
 }

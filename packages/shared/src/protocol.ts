@@ -116,6 +116,13 @@ export const CabombWatchSchema = z.object({
 export const CabombLeaveSchema = z.object({
   type: z.literal("cabomb.leave"),
 });
+// Latency probe (driver + spectators). `t` is the sender's clock; the server
+// echoes it back unchanged in cabomb.pong so the client computes RTT against its
+// own clock — no clock sync needed.
+export const CabombPingSchema = z.object({
+  type: z.literal("cabomb.ping"),
+  t: z.number(),
+});
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   AuthAnonSchema,
@@ -138,6 +145,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   CabombInputSchema,
   CabombWatchSchema,
   CabombLeaveSchema,
+  CabombPingSchema,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
@@ -161,6 +169,7 @@ export type CabombStart = z.infer<typeof CabombStartSchema>;
 export type CabombInput = z.infer<typeof CabombInputSchema>;
 export type CabombWatch = z.infer<typeof CabombWatchSchema>;
 export type CabombLeave = z.infer<typeof CabombLeaveSchema>;
+export type CabombPing = z.infer<typeof CabombPingSchema>;
 
 // ─── Server → Client ──────────────────────────────────────────────────────────
 
@@ -344,6 +353,11 @@ export const CabombOverSchema = z.object({
   by: z.string(),
   summary: z.string().optional(),
 });
+// Echoes a cabomb.ping's `t` back to the sender for RTT measurement.
+export const CabombPongSchema = z.object({
+  type: z.literal("cabomb.pong"),
+  t: z.number(),
+});
 
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   AuthOkSchema,
@@ -365,6 +379,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   CabombStartedSchema,
   CabombStateSchema,
   CabombOverSchema,
+  CabombPongSchema,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
 export type WorldState = z.infer<typeof WorldStateSchema>;
@@ -379,3 +394,4 @@ export type GameError = z.infer<typeof GameErrorSchema>;
 export type CabombStarted = z.infer<typeof CabombStartedSchema>;
 export type CabombStateMsg = z.infer<typeof CabombStateSchema>;
 export type CabombOver = z.infer<typeof CabombOverSchema>;
+export type CabombPong = z.infer<typeof CabombPongSchema>;

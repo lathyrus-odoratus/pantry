@@ -11,6 +11,14 @@ import {
 } from "./caBombDraw.js";
 
 const RENDER_MS = 33;
+const PING_MS = 1500;
+
+// Colour the latency readout green/amber/red by RTT, respecting mono mode.
+function latencyText(ms: number | null, mono: boolean): string {
+  if (ms == null) return dim("⚡ —");
+  const hex = ms < 80 ? "#5fff5f" : ms < 200 ? "#ffd700" : "#ff5f5f";
+  return fgOnly(`⚡ ${ms}ms`, hex, mono);
+}
 
 // Full-screen, flicker-free CA-bomb view rendered OUTSIDE Ink while the chat
 // stays connected (Chat returns null while cabombView is set, so this owns the
@@ -58,6 +66,14 @@ export function CabombOverlay(): null {
     }
     stdin.on("data", onKey);
 
+    // Latency probe: echo a timestamp off the server every PING_MS; the pong
+    // handler (Chat) records the RTT into the store, which the HUD reads.
+    function ping(): void {
+      useStore.getState().cabombSend?.({ type: "cabomb.ping", t: Date.now() });
+    }
+    ping();
+    const pinger = setInterval(ping, PING_MS);
+
     function render(): void {
       const msg = useStore.getState().cabombState;
       const result = useStore.getState().cabombResult;
@@ -87,6 +103,7 @@ export function CabombOverlay(): null {
             stat("水球", st.player.bombCap, "#33b5ff", mono),
             stat("水力", st.player.range, "#ffd700", mono),
             dim(`敵人 ${st.enemies.length}`),
+            latencyText(useStore.getState().cabombLatencyMs, mono),
           ].join("   "),
         );
         lines.push("");
@@ -118,6 +135,7 @@ export function CabombOverlay(): null {
 
     return () => {
       clearInterval(loop);
+      clearInterval(pinger);
       stdin.off("data", onKey);
       out.write("\x1b[?25h\x1b[?1049l"); // show cursor, leave alt screen
     };

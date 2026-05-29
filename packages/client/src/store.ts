@@ -99,6 +99,9 @@ export type Store = {
   cabombResult: CabombOver | null;
   cabombView: { role: "driver" | "spectator"; mono: boolean } | null;
   cabombSend: ((msg: ClientMessage) => void) | null;
+  // Smoothed round-trip latency (ms) measured by cabomb.ping/pong while in the
+  // full-screen view; null until the first pong. Shown in the HUD.
+  cabombLatencyMs: number | null;
   // A game is in progress in this room (drives the status-bar /watch hint).
   cabombActive: { by: string } | null;
 
@@ -138,6 +141,7 @@ export type Store = {
   enterCabomb: (view: { role: "driver" | "spectator"; mono: boolean }) => void;
   exitCabomb: () => void;
   setCabombSend: (fn: ((msg: ClientMessage) => void) | null) => void;
+  setCabombLatency: (ms: number) => void;
   setCabombActive: (a: { by: string } | null) => void;
   reset: () => void;
 };
@@ -171,6 +175,7 @@ const initial: Omit<
   | "enterCabomb"
   | "exitCabomb"
   | "setCabombSend"
+  | "setCabombLatency"
   | "setCabombActive"
   | "reset"
 > = {
@@ -202,6 +207,7 @@ const initial: Omit<
   cabombResult: null,
   cabombView: null,
   cabombSend: null,
+  cabombLatencyMs: null,
   cabombActive: null,
 };
 
@@ -275,9 +281,23 @@ export const useStore = create<Store>((set) => ({
 
   setCabombState: (cabombState) => set({ cabombState }),
   setCabombResult: (cabombResult) => set({ cabombResult }),
-  enterCabomb: (cabombView) => set({ cabombView }),
-  exitCabomb: () => set({ cabombView: null, cabombState: null, cabombResult: null }),
+  enterCabomb: (cabombView) => set({ cabombView, cabombLatencyMs: null }),
+  exitCabomb: () =>
+    set({
+      cabombView: null,
+      cabombState: null,
+      cabombResult: null,
+      cabombLatencyMs: null,
+    }),
   setCabombSend: (cabombSend) => set({ cabombSend }),
+  setCabombLatency: (ms) =>
+    set((s) => ({
+      // Light EWMA so the readout doesn't jitter frame-to-frame.
+      cabombLatencyMs:
+        s.cabombLatencyMs == null
+          ? ms
+          : Math.round(s.cabombLatencyMs * 0.7 + ms * 0.3),
+    })),
   setCabombActive: (cabombActive) => set({ cabombActive }),
 
   setError: (errorMessage) => set({ errorMessage, screen: "error" }),

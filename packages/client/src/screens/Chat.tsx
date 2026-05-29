@@ -208,6 +208,9 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
           case "cabomb.state":
             useStore.getState().setCabombState(m);
             break;
+          case "cabomb.pong":
+            useStore.getState().setCabombLatency(Date.now() - m.t);
+            break;
           case "cabomb.over": {
             useStore.getState().setCabombResult(m);
             useStore.getState().setCabombActive(null);

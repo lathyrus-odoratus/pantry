@@ -31,6 +31,7 @@ import {
   handleCabombInput,
   handleCabombWatch,
   handleCabombLeave,
+  handleCabombPing,
 } from "./handlers/cabomb.js";
 import { cabombOnDisconnect } from "../cabomb/manager.js";
 import {
@@ -245,6 +246,9 @@ export function attachWebSocketServer(
             break;
           case "cabomb.leave":
             handleCabombLeave(conn);
+            break;
+          case "cabomb.ping":
+            handleCabombPing(conn, parsed);
             break;
           case "auth.anon":
           case "auth.oauth":
