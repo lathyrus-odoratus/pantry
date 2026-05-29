@@ -219,7 +219,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
                   : `${m.by} 結束了 CA-bomb。`;
             addMessage({
               id: `cabomb-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
-              body: `── ${body} ──`,
+              body: m.summary ? `── ${body} ──\n${m.summary}` : `── ${body} ──`,
               createdAt: new Date().toISOString(),
               author: { nickname: "·", discriminator: "sys" },
             });

@@ -100,6 +100,10 @@ export function CabombOverlay(): null {
                 ? "被炸飛了。"
                 : "遊戲結束。";
           lines.push(fgOnly(`── ${txt} q 離開 ──`, "#ffd700", mono));
+          if (result.summary) {
+            lines.push("");
+            for (const ln of result.summary.split("\n")) lines.push(dim(ln));
+          }
         } else {
           lines.push(
             dim(role === "driver" ? "WASD 移動（推箱）  Space 放水球  q 離開" : "旁觀中  q 離開"),
