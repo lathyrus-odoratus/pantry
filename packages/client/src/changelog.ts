@@ -9,6 +9,14 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.26",
+    date: "2026-05-30",
+    title: "/ca-bomb 全螢幕加上延遲(ping)顯示",
+    highlights: [
+      "/ca-bomb 全螢幕的 HUD 右側新增即時延遲讀數 ⚡，顯示與伺服器之間的來回延遲（RTT），會依快慢標成綠/黃/紅。房內版是伺服器主導，按鍵到畫面更新會經過一次來回，這個數字能讓你判斷卡頓是不是來自網路。driver 和旁觀者都看得到。",
+    ],
+  },
+  {
     version: "0.1.25",
     date: "2026-05-30",
     title: "新增 /ca-bomb 爆爆王風格炸彈遊戲 + 全螢幕旁觀",
