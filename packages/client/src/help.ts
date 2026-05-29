@@ -8,4 +8,5 @@ export const HELP_TEXT = [
   "/color reset     Clear nick color",
   "/the-world       Open a TRPG world in this room (one global at a time)",
   "/roll            Roll the dice the world (NPC) just asked for; no argument",
+  "/bomb            Start a single-player Bomberman game (WASD move, Space bomb, q quit)",
 ].join("\n");

@@ -9,6 +9,15 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.24",
+    date: "2026-05-29",
+    title: "新增 /bomb 炸彈超人小遊戲",
+    highlights: [
+      "在聊天室輸入 /bomb 開一場單人炸彈超人：WASD 移動、空白鍵放炸彈、q 離開。炸掉所有敵人就贏，HP 歸零就輸。",
+      "同房間的其他人會在輸入欄上方看到即時觀戰畫面，仍可正常聊天。每個房間同時只能有一場遊戲。",
+    ],
+  },
+  {
     version: "0.1.23",
     date: "2026-05-28",
     title: "修正：貼地圖連結沒顯示馬路",
