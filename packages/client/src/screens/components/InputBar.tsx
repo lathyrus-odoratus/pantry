@@ -11,6 +11,7 @@ type Props = {
   onHelp: () => void;
   onWorldOpen: () => void;
   onDiceRoll: () => void;
+  onGameStart: () => void;
 };
 
 const HEX_COLOR_RE = /^#?[0-9a-fA-F]{6}$/;
@@ -24,6 +25,7 @@ export function InputBar({
   onHelp,
   onWorldOpen,
   onDiceRoll,
+  onGameStart,
 }: Props): React.JSX.Element {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
@@ -61,6 +63,8 @@ export function InputBar({
         // Bare /roll — server reads the dice spec from world state's
         // pendingRoll (set by the NPC's [[roll:…]] marker).
         onDiceRoll();
+      } else if (cmd === "bomb") {
+        onGameStart();
       }
       return;
     }

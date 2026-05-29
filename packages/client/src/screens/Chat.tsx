@@ -8,6 +8,8 @@ import { StatusBar } from "./components/StatusBar.js";
 import { Changelog } from "./components/Changelog.js";
 import { Settings } from "./components/Settings.js";
 import { WorldPanel } from "./components/WorldPanel.js";
+import { GameView } from "./components/GameView.js";
+import { GameSpectate } from "./components/GameSpectate.js";
 import { CHANGELOG } from "../changelog.js";
 import { HELP_TEXT } from "../help.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
@@ -104,6 +106,8 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const setPresence = useStore((s) => s.setPresence);
   const setUpdateAvailable = useStore((s) => s.setUpdateAvailable);
   const setWorldState = useStore((s) => s.setWorldState);
+  const setCurrentGame = useStore((s) => s.setCurrentGame);
+  const currentGame = useStore((s) => s.currentGame);
   const setError = useStore((s) => s.setError);
 
   const transportRef = useRef<TransportClient | null>(null);
@@ -159,6 +163,28 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
               creditUsed: m.creditUsed,
               creditTotal: m.creditTotal,
             });
+            break;
+          case "game.state":
+            setCurrentGame(m);
+            break;
+          case "game.over": {
+            setCurrentGame(null);
+            const label = `${m.playerNickname}#${m.playerDiscriminator}`;
+            const body =
+              m.result === "win"
+                ? `── 🎮 ${label} 消滅了所有敵人！ ──`
+                : m.result === "loss"
+                  ? `── 💀 ${label} 被炸了。 ──`
+                  : `── ${label} 離開了遊戲。 ──`;
+            addMessage({
+              id: `game-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+              body,
+              createdAt: new Date().toISOString(),
+              author: { nickname: "·", discriminator: "sys" },
+            });
+            break;
+          }
+          case "game.error":
             break;
           case "history":
             // Static renders new items at the bottom regardless of array
@@ -224,6 +250,15 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const onDiceRoll = useCallback(() => {
     transportRef.current?.send({ type: "dice.roll" });
   }, []);
+  const onGameStart = useCallback(() => {
+    transportRef.current?.send({ type: "game.start" });
+  }, []);
+  const onGameInput = useCallback(
+    (key: "w" | "a" | "s" | "d" | "bomb" | "quit") => {
+      transportRef.current?.send({ type: "game.input", key });
+    },
+    [],
+  );
 
   const worldActive = useStore((s) => s.worldActive);
   const worldCreditUsed = useStore((s) => s.worldCreditUsed);
@@ -269,7 +304,11 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
           <Text dimColor>Online ({onlineUsers.length}): </Text>
           <Text>{onlineSummary}</Text>
         </Box>
-        {changelogOpen ? (
+        {currentGame && authedUser &&
+        currentGame.playerNickname === authedUser.nickname &&
+        currentGame.playerDiscriminator === authedUser.discriminator ? (
+          <GameView game={currentGame} onInput={onGameInput} />
+        ) : changelogOpen ? (
           <Changelog
             entries={CHANGELOG}
             index={changelogIndex}
@@ -290,6 +329,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
                 creditTotal={worldCreditTotal}
               />
             ) : null}
+            {currentGame ? <GameSpectate game={currentGame} /> : null}
             <InputBar
               onSend={onSend}
               onNick={onNick}
@@ -299,6 +339,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
               onHelp={onHelp}
               onWorldOpen={onWorldOpen}
               onDiceRoll={onDiceRoll}
+              onGameStart={onGameStart}
             />
             <StatusBar
               status={status}

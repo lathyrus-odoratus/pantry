@@ -92,6 +92,15 @@ export const AdminRoomDeleteSchema = z.object({
   name: z.string().min(1).max(64),
 });
 
+export const GameStartSchema = z.object({
+  type: z.literal("game.start"),
+});
+
+export const GameInputSchema = z.object({
+  type: z.literal("game.input"),
+  key: z.enum(["w", "a", "s", "d", "bomb", "quit"]),
+});
+
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   AuthAnonSchema,
   AuthOAuthSchema,
@@ -107,6 +116,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   AdminRoomCloseSchema,
   AdminRoomReopenSchema,
   AdminRoomDeleteSchema,
+  GameStartSchema,
+  GameInputSchema,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
@@ -124,6 +135,8 @@ export type AdminRoomCreate = z.infer<typeof AdminRoomCreateSchema>;
 export type AdminRoomClose = z.infer<typeof AdminRoomCloseSchema>;
 export type AdminRoomReopen = z.infer<typeof AdminRoomReopenSchema>;
 export type AdminRoomDelete = z.infer<typeof AdminRoomDeleteSchema>;
+export type GameStart = z.infer<typeof GameStartSchema>;
+export type GameInput = z.infer<typeof GameInputSchema>;
 
 // ─── Server → Client ──────────────────────────────────────────────────────────
 
@@ -238,6 +251,28 @@ export const AdminErrorSchema = z.object({
   message: z.string().optional(),
 });
 
+export const GameStateSchema = z.object({
+  type: z.literal("game.state"),
+  map: z.array(z.array(z.string())),
+  player: z.object({ x: z.number().int(), y: z.number().int(), hp: z.number().int() }),
+  bomb: z.object({ x: z.number().int(), y: z.number().int(), exploded: z.boolean() }).nullable(),
+  playerNickname: z.string(),
+  playerDiscriminator: z.string(),
+  tick: z.number().int().nonnegative(),
+});
+
+export const GameOverSchema = z.object({
+  type: z.literal("game.over"),
+  result: z.enum(["win", "loss", "quit"]),
+  playerNickname: z.string(),
+  playerDiscriminator: z.string(),
+});
+
+export const GameErrorSchema = z.object({
+  type: z.literal("game.error"),
+  reason: z.enum(["already_active", "not_your_game"]),
+});
+
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   AuthOkSchema,
   AuthErrorSchema,
@@ -252,6 +287,9 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   AdminRoomsSchema,
   AdminOkSchema,
   AdminErrorSchema,
+  GameStateSchema,
+  GameOverSchema,
+  GameErrorSchema,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
 export type WorldState = z.infer<typeof WorldStateSchema>;
@@ -260,3 +298,6 @@ export type AdminAuthOk = z.infer<typeof AdminAuthOkSchema>;
 export type AdminRooms = z.infer<typeof AdminRoomsSchema>;
 export type AdminOk = z.infer<typeof AdminOkSchema>;
 export type AdminError = z.infer<typeof AdminErrorSchema>;
+export type GameState = z.infer<typeof GameStateSchema>;
+export type GameOver = z.infer<typeof GameOverSchema>;
+export type GameError = z.infer<typeof GameErrorSchema>;
