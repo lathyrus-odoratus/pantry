@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { HexColorSchema, MessageSchema, UserSchema } from "./models.js";
+import { mapV1Schema } from "./map.js";
 
 // ─── Client → Server ──────────────────────────────────────────────────────────
 
@@ -101,6 +102,21 @@ export const GameInputSchema = z.object({
   key: z.enum(["w", "a", "s", "d", "bomb", "quit"]),
 });
 
+// ── CA-bomb (room-wide spectatable game; see specs/2026-05-29-ca-bomb-room) ──
+export const CabombStartSchema = z.object({
+  type: z.literal("cabomb.start"),
+});
+export const CabombInputSchema = z.object({
+  type: z.literal("cabomb.input"),
+  key: z.enum(["w", "a", "s", "d", "bomb", "quit"]),
+});
+export const CabombWatchSchema = z.object({
+  type: z.literal("cabomb.watch"),
+});
+export const CabombLeaveSchema = z.object({
+  type: z.literal("cabomb.leave"),
+});
+
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   AuthAnonSchema,
   AuthOAuthSchema,
@@ -118,6 +134,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   AdminRoomDeleteSchema,
   GameStartSchema,
   GameInputSchema,
+  CabombStartSchema,
+  CabombInputSchema,
+  CabombWatchSchema,
+  CabombLeaveSchema,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
@@ -137,6 +157,10 @@ export type AdminRoomReopen = z.infer<typeof AdminRoomReopenSchema>;
 export type AdminRoomDelete = z.infer<typeof AdminRoomDeleteSchema>;
 export type GameStart = z.infer<typeof GameStartSchema>;
 export type GameInput = z.infer<typeof GameInputSchema>;
+export type CabombStart = z.infer<typeof CabombStartSchema>;
+export type CabombInput = z.infer<typeof CabombInputSchema>;
+export type CabombWatch = z.infer<typeof CabombWatchSchema>;
+export type CabombLeave = z.infer<typeof CabombLeaveSchema>;
 
 // ─── Server → Client ──────────────────────────────────────────────────────────
 
@@ -273,6 +297,48 @@ export const GameErrorSchema = z.object({
   reason: z.enum(["already_active", "not_your_game"]),
 });
 
+// ── CA-bomb server → client ──
+const CabombStatePayloadSchema = z.object({
+  map: mapV1Schema,
+  player: z.object({
+    x: z.number().int(),
+    y: z.number().int(),
+    hp: z.number().int(),
+    bombCap: z.number().int(),
+    range: z.number().int(),
+  }),
+  bombs: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+  blasts: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+  enemies: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+  items: z.array(
+    z.object({
+      x: z.number().int(),
+      y: z.number().int(),
+      type: z.enum(["heart", "bomb", "range"]),
+    }),
+  ),
+  status: z.enum(["playing", "win", "loss"]),
+});
+
+// Broadcast to the whole room (drives the status-bar hint + system message).
+export const CabombStartedSchema = z.object({
+  type: z.literal("cabomb.started"),
+  by: z.string(),
+});
+// Sent only to the driver + registered spectators.
+export const CabombStateSchema = z.object({
+  type: z.literal("cabomb.state"),
+  by: z.string(),
+  state: CabombStatePayloadSchema,
+});
+// Broadcast to the whole room.
+export const CabombOverSchema = z.object({
+  type: z.literal("cabomb.over"),
+  result: z.enum(["win", "loss", "quit"]),
+  by: z.string(),
+  summary: z.string().optional(),
+});
+
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   AuthOkSchema,
   AuthErrorSchema,
@@ -290,6 +356,9 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   GameStateSchema,
   GameOverSchema,
   GameErrorSchema,
+  CabombStartedSchema,
+  CabombStateSchema,
+  CabombOverSchema,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
 export type WorldState = z.infer<typeof WorldStateSchema>;
@@ -301,3 +370,6 @@ export type AdminError = z.infer<typeof AdminErrorSchema>;
 export type GameState = z.infer<typeof GameStateSchema>;
 export type GameOver = z.infer<typeof GameOverSchema>;
 export type GameError = z.infer<typeof GameErrorSchema>;
+export type CabombStarted = z.infer<typeof CabombStartedSchema>;
+export type CabombStateMsg = z.infer<typeof CabombStateSchema>;
+export type CabombOver = z.infer<typeof CabombOverSchema>;

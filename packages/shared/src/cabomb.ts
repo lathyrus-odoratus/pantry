@@ -1,14 +1,25 @@
-import type { MapV1, ObjectType } from "@pantry/shared";
-import { sampleCaMap, findSpawn } from "./caMock.js";
+import type { Floor, MapObject, MapV1, ObjectType } from "./map.js";
 
-// Offline CA-bomb POC engine (client-only; no protocol/server). Tick-based so
-// multiple bombs, chain detonation, timed blasts and enemy steps all advance
-// from a single loop in the screen. Mirrors #1's bomb feel, CA collision.
+// Crazy Arcade bomb game — pure engine + map helpers, shared by the backend
+// (authoritative, room-wide play) and the offline `--ca-bomb` client sandbox.
+// No IO / no React; advances entirely through tick(dt) plus move/placeBomb.
+
 export type ItemType = "heart" | "bomb" | "range";
 export type Bomb = { x: number; y: number; fuseMs: number };
 export type Blast = { x: number; y: number; ttlMs: number };
 export type Enemy = { x: number; y: number };
 export type Status = "playing" | "win" | "loss";
+
+// Serializable snapshot broadcast over WS (cabomb.state) and rendered by clients.
+export type CabombState = {
+  map: MapV1;
+  player: { x: number; y: number; hp: number; bombCap: number; range: number };
+  bombs: Array<{ x: number; y: number }>;
+  blasts: Array<{ x: number; y: number }>;
+  enemies: Array<{ x: number; y: number }>;
+  items: Array<{ x: number; y: number; type: ItemType }>;
+  status: Status;
+};
 
 const FUSE_MS = 3000;
 const BLAST_MS = 500;
@@ -18,11 +29,78 @@ export const DROP_CHANCE = 1;
 const MAX_STAT = 3;
 const ENEMY_COUNT = 4;
 
+// Objects that block movement entirely (can't walk on, can't push).
 const IMMOVABLE = new Set<ObjectType>(["house", "block", "tree"]);
+// Objects you can't spawn on (immovable + the pushable box).
+const SOLID = new Set<ObjectType>(["house", "block", "box", "tree"]);
 const DIRS = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
 
 function key(x: number, y: number): string {
   return `${x},${y}`;
+}
+
+export function isWalkable(map: MapV1, x: number, y: number): boolean {
+  if (x < 0 || y < 0 || x >= map.w || y >= map.h) return false;
+  const o = map.objects[y]?.[x] ?? null;
+  return !(o && SOLID.has(o.type));
+}
+
+export function findSpawn(map: MapV1): { x: number; y: number } {
+  for (let y = 0; y < map.h; y++) {
+    for (let x = 0; x < map.w; x++) {
+      if (map.objects[y]?.[x]?.type === "player") return { x, y };
+    }
+  }
+  for (let y = 0; y < map.h; y++) {
+    for (let x = 0; x < map.w; x++) {
+      if (isWalkable(map, x, y)) return { x, y };
+    }
+  }
+  return { x: 1, y: 1 };
+}
+
+// A classic-feel CA arena: blue block border + even/even pillar grid, a few
+// destructible boxes and some greenery, spawn corner kept clear.
+export function sampleCaMap(): MapV1 {
+  const w = 15;
+  const h = 11;
+  const floor: Floor[][] = [];
+  const objects: (MapObject | null)[][] = [];
+  for (let y = 0; y < h; y++) {
+    const frow: Floor[] = [];
+    const orow: (MapObject | null)[] = [];
+    for (let x = 0; x < w; x++) {
+      frow.push("grass");
+      if (y === 0 || y === h - 1 || x === 0 || x === w - 1) {
+        orow.push({ type: "block", color: "blue" });
+      } else if (x % 2 === 0 && y % 2 === 0) {
+        orow.push({ type: "block", color: "blue" });
+      } else {
+        orow.push(null);
+      }
+    }
+    floor.push(frow);
+    objects.push(orow);
+  }
+
+  const boxes: Array<[number, number]> = [
+    [3, 1], [5, 1], [9, 1], [13, 3], [7, 3], [9, 5], [1, 5], [11, 7], [5, 7], [3, 9],
+  ];
+  for (const [x, y] of boxes) {
+    const row = objects[y];
+    if (row && row[x] === null) row[x] = { type: "box" };
+  }
+  const bushRow = objects[3];
+  if (bushRow) bushRow[5] = { type: "bush" };
+  const treeRow = objects[7];
+  if (treeRow) treeRow[13] = { type: "tree" };
+
+  for (const [x, y] of [[1, 1], [2, 1], [1, 2]] as Array<[number, number]>) {
+    const row = objects[y];
+    if (row) row[x] = null;
+  }
+
+  return { version: 1, name: "CA Arena", w, h, floor, objects };
 }
 
 export class CaBombGame {
@@ -73,7 +151,6 @@ export class CaBombGame {
   private enemyAt(x: number, y: number): boolean {
     return this.enemies.some((e) => e.x === x && e.y === y);
   }
-  // Empty walkable floor: no object, no bomb, no enemy.
   private isOpenFloor(x: number, y: number): boolean {
     if (x < 0 || y < 0 || x >= this.map.w || y >= this.map.h) return false;
     return this.objAt(x, y) === null && !this.bombAt(x, y) && !this.enemyAt(x, y);
@@ -87,8 +164,8 @@ export class CaBombGame {
     if (this.isImmovable(nx, ny) || this.bombAt(nx, ny) || this.enemyAt(nx, ny)) return;
 
     if (this.isBox(nx, ny)) {
-      // Sokoban-style single push: box slides one cell if the cell behind it
-      // is open floor; player follows into the box's old cell.
+      // Sokoban-style single push: box slides one cell if the cell behind it is
+      // open floor; player follows into the box's old cell.
       const bx = nx + dx;
       const by = ny + dy;
       if (!this.isOpenFloor(bx, by)) return;
@@ -125,8 +202,6 @@ export class CaBombGame {
     this.bombs.push({ x: this.player.x, y: this.player.y, fuseMs: FUSE_MS });
   }
 
-  // Cross blast extending `range` per direction; stops at immovable tiles,
-  // destroys the first box it hits (which may drop an item) and stops there.
   private blastCells(ox: number, oy: number): Array<{ x: number; y: number }> {
     const cells = [{ x: ox, y: oy }];
     for (const dir of DIRS) {
@@ -160,7 +235,6 @@ export class CaBombGame {
     this.player.iframeMs = Math.max(0, this.player.iframeMs - dt);
 
     for (const b of this.bombs) b.fuseMs -= dt;
-    // Detonate every due bomb; a blast cell landing on another bomb chains it.
     while (true) {
       const idx = this.bombs.findIndex((b) => b.fuseMs <= 0);
       if (idx === -1) break;
@@ -182,7 +256,6 @@ export class CaBombGame {
       this.stepEnemies();
     }
 
-    // Anything standing in fire: enemies die, player takes one hit (i-frames).
     const fire = new Set(this.blasts.map((bl) => key(bl.x, bl.y)));
     this.enemies = this.enemies.filter((e) => !fire.has(key(e.x, e.y)));
     if (fire.has(key(this.player.x, this.player.y)) && this.player.iframeMs <= 0) {
@@ -214,5 +287,27 @@ export class CaBombGame {
         }
       }
     }
+  }
+
+  snapshot(): CabombState {
+    const items = [...this.items].map(([k, type]) => {
+      const [x, y] = k.split(",").map(Number);
+      return { x: x ?? 0, y: y ?? 0, type };
+    });
+    return {
+      map: this.map,
+      player: {
+        x: this.player.x,
+        y: this.player.y,
+        hp: this.player.hp,
+        bombCap: this.player.bombCap,
+        range: this.player.range,
+      },
+      bombs: this.bombs.map((b) => ({ x: b.x, y: b.y })),
+      blasts: this.blasts.map((b) => ({ x: b.x, y: b.y })),
+      enemies: this.enemies.map((e) => ({ x: e.x, y: e.y })),
+      items,
+      status: this.status,
+    };
   }
 }

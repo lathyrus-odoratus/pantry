@@ -1,6 +1,5 @@
 import { userInfo } from "node:os";
-import { cellStyle, type MapV1 } from "@pantry/shared";
-import { CaBombGame, DROP_CHANCE, type ItemType } from "./caBombMock.js";
+import { cellStyle, type MapV1, CaBombGame, DROP_CHANCE, type ItemType } from "@pantry/shared";
 
 // Standalone flicker-free renderer for the --ca-bomb POC. Ink's diff renderer
 // (erase-line then rewrite) visibly flickers on a full-screen truecolor grid
