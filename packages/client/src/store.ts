@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AdminRoomSummary, Message, MapV1 } from "@pantry/shared";
+import type { AdminRoomSummary, Message, MapV1, GameState } from "@pantry/shared";
 import type { DisconnectDetail } from "./transport/client.js";
 import { DEFAULT_PREFS, savePrefs, type Prefs } from "./prefs.js";
 
@@ -81,6 +81,9 @@ export type Store = {
   // Map viewer (pantry --map <permalink>)
   viewedMap: MapV1 | null;
 
+  // Bomberman game
+  currentGame: GameState | null;
+
   // Actions
   setScreen: (s: Screen) => void;
   commitRoomName: (name: string) => void;
@@ -111,6 +114,7 @@ export type Store = {
   setAdminRooms: (rooms: AdminRoomSummary[]) => void;
   setAdminStatusLine: (line: string | null) => void;
   setError: (msg: string) => void;
+  setCurrentGame: (g: GameState | null) => void;
   reset: () => void;
 };
 
@@ -137,6 +141,7 @@ const initial: Omit<
   | "setAdminRooms"
   | "setAdminStatusLine"
   | "setError"
+  | "setCurrentGame"
   | "reset"
 > = {
   screen: "room_input",
@@ -162,6 +167,7 @@ const initial: Omit<
   adminRooms: [],
   adminStatusLine: null,
   viewedMap: null,
+  currentGame: null,
 };
 
 export const useStore = create<Store>((set) => ({
@@ -230,6 +236,7 @@ export const useStore = create<Store>((set) => ({
 
   setAdminRooms: (adminRooms) => set({ adminRooms }),
   setAdminStatusLine: (adminStatusLine) => set({ adminStatusLine }),
+  setCurrentGame: (currentGame) => set({ currentGame }),
 
   setError: (errorMessage) => set({ errorMessage, screen: "error" }),
 

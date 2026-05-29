@@ -24,6 +24,8 @@ import { handleHistory } from "./handlers/history.js";
 import { handleColor } from "./handlers/color.js";
 import { handleWorldOpen } from "./handlers/world.js";
 import { handleDiceRoll } from "./handlers/dice.js";
+import { handleGameStart, handleGameInputMsg } from "./handlers/game.js";
+import { endGameForPlayer } from "../game/manager.js";
 import {
   handleAdminAuth,
   makeAdminAuthOk,
@@ -219,6 +221,12 @@ export function attachWebSocketServer(
           case "history.load":
             await handleHistory(conn, parsed, deps);
             break;
+          case "game.start":
+            handleGameStart(conn, deps.registry);
+            break;
+          case "game.input":
+            handleGameInputMsg(conn, parsed, deps.registry);
+            break;
           case "auth.anon":
           case "auth.oauth":
           case "auth.admin":
@@ -241,6 +249,7 @@ export function attachWebSocketServer(
     ws.on("close", () => {
       clearTimeout(authTimer);
       if (!authed) return;
+      endGameForPlayer(authed.userId, deps.registry);
       deps.registry.remove(authed);
       const leaveLabel = `${authed.nickname}#${authed.discriminator} left`;
       broadcastToRoom(deps.registry, authed.roomId, {
