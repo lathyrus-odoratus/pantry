@@ -6,6 +6,8 @@ export type ClientConfig = {
   initialRoom: string | undefined;
   adminMode: boolean;
   mapUrl: string | undefined;
+  caBomb: boolean;
+  playerName: string | undefined;
 };
 
 export type ResolveInput = {
@@ -33,12 +35,16 @@ export function resolveConfig(input: ResolveInput): ClientConfig {
   const initialRoom = parseFlag(input.argv, "--room");
   const adminMode = input.argv.includes("--admin");
   const mapUrl = parseFlag(input.argv, "--map") ?? input.env.PANTRY_MAP;
+  const caBomb = input.argv.includes("--ca-bomb");
+  const playerName = parseFlag(input.argv, "--name");
   return {
     serverUrl,
     backendHttpUrl: toHttpUrl(serverUrl),
     initialRoom,
     adminMode,
     mapUrl,
+    caBomb,
+    playerName,
   };
 }
 
