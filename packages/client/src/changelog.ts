@@ -9,6 +9,16 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.25",
+    date: "2026-05-30",
+    title: "新增 /ca-bomb 爆爆王風格炸彈遊戲 + 全螢幕旁觀",
+    highlights: [
+      "在聊天室輸入 /ca-bomb 開一場 Crazy Arcade 風格的炸彈遊戲：WASD 移動（可推箱）、空白鍵放水球、q 離開。炸箱掉道具成長「水球（數量）／水力（範圍）／❤」，清光敵人就贏。",
+      "同房的其他人可選擇性進全螢幕旁觀：輸入 /watch 看彩色、/watch bw 看黑白；不想看就照常聊天。狀態列會持續顯示目前有沒有人在玩。",
+      "也可用 pantry --ca-bomb 離線單機玩（搭配 --name 顯示玩家名）。",
+    ],
+  },
+  {
     version: "0.1.24",
     date: "2026-05-29",
     title: "新增 /bomb 炸彈超人小遊戲",
