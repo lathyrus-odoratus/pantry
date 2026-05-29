@@ -192,6 +192,12 @@ export const RoomSnapshotSchema = z.object({
   room: z.object({ id: z.string().uuid(), name: z.string() }),
   messages: z.array(MessageSchema),
   onlineUsers: z.array(UserSchema),
+  // Set when a CA-bomb game is in progress, so a joiner/reconnect can show the
+  // status-bar "/watch" hint immediately. Optional for backward compatibility.
+  activeGame: z
+    .object({ kind: z.literal("cabomb"), by: z.string() })
+    .nullable()
+    .optional(),
 });
 
 export const NewMessageSchema = z.object({

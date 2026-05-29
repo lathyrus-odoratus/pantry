@@ -13,6 +13,7 @@ type Props = {
   onDiceRoll: () => void;
   onGameStart: () => void;
   onCabomb: () => void;
+  onWatch: (mono: boolean) => void;
 };
 
 const HEX_COLOR_RE = /^#?[0-9a-fA-F]{6}$/;
@@ -28,6 +29,7 @@ export function InputBar({
   onDiceRoll,
   onGameStart,
   onCabomb,
+  onWatch,
 }: Props): React.JSX.Element {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
@@ -69,6 +71,8 @@ export function InputBar({
         onGameStart();
       } else if (cmd === "ca-bomb") {
         onCabomb();
+      } else if (cmd === "watch") {
+        onWatch(arg === "bw");
       }
       return;
     }

@@ -109,6 +109,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   const setCurrentGame = useStore((s) => s.setCurrentGame);
   const currentGame = useStore((s) => s.currentGame);
   const cabombView = useStore((s) => s.cabombView);
+  const cabombActive = useStore((s) => s.cabombActive);
   const setError = useStore((s) => s.setError);
 
   const transportRef = useRef<TransportClient | null>(null);
@@ -137,6 +138,9 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
             break;
           case "room.snapshot":
             setSnapshot(m.room.id, m.messages, m.onlineUsers);
+            useStore.getState().setCabombActive(
+              m.activeGame ? { by: m.activeGame.by } : null,
+            );
             break;
           case "message":
             addMessage(m.data);
@@ -187,14 +191,26 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
           }
           case "game.error":
             break;
-          case "cabomb.started":
-            // Phase 3 wires the status-bar hint for non-drivers; no-op here.
+          case "cabomb.started": {
+            useStore.getState().setCabombActive({ by: m.by });
+            const me = useStore.getState().authedUser;
+            const myName = me ? `${me.nickname}#${me.discriminator}` : null;
+            if (m.by !== myName) {
+              addMessage({
+                id: `cabomb-start-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+                body: `── 🎮 ${m.by} 開了一場 CA-bomb，輸入 /watch 旁觀（/watch bw 黑白）──`,
+                createdAt: new Date().toISOString(),
+                author: { nickname: "·", discriminator: "sys" },
+              });
+            }
             break;
+          }
           case "cabomb.state":
             useStore.getState().setCabombState(m);
             break;
           case "cabomb.over": {
             useStore.getState().setCabombResult(m);
+            useStore.getState().setCabombActive(null);
             const body =
               m.result === "win"
                 ? `🎮 ${m.by} 清光了敵人！`
@@ -288,6 +304,11 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
     transportRef.current?.send({ type: "cabomb.start" });
     useStore.getState().enterCabomb({ role: "driver", mono: false });
   }, []);
+  const onWatch = useCallback((mono: boolean) => {
+    if (!useStore.getState().cabombActive) return;
+    transportRef.current?.send({ type: "cabomb.watch" });
+    useStore.getState().enterCabomb({ role: "spectator", mono });
+  }, []);
 
   const worldActive = useStore((s) => s.worldActive);
   const worldCreditUsed = useStore((s) => s.worldCreditUsed);
@@ -375,12 +396,14 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
               onDiceRoll={onDiceRoll}
               onGameStart={onGameStart}
               onCabomb={onCabomb}
+              onWatch={onWatch}
             />
             <StatusBar
               status={status}
               reconnectAttempt={reconnectAttempt}
               updateAvailable={updateAvailable}
               lastDisconnect={lastDisconnect}
+              cabombActive={cabombActive}
             />
           </>
         )}

@@ -99,6 +99,8 @@ export type Store = {
   cabombResult: CabombOver | null;
   cabombView: { role: "driver" | "spectator"; mono: boolean } | null;
   cabombSend: ((msg: ClientMessage) => void) | null;
+  // A game is in progress in this room (drives the status-bar /watch hint).
+  cabombActive: { by: string } | null;
 
   // Actions
   setScreen: (s: Screen) => void;
@@ -136,6 +138,7 @@ export type Store = {
   enterCabomb: (view: { role: "driver" | "spectator"; mono: boolean }) => void;
   exitCabomb: () => void;
   setCabombSend: (fn: ((msg: ClientMessage) => void) | null) => void;
+  setCabombActive: (a: { by: string } | null) => void;
   reset: () => void;
 };
 
@@ -168,6 +171,7 @@ const initial: Omit<
   | "enterCabomb"
   | "exitCabomb"
   | "setCabombSend"
+  | "setCabombActive"
   | "reset"
 > = {
   screen: "room_input",
@@ -198,6 +202,7 @@ const initial: Omit<
   cabombResult: null,
   cabombView: null,
   cabombSend: null,
+  cabombActive: null,
 };
 
 export const useStore = create<Store>((set) => ({
@@ -273,6 +278,7 @@ export const useStore = create<Store>((set) => ({
   enterCabomb: (cabombView) => set({ cabombView }),
   exitCabomb: () => set({ cabombView: null, cabombState: null, cabombResult: null }),
   setCabombSend: (cabombSend) => set({ cabombSend }),
+  setCabombActive: (cabombActive) => set({ cabombActive }),
 
   setError: (errorMessage) => set({ errorMessage, screen: "error" }),
 
