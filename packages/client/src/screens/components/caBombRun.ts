@@ -1,59 +1,21 @@
 import { userInfo } from "node:os";
-import { cellStyle, type MapV1, CaBombGame, DROP_CHANCE, type ItemType } from "@pantry/shared";
+import { type MapV1, CaBombGame, DROP_CHANCE } from "@pantry/shared";
+import {
+  type BoardView,
+  TrailTracker,
+  boardLines,
+  clock,
+  dim,
+  fgOnly,
+  paintFrame,
+  stat,
+} from "./caBombDraw.js";
 
-// Standalone flicker-free renderer for the --ca-bomb POC. Ink's diff renderer
-// (erase-line then rewrite) visibly flickers on a full-screen truecolor grid
-// that repaints every frame, regardless of fps. Instead we own the alternate
-// screen and repaint by writing the WHOLE frame in one cursor-home overwrite
-// (no clear), wrapped in DEC synchronized-update so supporting terminals swap
-// it atomically. Reuses the pure CaBombGame engine.
+// Standalone flicker-free renderer for the offline `--ca-bomb` sandbox. Owns the
+// alternate screen and repaints the whole frame in one cursor-home overwrite (no
+// clear), wrapped in DEC synchronized-update. Runs the engine locally; the
+// networked room version lives in CabombOverlay.
 const RENDER_MS = 33;
-const TRAIL_MS = 240;
-const TRAIL_MAX = 2;
-const RESET = "\x1b[0m";
-
-const PLAYER = { r1: " ☺☺ ", r2: " ◣◢ ", fg: "#ffffff" };
-const ENEMY = { r1: " ▼▼ ", r2: " ▲▲ ", fg: "#ff3030" };
-const BOMB = { r1: " ◯◯ ", r2: " ◓◓ ", fg: "#0087ff" };
-const BLAST = { r1: "≈≈≈≈", r2: "≈≈≈≈", fg: "#ffffff", bg: "#00aaff" };
-const ITEM: Record<ItemType, { r1: string; r2: string; fg: string }> = {
-  heart: { r1: " ♥♥ ", r2: " ♥♥ ", fg: "#ff5f5f" },
-  bomb: { r1: " ◍◍ ", r2: " ◍◍ ", fg: "#33b5ff" },
-  range: { r1: " ✦✦ ", r2: " ✦✦ ", fg: "#ffd700" },
-};
-
-type Ghost = { x: number; y: number; born: number };
-
-function rgb(hex: string): [number, number, number] {
-  const n = parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-function sgr(fg: string, bg: string): string {
-  const [fr, fgn, fb] = rgb(fg);
-  const [br, bgn, bb] = rgb(bg);
-  return `\x1b[38;2;${fr};${fgn};${fb};48;2;${br};${bgn};${bb}m`;
-}
-function fgOnly(text: string, hex: string): string {
-  const [r, g, b] = rgb(hex);
-  return `\x1b[38;2;${r};${g};${b}m${text}${RESET}`;
-}
-function dim(text: string): string {
-  return `\x1b[2m${text}${RESET}`;
-}
-function floorBg(map: MapV1, y: number, x: number): string {
-  return map.floor[y]?.[x] === "road" ? "#808080" : "#00af00";
-}
-
-function stat(label: string, value: number, hex: string): string {
-  return `${label} ${fgOnly("●".repeat(value), hex)}${dim("○".repeat(Math.max(0, 3 - value)))}`;
-}
-
-function clock(ms: number): string {
-  const total = Math.floor(ms / 1000);
-  const mm = String(Math.floor(total / 60)).padStart(2, "0");
-  const ss = String(total % 60).padStart(2, "0");
-  return `${mm}:${ss}`;
-}
 
 async function pushDiscord(text: string): Promise<{ ok: boolean; reason: string }> {
   const url = process.env.PANTRY_DISCORD_WEBHOOK;
@@ -87,9 +49,8 @@ export function runCaBomb(map?: MapV1, name?: string): Promise<void> {
   const out = process.stdout;
   const stdin = process.stdin;
   const startMs = Date.now();
+  const trail = new TrailTracker();
 
-  const trail: Ghost[] = [];
-  let prevPlayer: { x: number; y: number } | null = null;
   let finished = false;
   let finishMs = 0;
   let discordPromise: Promise<{ ok: boolean; reason: string }> | null = null;
@@ -111,27 +72,20 @@ export function runCaBomb(map?: MapV1, name?: string): Promise<void> {
     ].join("\n");
   }
 
-  function ghostGlyph(age: number): { r1: string; r2: string } {
-    if (age < TRAIL_MS / 2) return { r1: PLAYER.r1, r2: PLAYER.r2 };
-    return { r1: "    ", r2: " ·· " };
-  }
-
   function render(): void {
     const now = Date.now();
-    if (prevPlayer && (prevPlayer.x !== game.player.x || prevPlayer.y !== game.player.y)) {
-      trail.unshift({ x: prevPlayer.x, y: prevPlayer.y, born: now });
-      if (trail.length > TRAIL_MAX) trail.length = TRAIL_MAX;
-    }
-    prevPlayer = { x: game.player.x, y: game.player.y };
-    const ghosts = new Map<string, number>();
-    for (const g of trail) {
-      const age = now - g.born;
-      if (age < TRAIL_MS) ghosts.set(`${g.x},${g.y}`, age);
-    }
-
-    const bombs = new Set(game.bombs.map((b) => `${b.x},${b.y}`));
-    const blasts = new Set(game.blasts.map((b) => `${b.x},${b.y}`));
-    const enemies = new Set(game.enemies.map((e) => `${e.x},${e.y}`));
+    trail.update(game.player.x, game.player.y, now);
+    const view: BoardView = {
+      map: game.map,
+      player: game.player,
+      bombs: game.bombs,
+      blasts: game.blasts,
+      enemies: game.enemies,
+      items: [...game.items].map(([k, type]) => {
+        const [x, y] = k.split(",").map(Number);
+        return { x: x ?? 0, y: y ?? 0, type };
+      }),
+    };
 
     const lines: string[] = [];
     lines.push(`${fgOnly("CA BOMB", "#ff5fff")}  ${fgOnly(playerName, "#ffffff")}  ${dim(`POC · ${game.map.name}`)}`);
@@ -151,47 +105,13 @@ export function runCaBomb(map?: MapV1, name?: string): Promise<void> {
       ].join("   "),
     );
     lines.push("");
-
-    for (let r = 0; r < game.map.h; r++) {
-      for (let part = 0; part < 2; part++) {
-        let line = "";
-        for (let c = 0; c < game.map.w; c++) {
-          const k = `${c},${r}`;
-          const bg = floorBg(game.map, r, c);
-          let fg: string;
-          let cbg: string;
-          let seg: string;
-          if (c === game.player.x && r === game.player.y) {
-            fg = PLAYER.fg; cbg = bg; seg = part === 0 ? PLAYER.r1 : PLAYER.r2;
-          } else if (enemies.has(k)) {
-            fg = ENEMY.fg; cbg = bg; seg = part === 0 ? ENEMY.r1 : ENEMY.r2;
-          } else if (blasts.has(k)) {
-            fg = BLAST.fg; cbg = BLAST.bg; seg = part === 0 ? BLAST.r1 : BLAST.r2;
-          } else if (bombs.has(k)) {
-            fg = BOMB.fg; cbg = bg; seg = part === 0 ? BOMB.r1 : BOMB.r2;
-          } else if (game.items.has(k)) {
-            const it = ITEM[game.items.get(k)!];
-            fg = it.fg; cbg = bg; seg = part === 0 ? it.r1 : it.r2;
-          } else if (ghosts.has(k)) {
-            const g = ghostGlyph(ghosts.get(k)!);
-            fg = "#2f7f7f"; cbg = bg; seg = part === 0 ? g.r1 : g.r2;
-          } else {
-            const s = cellStyle(game.map, r, c);
-            fg = s.fg; cbg = s.bg; seg = part === 0 ? s.r1 : s.r2;
-          }
-          line += sgr(fg, cbg) + seg;
-        }
-        lines.push(line + RESET);
-      }
-    }
-
+    lines.push(...boardLines(view, trail.ghosts(now), false));
     lines.push("");
     if (game.status === "win") lines.push(fgOnly("── 清光敵人，獲勝！ q 離開 ──", "#5fff5f"));
     else if (game.status === "loss") lines.push(fgOnly("── 你被炸飛了。 q 離開 ──", "#ff5f5f"));
     else lines.push(dim("WASD 移動（推箱）  Space 放水球  q 離開"));
 
-    const frame = lines.map((l) => l + "\x1b[K").join("\r\n");
-    out.write(`\x1b[?2026h\x1b[H${frame}\x1b[J\x1b[?2026l`);
+    paintFrame(out, lines);
   }
 
   return new Promise<void>((resolve) => {
@@ -204,7 +124,6 @@ export function runCaBomb(map?: MapV1, name?: string): Promise<void> {
       if (stdin.isTTY) stdin.setRawMode(false);
       stdin.pause();
       out.write("\x1b[?25h\x1b[?1049l"); // show cursor, leave alt screen
-      // Score text → terminal (stays in scrollback) and Discord.
       console.log("\n" + summary());
       const ds = discordPromise ? await discordPromise : null;
       if (ds) console.log(ds.ok ? "→ 已推送到 Discord" : `→ Discord 未推送（${ds.reason}）`);
@@ -237,7 +156,7 @@ export function runCaBomb(map?: MapV1, name?: string): Promise<void> {
       if (!finished && game.status !== "playing") {
         finished = true;
         finishMs = Date.now();
-        discordPromise = pushDiscord(summary()); // fire once at the result
+        discordPromise = pushDiscord(summary());
       }
       render();
     }, RENDER_MS);
