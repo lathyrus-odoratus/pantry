@@ -89,7 +89,7 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
   );
 }
 
-export function Chat({ serverUrl }: Props): React.JSX.Element {
+export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   const messages = useStore((s) => s.messages);
   const onlineUsers = useStore((s) => s.onlineUsers);
   const authedUser = useStore((s) => s.authedUser);
@@ -108,6 +108,8 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const setWorldState = useStore((s) => s.setWorldState);
   const setCurrentGame = useStore((s) => s.setCurrentGame);
   const currentGame = useStore((s) => s.currentGame);
+  const cabombView = useStore((s) => s.cabombView);
+  const cabombActive = useStore((s) => s.cabombActive);
   const setError = useStore((s) => s.setError);
 
   const transportRef = useRef<TransportClient | null>(null);
@@ -136,6 +138,9 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
             break;
           case "room.snapshot":
             setSnapshot(m.room.id, m.messages, m.onlineUsers);
+            useStore.getState().setCabombActive(
+              m.activeGame ? { by: m.activeGame.by } : null,
+            );
             break;
           case "message":
             addMessage(m.data);
@@ -186,6 +191,40 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
           }
           case "game.error":
             break;
+          case "cabomb.started": {
+            useStore.getState().setCabombActive({ by: m.by });
+            const me = useStore.getState().authedUser;
+            const myName = me ? `${me.nickname}#${me.discriminator}` : null;
+            if (m.by !== myName) {
+              addMessage({
+                id: `cabomb-start-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+                body: `── 🎮 ${m.by} 開了一場 CA-bomb，輸入 /watch 旁觀（/watch bw 黑白）──`,
+                createdAt: new Date().toISOString(),
+                author: { nickname: "·", discriminator: "sys" },
+              });
+            }
+            break;
+          }
+          case "cabomb.state":
+            useStore.getState().setCabombState(m);
+            break;
+          case "cabomb.over": {
+            useStore.getState().setCabombResult(m);
+            useStore.getState().setCabombActive(null);
+            const body =
+              m.result === "win"
+                ? `🎮 ${m.by} 清光了敵人！`
+                : m.result === "loss"
+                  ? `💀 ${m.by} 被炸飛了。`
+                  : `${m.by} 結束了 CA-bomb。`;
+            addMessage({
+              id: `cabomb-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+              body: m.summary ? `── ${body} ──\n${m.summary}` : `── ${body} ──`,
+              createdAt: new Date().toISOString(),
+              author: { nickname: "·", discriminator: "sys" },
+            });
+            break;
+          }
           case "history":
             // Static renders new items at the bottom regardless of array
             // position, so prepending historical messages would visually
@@ -199,6 +238,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
       },
     });
     transportRef.current = client;
+    useStore.getState().setCabombSend((msg) => client.send(msg));
     client.connect();
     const unsub = useStore.subscribe((state, prev) => {
       if (state.status === "connected" && prev.status !== "connected") {
@@ -224,6 +264,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
       unsub();
       client.close();
       transportRef.current = null;
+      useStore.getState().setCabombSend(null);
     };
   }, [pending, roomName, serverUrl, setStatus, onAuthOk, setSnapshot, addMessage, setPresence, setUpdateAvailable, setWorldState, setError]);
 
@@ -259,6 +300,15 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
     },
     [],
   );
+  const onCabomb = useCallback(() => {
+    transportRef.current?.send({ type: "cabomb.start" });
+    useStore.getState().enterCabomb({ role: "driver", mono: false });
+  }, []);
+  const onWatch = useCallback((mono: boolean) => {
+    if (!useStore.getState().cabombActive) return;
+    transportRef.current?.send({ type: "cabomb.watch" });
+    useStore.getState().enterCabomb({ role: "spectator", mono });
+  }, []);
 
   const worldActive = useStore((s) => s.worldActive);
   const worldCreditUsed = useStore((s) => s.worldCreditUsed);
@@ -280,6 +330,11 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
     onlineUsers.length === 0
       ? "no one"
       : onlineUsers.map((u) => `${u.nickname}#${u.discriminator}`).join(", ");
+
+  // While in the full-screen CA-bomb view, render nothing: the CabombOverlay
+  // owns the terminal. Hooks above still run, so the WS connection (and the
+  // message→store dispatch that feeds the overlay) stays alive.
+  if (cabombView) return null;
 
   // Messages are rendered via <Static>: each item writes to terminal
   // scrollback exactly once, then is never redrawn. This keeps the live
@@ -340,12 +395,15 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
               onWorldOpen={onWorldOpen}
               onDiceRoll={onDiceRoll}
               onGameStart={onGameStart}
+              onCabomb={onCabomb}
+              onWatch={onWatch}
             />
             <StatusBar
               status={status}
               reconnectAttempt={reconnectAttempt}
               updateAvailable={updateAvailable}
               lastDisconnect={lastDisconnect}
+              cabombActive={cabombActive}
             />
           </>
         )}

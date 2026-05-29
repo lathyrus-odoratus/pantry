@@ -1,5 +1,13 @@
 import { create } from "zustand";
-import type { AdminRoomSummary, Message, MapV1, GameState } from "@pantry/shared";
+import type {
+  AdminRoomSummary,
+  Message,
+  MapV1,
+  GameState,
+  CabombStateMsg,
+  CabombOver,
+  ClientMessage,
+} from "@pantry/shared";
 import type { DisconnectDetail } from "./transport/client.js";
 import { DEFAULT_PREFS, savePrefs, type Prefs } from "./prefs.js";
 
@@ -84,6 +92,16 @@ export type Store = {
   // Bomberman game
   currentGame: GameState | null;
 
+  // CA-bomb (room-wide, full-screen). cabombView != null means the local user
+  // is in the full-screen game (driver or spectator); Chat renders null so the
+  // overlay owns the terminal while the WS stays connected.
+  cabombState: CabombStateMsg | null;
+  cabombResult: CabombOver | null;
+  cabombView: { role: "driver" | "spectator"; mono: boolean } | null;
+  cabombSend: ((msg: ClientMessage) => void) | null;
+  // A game is in progress in this room (drives the status-bar /watch hint).
+  cabombActive: { by: string } | null;
+
   // Actions
   setScreen: (s: Screen) => void;
   commitRoomName: (name: string) => void;
@@ -115,6 +133,12 @@ export type Store = {
   setAdminStatusLine: (line: string | null) => void;
   setError: (msg: string) => void;
   setCurrentGame: (g: GameState | null) => void;
+  setCabombState: (s: CabombStateMsg | null) => void;
+  setCabombResult: (r: CabombOver | null) => void;
+  enterCabomb: (view: { role: "driver" | "spectator"; mono: boolean }) => void;
+  exitCabomb: () => void;
+  setCabombSend: (fn: ((msg: ClientMessage) => void) | null) => void;
+  setCabombActive: (a: { by: string } | null) => void;
   reset: () => void;
 };
 
@@ -142,6 +166,12 @@ const initial: Omit<
   | "setAdminStatusLine"
   | "setError"
   | "setCurrentGame"
+  | "setCabombState"
+  | "setCabombResult"
+  | "enterCabomb"
+  | "exitCabomb"
+  | "setCabombSend"
+  | "setCabombActive"
   | "reset"
 > = {
   screen: "room_input",
@@ -168,6 +198,11 @@ const initial: Omit<
   adminStatusLine: null,
   viewedMap: null,
   currentGame: null,
+  cabombState: null,
+  cabombResult: null,
+  cabombView: null,
+  cabombSend: null,
+  cabombActive: null,
 };
 
 export const useStore = create<Store>((set) => ({
@@ -237,6 +272,13 @@ export const useStore = create<Store>((set) => ({
   setAdminRooms: (adminRooms) => set({ adminRooms }),
   setAdminStatusLine: (adminStatusLine) => set({ adminStatusLine }),
   setCurrentGame: (currentGame) => set({ currentGame }),
+
+  setCabombState: (cabombState) => set({ cabombState }),
+  setCabombResult: (cabombResult) => set({ cabombResult }),
+  enterCabomb: (cabombView) => set({ cabombView }),
+  exitCabomb: () => set({ cabombView: null, cabombState: null, cabombResult: null }),
+  setCabombSend: (cabombSend) => set({ cabombSend }),
+  setCabombActive: (cabombActive) => set({ cabombActive }),
 
   setError: (errorMessage) => set({ errorMessage, screen: "error" }),
 

@@ -9,12 +9,14 @@ import { Chat } from "./screens/Chat.js";
 import { AdminOAuthWaiting } from "./screens/AdminOAuthWaiting.js";
 import { AdminMenu } from "./screens/AdminMenu.js";
 import { MapView } from "./screens/MapView.js";
+import { CabombOverlay } from "./screens/components/CabombOverlay.js";
 import { ErrorScreen } from "./screens/ErrorScreen.js";
 
 const config = loadConfig();
 
 export function App(): React.JSX.Element {
   const screen = useStore((s) => s.screen);
+  const cabombView = useStore((s) => s.cabombView);
   switch (screen) {
     case "room_input":
       return <RoomInput />;
@@ -25,7 +27,12 @@ export function App(): React.JSX.Element {
     case "oauth_waiting":
       return <OAuthWaiting backendHttpUrl={config.backendHttpUrl} />;
     case "chat":
-      return <Chat serverUrl={config.serverUrl} />;
+      return (
+        <>
+          <Chat serverUrl={config.serverUrl} />
+          {cabombView ? <CabombOverlay /> : null}
+        </>
+      );
     case "admin_oauth":
       return <AdminOAuthWaiting backendHttpUrl={config.backendHttpUrl} />;
     case "admin_menu":

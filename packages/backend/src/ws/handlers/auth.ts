@@ -11,6 +11,7 @@ import type { UsersRepo } from "../../db/users.js";
 import type { MessagesRepo } from "../../db/messages.js";
 import type { ConnectionRegistry, AuthedConnection } from "../connection-registry.js";
 import { broadcastToRoom, presenceFor, send } from "../broadcast.js";
+import { isCabombActive, cabombDriver } from "../../cabomb/manager.js";
 import {
   formatSystem,
   notify,
@@ -172,6 +173,9 @@ export async function admitConnection(
     room: { id: conn.roomId, name: roomName },
     messages: recent,
     onlineUsers: presenceFor(deps.registry, conn.roomId),
+    activeGame: isCabombActive(conn.roomId)
+      ? { kind: "cabomb", by: cabombDriver(conn.roomId) ?? "?" }
+      : null,
   };
   send(conn, snapshot);
 

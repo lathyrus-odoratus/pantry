@@ -27,6 +27,13 @@ import { handleDiceRoll } from "./handlers/dice.js";
 import { handleGameStart, handleGameInputMsg } from "./handlers/game.js";
 import { endGameForPlayer } from "../game/manager.js";
 import {
+  handleCabombStart,
+  handleCabombInput,
+  handleCabombWatch,
+  handleCabombLeave,
+} from "./handlers/cabomb.js";
+import { cabombOnDisconnect } from "../cabomb/manager.js";
+import {
   handleAdminAuth,
   makeAdminAuthOk,
   buildRoomsSnapshot,
@@ -227,6 +234,18 @@ export function attachWebSocketServer(
           case "game.input":
             handleGameInputMsg(conn, parsed, deps.registry);
             break;
+          case "cabomb.start":
+            handleCabombStart(conn, deps.registry);
+            break;
+          case "cabomb.input":
+            handleCabombInput(conn, parsed, deps.registry);
+            break;
+          case "cabomb.watch":
+            handleCabombWatch(conn);
+            break;
+          case "cabomb.leave":
+            handleCabombLeave(conn);
+            break;
           case "auth.anon":
           case "auth.oauth":
           case "auth.admin":
@@ -250,6 +269,7 @@ export function attachWebSocketServer(
       clearTimeout(authTimer);
       if (!authed) return;
       endGameForPlayer(authed.userId, deps.registry);
+      cabombOnDisconnect(authed, deps.registry);
       deps.registry.remove(authed);
       const leaveLabel = `${authed.nickname}#${authed.discriminator} left`;
       broadcastToRoom(deps.registry, authed.roomId, {
