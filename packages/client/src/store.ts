@@ -281,7 +281,8 @@ export const useStore = create<Store>((set) => ({
 
   setCabombState: (cabombState) => set({ cabombState }),
   setCabombResult: (cabombResult) => set({ cabombResult }),
-  enterCabomb: (cabombView) => set({ cabombView, cabombLatencyMs: null }),
+  enterCabomb: (cabombView) =>
+    set({ cabombView, cabombState: null, cabombResult: null, cabombLatencyMs: null }),
   exitCabomb: () =>
     set({
       cabombView: null,

@@ -9,6 +9,14 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.27",
+    date: "2026-06-01",
+    title: "修正 /ca-bomb 一進去就顯示「遊戲結束」",
+    highlights: [
+      "修正房內看過上一場 /ca-bomb 結束後，自己再開新的一場時會立刻卡在「遊戲結束」、按鍵沒反應的問題。現在每次開局都會從乾淨狀態開始。",
+    ],
+  },
+  {
     version: "0.1.26",
     date: "2026-05-30",
     title: "/ca-bomb 全螢幕加上延遲(ping)顯示",
