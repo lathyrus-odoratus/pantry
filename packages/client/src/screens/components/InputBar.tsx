@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { Box, Text } from "ink";
 import TextInput from "ink-text-input";
+import type { FontScale } from "../../store.js";
 
 type Props = {
   onSend: (body: string) => void;
@@ -10,7 +11,10 @@ type Props = {
   onHelp: () => void;
   onWorldOpen: () => void;
   onDiceRoll: () => void;
+  onFontScale: (scale: FontScale) => void;
 };
+
+const FONT_SCALES: FontScale[] = ["normal", "medium", "large"];
 
 const HEX_COLOR_RE = /^#?[0-9a-fA-F]{6}$/;
 
@@ -22,6 +26,7 @@ export function InputBar({
   onHelp,
   onWorldOpen,
   onDiceRoll,
+  onFontScale,
 }: Props): React.JSX.Element {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
@@ -57,6 +62,10 @@ export function InputBar({
         // Bare /roll — server reads the dice spec from world state's
         // pendingRoll (set by the NPC's [[roll:…]] marker).
         onDiceRoll();
+      } else if (cmd === "font") {
+        if ((FONT_SCALES as string[]).includes(arg)) {
+          onFontScale(arg as FontScale);
+        }
       }
       return;
     }

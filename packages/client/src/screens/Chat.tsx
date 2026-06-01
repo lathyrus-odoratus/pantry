@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import { Box, Static, Text } from "ink";
 import type { Message } from "@pantry/shared";
-import { useStore } from "../store.js";
+import { useStore, type FontScale } from "../store.js";
 import { TransportClient } from "../transport/client.js";
 import { InputBar } from "./components/InputBar.js";
 import { StatusBar } from "./components/StatusBar.js";
@@ -14,11 +14,35 @@ import { saveAnon } from "../auth/anon.js";
 
 type Props = { serverUrl: string };
 
+const FONT_SCALE_LINE_HEIGHT: Record<FontScale, number> = {
+  normal: 1.2,
+  medium: 1.5,
+  large: 2.0,
+};
+
+function lineHeightToMargin(lh: number): number {
+  return Math.floor((lh - 1) * 2);
+}
+
 function hashColor(label: string): string {
   let h = 0;
   for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) | 0;
   const palette = ["cyan", "green", "yellow", "magenta", "blueBright", "redBright"];
   return palette[Math.abs(h) % palette.length] ?? "white";
+}
+
+function parseMentionSegments(
+  body: string,
+  mention: string,
+): Array<{ text: string; isMention: boolean }> {
+  const parts = body.split(mention);
+  if (parts.length === 1) return [{ text: body, isMention: false }];
+  return parts.flatMap((part, i) => {
+    const out: Array<{ text: string; isMention: boolean }> = [];
+    if (part) out.push({ text: part, isMention: false });
+    if (i < parts.length - 1) out.push({ text: mention, isMention: true });
+    return out;
+  });
 }
 
 // While a world is active, render an emoji in front of each speaker's nick
@@ -30,12 +54,17 @@ const NPC_EMOJI = "🌫";
 const PLAYER_WORLD_EMOJI = "🎲";
 
 function MessageRow({ m }: { m: Message }): React.JSX.Element {
+  const snapshot = useStore.getState();
+  const marginBottom = lineHeightToMargin(
+    FONT_SCALE_LINE_HEIGHT[snapshot.fontScale],
+  );
+
   // System notices (joins, leaves, renames, local /h help, world.open/end,
   // dice rolls) render as a dim block without the `nick#disc:` prefix. Body
   // may be multi-line.
   if (m.author.discriminator === "sys") {
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" marginBottom={marginBottom}>
         {m.body.split("\n").map((line, i) => (
           <Text key={i} dimColor>
             {line}
@@ -48,7 +77,6 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
   // Static items render exactly once; resolve the author's current color and
   // world-active state at that moment via getState() to avoid subscribing
   // (which would defeat Static).
-  const snapshot = useStore.getState();
   const author = snapshot.onlineUsers.find(
     (u) =>
       u.nickname === m.author.nickname &&
@@ -61,14 +89,30 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
     : snapshot.worldActive
       ? PLAYER_WORLD_EMOJI
       : null;
+  const me = snapshot.authedUser;
+  const mentionStr = me ? `@${me.nickname}#${me.discriminator}` : null;
+  const segments = mentionStr ? parseMentionSegments(m.body, mentionStr) : null;
+  const isMentioned = segments?.some((s) => s.isMention) ?? false;
   return (
-    <Box>
+    <Box marginBottom={marginBottom}>
       {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
       <Text color={color} bold>
         {label}
       </Text>
       <Text dimColor>: </Text>
-      <Text>{m.body}</Text>
+      {isMentioned && segments ? (
+        <Text>
+          {segments.map((seg, i) =>
+            seg.isMention ? (
+              <Text key={i} bold inverse color="#F1F5F9">{seg.text}</Text>
+            ) : (
+              <Text key={i} color="white">{seg.text}</Text>
+            ),
+          )}
+        </Text>
+      ) : (
+        <Text>{m.body}</Text>
+      )}
     </Box>
   );
 }
@@ -90,6 +134,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const setPresence = useStore((s) => s.setPresence);
   const setUpdateAvailable = useStore((s) => s.setUpdateAvailable);
   const setWorldState = useStore((s) => s.setWorldState);
+  const setFontScale = useStore((s) => s.setFontScale);
   const setError = useStore((s) => s.setError);
 
   const transportRef = useRef<TransportClient | null>(null);
@@ -272,6 +317,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
               onHelp={onHelp}
               onWorldOpen={onWorldOpen}
               onDiceRoll={onDiceRoll}
+              onFontScale={setFontScale}
             />
             <StatusBar
               status={status}

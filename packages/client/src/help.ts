@@ -7,4 +7,5 @@ export const HELP_TEXT = [
   "/color reset     Clear nick color",
   "/the-world       Open a TRPG world in this room (one global at a time)",
   "/roll            Roll the dice the world (NPC) just asked for; no argument",
+  "/font normal|medium|large   Set message line spacing",
 ].join("\n");

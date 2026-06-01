@@ -19,6 +19,8 @@ export type ConnStatus =
   | "reconnecting"
   | "disconnected";
 
+export type FontScale = "normal" | "medium" | "large";
+
 export type Identity =
   | { kind: "anon"; nickname: string; subject: string }
   | { kind: "oauth"; provider: "github" | "google" | "discord"; token: string };
@@ -68,6 +70,9 @@ export type Store = {
   worldCreditUsed: number;
   worldCreditTotal: number;
 
+  // Display
+  fontScale: FontScale;
+
   // Admin mode
   adminRooms: AdminRoomSummary[];
   adminStatusLine: string | null;
@@ -96,6 +101,7 @@ export type Store = {
     creditUsed: number;
     creditTotal: number;
   }) => void;
+  setFontScale: (scale: FontScale) => void;
   setAdminRooms: (rooms: AdminRoomSummary[]) => void;
   setAdminStatusLine: (line: string | null) => void;
   setError: (msg: string) => void;
@@ -119,6 +125,7 @@ const initial: Omit<
   | "closeChangelog"
   | "setChangelogIndex"
   | "setWorldState"
+  | "setFontScale"
   | "setAdminRooms"
   | "setAdminStatusLine"
   | "setError"
@@ -142,6 +149,7 @@ const initial: Omit<
   worldActive: false,
   worldCreditUsed: 0,
   worldCreditTotal: 0,
+  fontScale: "normal",
   adminRooms: [],
   adminStatusLine: null,
 };
@@ -203,6 +211,7 @@ export const useStore = create<Store>((set) => ({
       worldCreditTotal: creditTotal,
     }),
 
+  setFontScale: (fontScale) => set({ fontScale }),
   setAdminRooms: (adminRooms) => set({ adminRooms }),
   setAdminStatusLine: (adminStatusLine) => set({ adminStatusLine }),
 
