@@ -6,11 +6,17 @@ import { TransportClient } from "../transport/client.js";
 import { InputBar } from "./components/InputBar.js";
 import { StatusBar } from "./components/StatusBar.js";
 import { Changelog } from "./components/Changelog.js";
+import { Settings } from "./components/Settings.js";
 import { WorldPanel } from "./components/WorldPanel.js";
+import { GameView } from "./components/GameView.js";
+import { GameSpectate } from "./components/GameSpectate.js";
 import { CHANGELOG } from "../changelog.js";
 import { HELP_TEXT } from "../help.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
 import { saveAnon } from "../auth/anon.js";
+import { linkify } from "../util/links.js";
+import { findMaps } from "../util/mapLinks.js";
+import { MapGrid } from "./components/MapGrid.js";
 
 type Props = { serverUrl: string };
 
@@ -54,17 +60,20 @@ const NPC_EMOJI = "🌫";
 const PLAYER_WORLD_EMOJI = "🎲";
 
 function MessageRow({ m }: { m: Message }): React.JSX.Element {
+  // Static items render exactly once; resolve store state at that moment via
+  // getState() to avoid subscribing (which would defeat Static).
   const snapshot = useStore.getState();
   const marginBottom = lineHeightToMargin(
     FONT_SCALE_LINE_HEIGHT[snapshot.fontScale],
   );
+  const padding = snapshot.prefs.messagePadding;
 
   // System notices (joins, leaves, renames, local /h help, world.open/end,
   // dice rolls) render as a dim block without the `nick#disc:` prefix. Body
   // may be multi-line.
   if (m.author.discriminator === "sys") {
     return (
-      <Box flexDirection="column" marginBottom={marginBottom}>
+      <Box flexDirection="column" marginTop={padding} marginBottom={marginBottom}>
         {m.body.split("\n").map((line, i) => (
           <Text key={i} dimColor>
             {line}
@@ -74,9 +83,6 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
     );
   }
   const label = `${m.author.nickname}#${m.author.discriminator}`;
-  // Static items render exactly once; resolve the author's current color and
-  // world-active state at that moment via getState() to avoid subscribing
-  // (which would defeat Static).
   const author = snapshot.onlineUsers.find(
     (u) =>
       u.nickname === m.author.nickname &&
@@ -93,31 +99,40 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
   const mentionStr = me ? `@${me.nickname}#${me.discriminator}` : null;
   const segments = mentionStr ? parseMentionSegments(m.body, mentionStr) : null;
   const isMentioned = segments?.some((s) => s.isMention) ?? false;
+  // A pasted map-editor permalink is unfurled into a full-size map below the
+  // message, terminal-side only — the message body stays the raw URL (that's
+  // what Discord and other clients see).
+  const maps = findMaps(m.body);
   return (
-    <Box marginBottom={marginBottom}>
-      {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
-      <Text color={color} bold>
-        {label}
-      </Text>
-      <Text dimColor>: </Text>
-      {isMentioned && segments ? (
-        <Text>
-          {segments.map((seg, i) =>
-            seg.isMention ? (
-              <Text key={i} bold inverse color="#F1F5F9">{seg.text}</Text>
-            ) : (
-              <Text key={i} color="white">{seg.text}</Text>
-            ),
-          )}
+    <Box flexDirection="column" marginTop={padding} marginBottom={marginBottom + (isNpc ? 1 : 0)}>
+      <Box>
+        {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
+        <Text color={color} bold>
+          {label}
         </Text>
-      ) : (
-        <Text>{m.body}</Text>
-      )}
+        <Text dimColor>: </Text>
+        {isMentioned && segments ? (
+          <Text>
+            {segments.map((seg, i) =>
+              seg.isMention ? (
+                <Text key={i} bold inverse color="#F1F5F9">{seg.text}</Text>
+              ) : (
+                <Text key={i} color="white">{seg.text}</Text>
+              ),
+            )}
+          </Text>
+        ) : (
+          <Text>{linkify(m.body)}</Text>
+        )}
+      </Box>
+      {maps.map((map, i) => (
+        <MapGrid key={i} map={map} />
+      ))}
     </Box>
   );
 }
 
-export function Chat({ serverUrl }: Props): React.JSX.Element {
+export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   const messages = useStore((s) => s.messages);
   const onlineUsers = useStore((s) => s.onlineUsers);
   const authedUser = useStore((s) => s.authedUser);
@@ -135,6 +150,10 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const setUpdateAvailable = useStore((s) => s.setUpdateAvailable);
   const setWorldState = useStore((s) => s.setWorldState);
   const setFontScale = useStore((s) => s.setFontScale);
+  const setCurrentGame = useStore((s) => s.setCurrentGame);
+  const currentGame = useStore((s) => s.currentGame);
+  const cabombView = useStore((s) => s.cabombView);
+  const cabombActive = useStore((s) => s.cabombActive);
   const setError = useStore((s) => s.setError);
 
   const transportRef = useRef<TransportClient | null>(null);
@@ -163,6 +182,9 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
             break;
           case "room.snapshot":
             setSnapshot(m.room.id, m.messages, m.onlineUsers);
+            useStore.getState().setCabombActive(
+              m.activeGame ? { by: m.activeGame.by } : null,
+            );
             break;
           case "message":
             addMessage(m.data);
@@ -191,6 +213,65 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
               creditTotal: m.creditTotal,
             });
             break;
+          case "game.state":
+            setCurrentGame(m);
+            break;
+          case "game.over": {
+            setCurrentGame(null);
+            const label = `${m.playerNickname}#${m.playerDiscriminator}`;
+            const body =
+              m.result === "win"
+                ? `── 🎮 ${label} 消滅了所有敵人！ ──`
+                : m.result === "loss"
+                  ? `── 💀 ${label} 被炸了。 ──`
+                  : `── ${label} 離開了遊戲。 ──`;
+            addMessage({
+              id: `game-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+              body,
+              createdAt: new Date().toISOString(),
+              author: { nickname: "·", discriminator: "sys" },
+            });
+            break;
+          }
+          case "game.error":
+            break;
+          case "cabomb.started": {
+            useStore.getState().setCabombActive({ by: m.by });
+            const me = useStore.getState().authedUser;
+            const myName = me ? `${me.nickname}#${me.discriminator}` : null;
+            if (m.by !== myName) {
+              addMessage({
+                id: `cabomb-start-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+                body: `── 🎮 ${m.by} 開了一場 CA-bomb，輸入 /watch 旁觀（/watch bw 黑白）──`,
+                createdAt: new Date().toISOString(),
+                author: { nickname: "·", discriminator: "sys" },
+              });
+            }
+            break;
+          }
+          case "cabomb.state":
+            useStore.getState().setCabombState(m);
+            break;
+          case "cabomb.pong":
+            useStore.getState().setCabombLatency(Date.now() - m.t);
+            break;
+          case "cabomb.over": {
+            useStore.getState().setCabombResult(m);
+            useStore.getState().setCabombActive(null);
+            const body =
+              m.result === "win"
+                ? `🎮 ${m.by} 清光了敵人！`
+                : m.result === "loss"
+                  ? `💀 ${m.by} 被炸飛了。`
+                  : `${m.by} 結束了 CA-bomb。`;
+            addMessage({
+              id: `cabomb-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+              body: m.summary ? `── ${body} ──\n${m.summary}` : `── ${body} ──`,
+              createdAt: new Date().toISOString(),
+              author: { nickname: "·", discriminator: "sys" },
+            });
+            break;
+          }
           case "history":
             // Static renders new items at the bottom regardless of array
             // position, so prepending historical messages would visually
@@ -204,6 +285,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
       },
     });
     transportRef.current = client;
+    useStore.getState().setCabombSend((msg) => client.send(msg));
     client.connect();
     const unsub = useStore.subscribe((state, prev) => {
       if (state.status === "connected" && prev.status !== "connected") {
@@ -229,6 +311,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
       unsub();
       client.close();
       transportRef.current = null;
+      useStore.getState().setCabombSend(null);
     };
   }, [pending, roomName, serverUrl, setStatus, onAuthOk, setSnapshot, addMessage, setPresence, setUpdateAvailable, setWorldState, setError]);
 
@@ -255,6 +338,24 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const onDiceRoll = useCallback(() => {
     transportRef.current?.send({ type: "dice.roll" });
   }, []);
+  const onGameStart = useCallback(() => {
+    transportRef.current?.send({ type: "game.start" });
+  }, []);
+  const onGameInput = useCallback(
+    (key: "w" | "a" | "s" | "d" | "bomb" | "quit") => {
+      transportRef.current?.send({ type: "game.input", key });
+    },
+    [],
+  );
+  const onCabomb = useCallback(() => {
+    transportRef.current?.send({ type: "cabomb.start" });
+    useStore.getState().enterCabomb({ role: "driver", mono: false });
+  }, []);
+  const onWatch = useCallback((mono: boolean) => {
+    if (!useStore.getState().cabombActive) return;
+    transportRef.current?.send({ type: "cabomb.watch" });
+    useStore.getState().enterCabomb({ role: "spectator", mono });
+  }, []);
 
   const worldActive = useStore((s) => s.worldActive);
   const worldCreditUsed = useStore((s) => s.worldCreditUsed);
@@ -266,10 +367,21 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
   const closeChangelog = useStore((s) => s.closeChangelog);
   const setChangelogIndex = useStore((s) => s.setChangelogIndex);
 
+  const settingsOpen = useStore((s) => s.settingsOpen);
+  const openSettings = useStore((s) => s.openSettings);
+  const closeSettings = useStore((s) => s.closeSettings);
+  const prefs = useStore((s) => s.prefs);
+  const setPrefs = useStore((s) => s.setPrefs);
+
   const onlineSummary =
     onlineUsers.length === 0
       ? "no one"
       : onlineUsers.map((u) => `${u.nickname}#${u.discriminator}`).join(", ");
+
+  // While in the full-screen CA-bomb view, render nothing: the CabombOverlay
+  // owns the terminal. Hooks above still run, so the WS connection (and the
+  // message→store dispatch that feeds the overlay) stays alive.
+  if (cabombView) return null;
 
   // Messages are rendered via <Static>: each item writes to terminal
   // scrollback exactly once, then is never redrawn. This keeps the live
@@ -294,12 +406,22 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
           <Text dimColor>Online ({onlineUsers.length}): </Text>
           <Text>{onlineSummary}</Text>
         </Box>
-        {changelogOpen ? (
+        {currentGame && authedUser &&
+        currentGame.playerNickname === authedUser.nickname &&
+        currentGame.playerDiscriminator === authedUser.discriminator ? (
+          <GameView game={currentGame} onInput={onGameInput} />
+        ) : changelogOpen ? (
           <Changelog
             entries={CHANGELOG}
             index={changelogIndex}
             onIndexChange={setChangelogIndex}
             onClose={closeChangelog}
+          />
+        ) : settingsOpen ? (
+          <Settings
+            prefs={prefs}
+            onPrefsChange={setPrefs}
+            onClose={closeSettings}
           />
         ) : (
           <>
@@ -309,21 +431,27 @@ export function Chat({ serverUrl }: Props): React.JSX.Element {
                 creditTotal={worldCreditTotal}
               />
             ) : null}
+            {currentGame ? <GameSpectate game={currentGame} /> : null}
             <InputBar
               onSend={onSend}
               onNick={onNick}
               onColor={onColor}
               onChangelog={openChangelog}
+              onSettings={openSettings}
               onHelp={onHelp}
               onWorldOpen={onWorldOpen}
               onDiceRoll={onDiceRoll}
               onFontScale={setFontScale}
+              onGameStart={onGameStart}
+              onCabomb={onCabomb}
+              onWatch={onWatch}
             />
             <StatusBar
               status={status}
               reconnectAttempt={reconnectAttempt}
               updateAvailable={updateAvailable}
               lastDisconnect={lastDisconnect}
+              cabombActive={cabombActive}
             />
           </>
         )}

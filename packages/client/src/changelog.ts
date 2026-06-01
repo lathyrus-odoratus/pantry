@@ -9,6 +9,75 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.27",
+    date: "2026-06-01",
+    title: "修正 /ca-bomb 一進去就顯示「遊戲結束」",
+    highlights: [
+      "修正房內看過上一場 /ca-bomb 結束後，自己再開新的一場時會立刻卡在「遊戲結束」、按鍵沒反應的問題。現在每次開局都會從乾淨狀態開始。",
+    ],
+  },
+  {
+    version: "0.1.26",
+    date: "2026-05-30",
+    title: "/ca-bomb 全螢幕加上延遲(ping)顯示",
+    highlights: [
+      "/ca-bomb 全螢幕的 HUD 右側新增即時延遲讀數 ⚡，顯示與伺服器之間的來回延遲（RTT），會依快慢標成綠/黃/紅。房內版是伺服器主導，按鍵到畫面更新會經過一次來回，這個數字能讓你判斷卡頓是不是來自網路。driver 和旁觀者都看得到。",
+    ],
+  },
+  {
+    version: "0.1.25",
+    date: "2026-05-30",
+    title: "新增 /ca-bomb 爆爆王風格炸彈遊戲 + 全螢幕旁觀",
+    highlights: [
+      "在聊天室輸入 /ca-bomb 開一場 Crazy Arcade 風格的炸彈遊戲：WASD 移動（可推箱）、空白鍵放水球、q 離開。炸箱掉道具成長「水球（數量）／水力（範圍）／❤」，清光敵人就贏。",
+      "同房的其他人可選擇性進全螢幕旁觀：輸入 /watch 看彩色、/watch bw 看黑白；不想看就照常聊天。狀態列會持續顯示目前有沒有人在玩。",
+      "也可用 pantry --ca-bomb 離線單機玩（搭配 --name 顯示玩家名）。",
+    ],
+  },
+  {
+    version: "0.1.24",
+    date: "2026-05-29",
+    title: "新增 /bomb 炸彈超人小遊戲",
+    highlights: [
+      "在聊天室輸入 /bomb 開一場單人炸彈超人：WASD 移動、空白鍵放炸彈、q 離開。炸掉所有敵人就贏，HP 歸零就輸。",
+      "同房間的其他人會在輸入欄上方看到即時觀戰畫面，仍可正常聊天。每個房間同時只能有一場遊戲。",
+    ],
+  },
+  {
+    version: "0.1.23",
+    date: "2026-05-28",
+    title: "修正：貼地圖連結沒顯示馬路",
+    highlights: [
+      "修正貼上地圖連結時「馬路」沒有渲染的問題——連結裡代表馬路的符號與網址結構衝突而在傳遞中遺失（房子、樹、木箱不受影響）。請從地圖編輯器重新複製一條新連結，舊連結需重新產生。",
+    ],
+  },
+  {
+    version: "0.1.22",
+    date: "2026-05-28",
+    title: "聊天貼地圖連結會內嵌渲染地圖",
+    highlights: [
+      "在聊天室貼上地圖編輯器（https://lathyrus-odoratus.github.io/pantry/）的連結，pantry 會直接在那則訊息下方把地圖渲染出來（像連結預覽）。純終端顯示，訊息本體仍是原始連結，不影響 Discord 等其他客戶端。",
+      "也可用 `pantry --map \"<連結>\"` 開獨立全螢幕檢視同一張地圖。這是日後在 pantry 內建 Crazy Arcade 小遊戲的第一步。",
+    ],
+  },
+  {
+    version: "0.1.21",
+    date: "2026-05-28",
+    title: "/settings 選單 + 長網址精簡為可點連結",
+    highlights: [
+      "新增 /settings 選單，目前可調整聊天訊息的段落間距（行距）；之後其他偏好設定也會收在這裡。",
+      "過長的網址（例如從 Discord 轉發進來的附件連結）會精簡成可點擊的短標籤（如 `cdn.discordapp.com/…/image.png`），在支援超連結的終端機可直接點開；不支援的終端機仍顯示完整網址。",
+    ],
+  },
+  {
+    version: "0.1.20",
+    date: "2026-05-19",
+    title: "World chat 中 NPC 訊息上下加空行",
+    highlights: [
+      "在 `/the-world` TRPG 模式裡，灰袍旅人（NPC）的訊息上下各加一行空白，視覺上跟玩家訊息分開，旁白比較好讀。",
+    ],
+  },
+  {
     version: "0.1.19",
     date: "2026-05-15",
     title: "Reconnect 畫面顯示斷線原因",

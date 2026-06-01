@@ -30,6 +30,11 @@ const EnvSchema = z.object({
     .regex(/^\d+$/)
     .transform(Number)
     .default("100000"),
+
+  // GitHub→Discord relay (POST /relay/github). Both must be set or the
+  // endpoint returns 503. GITHUB_WEBHOOK_SECRET verifies X-Hub-Signature-256.
+  DISCORD_WEBHOOK_URL: z.string().url().optional(),
+  GITHUB_WEBHOOK_SECRET: z.string().min(1).optional(),
 });
 
 export type ProviderCreds = { clientId: string; clientSecret: string };
@@ -48,6 +53,8 @@ export type Config = {
   adminKey: string | null;
   anthropicApiKey: string | null;
   worldCreditTotal: number;
+  discordWebhookUrl: string | null;
+  githubWebhookSecret: string | null;
 };
 
 export function parseConfig(env: Record<string, string | undefined>): Config {
@@ -78,6 +85,8 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
     adminKey: parsed.ADMIN_KEY ?? null,
     anthropicApiKey: parsed.ANTHROPIC_API_KEY ?? null,
     worldCreditTotal: parsed.WORLD_CREDIT_TOTAL,
+    discordWebhookUrl: parsed.DISCORD_WEBHOOK_URL ?? null,
+    githubWebhookSecret: parsed.GITHUB_WEBHOOK_SECRET ?? null,
   };
 }
 

@@ -1,6 +1,15 @@
 import { create } from "zustand";
-import type { AdminRoomSummary, Message } from "@pantry/shared";
+import type {
+  AdminRoomSummary,
+  Message,
+  MapV1,
+  GameState,
+  CabombStateMsg,
+  CabombOver,
+  ClientMessage,
+} from "@pantry/shared";
 import type { DisconnectDetail } from "./transport/client.js";
+import { DEFAULT_PREFS, savePrefs, type Prefs } from "./prefs.js";
 
 export type Screen =
   | "room_input"
@@ -10,6 +19,7 @@ export type Screen =
   | "chat"
   | "admin_oauth"
   | "admin_menu"
+  | "map_view"
   | "error";
 
 export type ConnStatus =
@@ -65,6 +75,10 @@ export type Store = {
   changelogOpen: boolean;
   changelogIndex: number;
 
+  // Settings modal
+  settingsOpen: boolean;
+  prefs: Prefs;
+
   // World feature
   worldActive: boolean;
   worldCreditUsed: number;
@@ -76,6 +90,25 @@ export type Store = {
   // Admin mode
   adminRooms: AdminRoomSummary[];
   adminStatusLine: string | null;
+
+  // Map viewer (pantry --map <permalink>)
+  viewedMap: MapV1 | null;
+
+  // Bomberman game
+  currentGame: GameState | null;
+
+  // CA-bomb (room-wide, full-screen). cabombView != null means the local user
+  // is in the full-screen game (driver or spectator); Chat renders null so the
+  // overlay owns the terminal while the WS stays connected.
+  cabombState: CabombStateMsg | null;
+  cabombResult: CabombOver | null;
+  cabombView: { role: "driver" | "spectator"; mono: boolean } | null;
+  cabombSend: ((msg: ClientMessage) => void) | null;
+  // Smoothed round-trip latency (ms) measured by cabomb.ping/pong while in the
+  // full-screen view; null until the first pong. Shown in the HUD.
+  cabombLatencyMs: number | null;
+  // A game is in progress in this room (drives the status-bar /watch hint).
+  cabombActive: { by: string } | null;
 
   // Actions
   setScreen: (s: Screen) => void;
@@ -96,6 +129,9 @@ export type Store = {
   openChangelog: () => void;
   closeChangelog: () => void;
   setChangelogIndex: (i: number) => void;
+  openSettings: () => void;
+  closeSettings: () => void;
+  setPrefs: (p: Prefs) => void;
   setWorldState: (state: {
     active: boolean;
     creditUsed: number;
@@ -105,6 +141,14 @@ export type Store = {
   setAdminRooms: (rooms: AdminRoomSummary[]) => void;
   setAdminStatusLine: (line: string | null) => void;
   setError: (msg: string) => void;
+  setCurrentGame: (g: GameState | null) => void;
+  setCabombState: (s: CabombStateMsg | null) => void;
+  setCabombResult: (r: CabombOver | null) => void;
+  enterCabomb: (view: { role: "driver" | "spectator"; mono: boolean }) => void;
+  exitCabomb: () => void;
+  setCabombSend: (fn: ((msg: ClientMessage) => void) | null) => void;
+  setCabombLatency: (ms: number) => void;
+  setCabombActive: (a: { by: string } | null) => void;
   reset: () => void;
 };
 
@@ -124,11 +168,22 @@ const initial: Omit<
   | "openChangelog"
   | "closeChangelog"
   | "setChangelogIndex"
+  | "openSettings"
+  | "closeSettings"
+  | "setPrefs"
   | "setWorldState"
   | "setFontScale"
   | "setAdminRooms"
   | "setAdminStatusLine"
   | "setError"
+  | "setCurrentGame"
+  | "setCabombState"
+  | "setCabombResult"
+  | "enterCabomb"
+  | "exitCabomb"
+  | "setCabombSend"
+  | "setCabombLatency"
+  | "setCabombActive"
   | "reset"
 > = {
   screen: "room_input",
@@ -146,12 +201,22 @@ const initial: Omit<
   updateAvailable: null,
   changelogOpen: false,
   changelogIndex: 0,
+  settingsOpen: false,
+  prefs: DEFAULT_PREFS,
   worldActive: false,
   worldCreditUsed: 0,
   worldCreditTotal: 0,
   fontScale: "normal",
   adminRooms: [],
   adminStatusLine: null,
+  viewedMap: null,
+  currentGame: null,
+  cabombState: null,
+  cabombResult: null,
+  cabombView: null,
+  cabombSend: null,
+  cabombLatencyMs: null,
+  cabombActive: null,
 };
 
 export const useStore = create<Store>((set) => ({
@@ -204,6 +269,13 @@ export const useStore = create<Store>((set) => ({
   closeChangelog: () => set({ changelogOpen: false }),
   setChangelogIndex: (changelogIndex) => set({ changelogIndex }),
 
+  openSettings: () => set({ settingsOpen: true }),
+  closeSettings: () => set({ settingsOpen: false }),
+  setPrefs: (prefs) => {
+    set({ prefs });
+    void savePrefs(prefs);
+  },
+
   setWorldState: ({ active, creditUsed, creditTotal }) =>
     set({
       worldActive: active,
@@ -214,8 +286,31 @@ export const useStore = create<Store>((set) => ({
   setFontScale: (fontScale) => set({ fontScale }),
   setAdminRooms: (adminRooms) => set({ adminRooms }),
   setAdminStatusLine: (adminStatusLine) => set({ adminStatusLine }),
+  setCurrentGame: (currentGame) => set({ currentGame }),
+
+  setCabombState: (cabombState) => set({ cabombState }),
+  setCabombResult: (cabombResult) => set({ cabombResult }),
+  enterCabomb: (cabombView) =>
+    set({ cabombView, cabombState: null, cabombResult: null, cabombLatencyMs: null }),
+  exitCabomb: () =>
+    set({
+      cabombView: null,
+      cabombState: null,
+      cabombResult: null,
+      cabombLatencyMs: null,
+    }),
+  setCabombSend: (cabombSend) => set({ cabombSend }),
+  setCabombLatency: (ms) =>
+    set((s) => ({
+      // Light EWMA so the readout doesn't jitter frame-to-frame.
+      cabombLatencyMs:
+        s.cabombLatencyMs == null
+          ? ms
+          : Math.round(s.cabombLatencyMs * 0.7 + ms * 0.3),
+    })),
+  setCabombActive: (cabombActive) => set({ cabombActive }),
 
   setError: (errorMessage) => set({ errorMessage, screen: "error" }),
 
-  reset: () => set(initial),
+  reset: () => set((s) => ({ ...initial, prefs: s.prefs })),
 }));

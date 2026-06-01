@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { buildAnthropicMessages, shouldTriggerNpc, extractRollMarker } from "./brain.js";
+import {
+  buildAnthropicMessages,
+  shouldTriggerNpc,
+  extractRollMarker,
+  stripLoneSurrogates,
+  isInvalidRequestError,
+} from "./brain.js";
 import type { TranscriptEntry } from "./state.js";
 
 function p(label: string, body: string, at = 0): TranscriptEntry {
@@ -98,6 +104,78 @@ describe("extractRollMarker", () => {
   it("is case-insensitive on the roll keyword", () => {
     const out = extractRollMarker("[[ROLL:d10]] OK");
     expect(out!.spec.sides).toBe(10);
+  });
+});
+
+describe("stripLoneSurrogates", () => {
+  it("passes through plain ASCII", () => {
+    expect(stripLoneSurrogates("hello")).toBe("hello");
+  });
+
+  it("passes through CJK BMP characters", () => {
+    expect(stripLoneSurrogates("灰袍旅人")).toBe("灰袍旅人");
+  });
+
+  it("passes through complete surrogate pairs (emoji)", () => {
+    expect(stripLoneSurrogates("🎲 d20")).toBe("🎲 d20");
+    expect(stripLoneSurrogates("🏂")).toBe("🏂");
+  });
+
+  it("replaces a lone high surrogate with U+FFFD", () => {
+    const bad = `pre${String.fromCharCode(0xd83c)}post`;
+    expect(stripLoneSurrogates(bad)).toBe("pre�post");
+  });
+
+  it("replaces a lone low surrogate with U+FFFD", () => {
+    const bad = `pre${String.fromCharCode(0xdfb2)}post`;
+    expect(stripLoneSurrogates(bad)).toBe("pre�post");
+  });
+
+  it("replaces split surrogates from a truncated emoji", () => {
+    // 🏂 = U+1F3C2 = surrogate pair (D83C DFC2). Take only the high half.
+    const truncated = "name" + String.fromCharCode(0xd83c);
+    expect(stripLoneSurrogates(truncated)).toBe("name�");
+  });
+
+  it("leaves valid output safe for JSON.stringify (no lone-surrogate escapes)", () => {
+    const bad = `a${String.fromCharCode(0xd800)}b${String.fromCharCode(0xdfff)}c`;
+    const cleaned = stripLoneSurrogates(bad);
+    const json = JSON.stringify(cleaned);
+    expect(json).not.toMatch(/\\u[dD][89aAbB][0-9a-fA-F]{2}/);
+    expect(json).not.toMatch(/\\u[dD][c-fC-F][0-9a-fA-F]{2}/);
+  });
+});
+
+describe("isInvalidRequestError", () => {
+  it("returns true for Anthropic 400 invalid_request_error shape", () => {
+    const err = {
+      status: 400,
+      error: { type: "error", error: { type: "invalid_request_error", message: "..." } },
+    };
+    expect(isInvalidRequestError(err)).toBe(true);
+  });
+
+  it("returns false for a 400 with a different error.type", () => {
+    const err = {
+      status: 400,
+      error: { type: "error", error: { type: "overloaded_error" } },
+    };
+    expect(isInvalidRequestError(err)).toBe(false);
+  });
+
+  it("returns false for a 429 / 5xx", () => {
+    expect(
+      isInvalidRequestError({
+        status: 429,
+        error: { error: { type: "invalid_request_error" } },
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false for plain JS errors and null/undefined", () => {
+    expect(isInvalidRequestError(new Error("boom"))).toBe(false);
+    expect(isInvalidRequestError(null)).toBe(false);
+    expect(isInvalidRequestError(undefined)).toBe(false);
   });
 });
 

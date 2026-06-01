@@ -8,10 +8,14 @@ type Props = {
   onNick: (newNickname: string) => void;
   onColor: (color: string | null) => void;
   onChangelog: () => void;
+  onSettings: () => void;
   onHelp: () => void;
   onWorldOpen: () => void;
   onDiceRoll: () => void;
   onFontScale: (scale: FontScale) => void;
+  onGameStart: () => void;
+  onCabomb: () => void;
+  onWatch: (mono: boolean) => void;
 };
 
 const FONT_SCALES: FontScale[] = ["normal", "medium", "large"];
@@ -23,10 +27,14 @@ export function InputBar({
   onNick,
   onColor,
   onChangelog,
+  onSettings,
   onHelp,
   onWorldOpen,
   onDiceRoll,
   onFontScale,
+  onGameStart,
+  onCabomb,
+  onWatch,
 }: Props): React.JSX.Element {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
@@ -54,6 +62,8 @@ export function InputBar({
         }
       } else if (cmd === "changelog") {
         onChangelog();
+      } else if (cmd === "settings") {
+        onSettings();
       } else if (cmd === "h" || cmd === "help") {
         onHelp();
       } else if (cmd === "the-world") {
@@ -66,6 +76,12 @@ export function InputBar({
         if ((FONT_SCALES as string[]).includes(arg)) {
           onFontScale(arg as FontScale);
         }
+      } else if (cmd === "bomb") {
+        onGameStart();
+      } else if (cmd === "ca-bomb") {
+        onCabomb();
+      } else if (cmd === "watch") {
+        onWatch(arg === "bw");
       }
       return;
     }

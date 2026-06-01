@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pantry tilemap editor</title>
+<style>
+  :root { --cell: 36px; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, "Noto Sans TC", sans-serif;
+    background: #14161b; color: #e6e6e6; display: flex; min-height: 100vh;
+  }
+  h1 { font-size: 15px; margin: 0 0 8px; font-weight: 600; }
+  h2 { font-size: 12px; margin: 14px 0 6px; color: #9aa4b2; text-transform: uppercase; letter-spacing: .05em; }
+  .panel { padding: 16px; }
+  #left { width: 220px; border-right: 1px solid #2a2e37; flex: 0 0 auto; }
+  #center { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; gap: 14px; padding-top: 20px; }
+  #right { width: 360px; border-left: 1px solid #2a2e37; flex: 0 0 auto; }
+
+  .brushes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .brush {
+    display: flex; align-items: center; gap: 6px; padding: 6px 8px; cursor: pointer;
+    background: #1d2027; border: 1px solid #2a2e37; border-radius: 6px; font-size: 12px; user-select: none;
+  }
+  .brush:hover { background: #242833; }
+  .brush.active { border-color: #5b8cff; background: #1e2740; }
+  .brush svg { width: 20px; height: 20px; flex: 0 0 auto; }
+  .swatch-row { display: flex; gap: 6px; margin-top: 6px; }
+  .swatch { width: 26px; height: 26px; border-radius: 5px; cursor: pointer; border: 2px solid transparent; }
+  .swatch.active { border-color: #fff; }
+
+  .layer-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .layer-tab { flex: 1; text-align: center; padding: 6px; border-radius: 6px; cursor: pointer; font-size: 12px;
+    background: #1d2027; border: 1px solid #2a2e37; }
+  .layer-tab.active { background: #1e2740; border-color: #5b8cff; }
+
+  #grid {
+    display: grid; gap: 1px; background: #0c0d10; padding: 1px; border: 1px solid #2a2e37;
+    grid-template-columns: repeat(15, var(--cell));
+    grid-auto-rows: var(--cell);
+    cursor: crosshair; user-select: none;
+  }
+  .cell { position: relative; }
+  .cell svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .cell.cursor { outline: 2px solid #ffd34d; outline-offset: -2px; z-index: 2; }
+
+  .status { font-size: 12px; color: #9aa4b2; }
+  .status b { color: #e6e6e6; }
+
+  #ascii { background: #000; padding: 8px; border-radius: 6px; overflow: auto; line-height: 1; }
+  #ascii pre { margin: 0; font-family: "SFMono-Regular", Menlo, Consolas, monospace; font-size: 11px; white-space: pre; }
+
+  .btns { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  button {
+    font: inherit; font-size: 12px; padding: 8px 10px; border-radius: 6px; cursor: pointer;
+    background: #232734; color: #e6e6e6; border: 1px solid #343a47;
+  }
+  button:hover { background: #2c3140; }
+  button.primary { background: #2b4cff33; border-color: #5b8cff; }
+  input[type=text] { font: inherit; font-size: 12px; padding: 6px 8px; width: 100%; border-radius: 6px;
+    background: #1d2027; color: #e6e6e6; border: 1px solid #2a2e37; }
+  .hint { font-size: 11px; color: #6b7280; line-height: 1.5; }
+  kbd { background: #2a2e37; border-radius: 3px; padding: 1px 4px; font-size: 10px; }
+  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: #2b4cff; color: #fff; padding: 8px 14px; border-radius: 6px; font-size: 12px;
+    opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+  <div id="left" class="panel">
+    <h1>tilemap editor</h1>
+    <input type="text" id="name" placeholder="map name" value="villa-10">
+
+    <h2>作畫層</h2>
+    <div class="layer-tabs">
+      <div class="layer-tab" data-layer="floor">地板</div>
+      <div class="layer-tab" data-layer="object">地上物</div>
+    </div>
+
+    <h2>筆刷</h2>
+    <div class="brushes" id="brushes"></div>
+
+    <h2>顏色（房子/積木）</h2>
+    <div class="swatch-row" id="swatches"></div>
+
+    <div class="hint" style="margin-top:14px">
+      左鍵塗 · 右鍵擦<br>
+      <kbd>方向鍵/hjkl</kbd> 移游標<br>
+      <kbd>Tab</kbd> 切層 · <kbd>1-9</kbd> 選筆刷<br>
+      <kbd>c</kbd> 換色 · <kbd>空白</kbd> 下筆 · <kbd>x</kbd> 擦<br>
+      <kbd>s</kbd> 匯出 JSON
+    </div>
+  </div>
+
+  <div id="center" class="panel">
+    <div class="status" id="status"></div>
+    <div id="grid" tabindex="0"></div>
+  </div>
+
+  <div id="right" class="panel">
+    <h2>ASCII 預覽（終端所見）</h2>
+    <div id="ascii"><pre></pre></div>
+
+    <h2>匯出 / 匯入</h2>
+    <div class="btns">
+      <button id="dlAnsi">下載 ANSI .txt（cat 顯示）</button>
+      <button class="primary" id="copyLink">複製 permalink（pantry 吃這條）</button>
+      <button id="exportJson">下載 JSON</button>
+      <button id="importJson">匯入 JSON</button>
+      <button id="clearMap">清空</button>
+    </div>
+    <input type="file" id="fileInput" accept=".json,application/json" hidden>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+const W = 15, H = 13;
+
+// ---- tile spec: single source for web SVG + ASCII glyph + colors (hex canonical) ----
+const COLORS = {
+  red:    { bg: "#ff0000", fg: "#af0000" },
+  orange: { bg: "#ff8700", fg: "#af5f00" },
+  yellow: { bg: "#ffd700", fg: "#af8700" },
+  blue:   { bg: "#0087ff", fg: "#000087" },
+};
+const GRASS = { bg: "#00af00", fg: "#00af00", glyph: ["    ", "    "] };
+const ROAD  = { bg: "#808080", fg: "#dadada", glyph: ["    ", " ╎  "] };
+
+const OBJ = {
+  house:  { glyph: ["▛▀▀▜", "▌▦▦▐"], opaque: true, colored: true },
+  block:  { glyph: ["▪▪▪▪", "▪▪▪▪"], opaque: true, colored: true },
+  box:    { glyph: ["┌╳╳┐", "└╳╳┘"], opaque: true, bg: "#d7af5f", fg: "#875f00" },
+  tree:   { glyph: [" ▲▲ ", " ┃┃ "], opaque: false, fg: "#005f00" },
+  bush:   { glyph: ["░░░░", "▒▒▒▒"], opaque: false, fg: "#00d700" },
+  player: { glyph: [" ☺☺ ", " ◣◢ "], opaque: false, fg: "#ffffff" },
+};
+
+// ---- palettes ----
+const FLOOR_BRUSHES = [
+  { id: "grass", label: "草地" },
+  { id: "road",  label: "馬路" },
+];
+const OBJ_BRUSHES = [
+  { id: "house",  label: "房子" },
+  { id: "block",  label: "積木" },
+  { id: "box",    label: "木箱" },
+  { id: "tree",   label: "樹木" },
+  { id: "bush",   label: "草叢" },
+  { id: "player", label: "玩家" },
+  { id: "erase",  label: "橡皮擦" },
+];
+const COLOR_KEYS = ["red", "orange", "yellow", "blue"];
+
+// ---- state ----
+let map = blankMap();
+let activeLayer = "object";
+let floorBrush = "grass";
+let objBrush = "house";
+let activeColor = "red";
+let cursor = { r: 0, c: 0 };
+let painting = false, paintErase = false;
+
+function blankMap() {
+  return {
+    version: 1, name: "villa-10", w: W, h: H,
+    floor: Array.from({ length: H }, () => Array.from({ length: W }, () => "grass")),
+    objects: Array.from({ length: H }, () => Array.from({ length: W }, () => null)),
+  };
+}
+
+// ---- cell -> render style (used by ASCII + ANSI) ----
+function cellStyle(r, c) {
+  const fl = map.floor[r][c];
+  const floor = fl === "road" ? ROAD : GRASS;
+  const obj = map.objects[r][c];
+  if (!obj) return { r1: floor.glyph[0], r2: floor.glyph[1], fg: floor.fg, bg: floor.bg };
+  const def = OBJ[obj.type];
+  if (def.opaque) {
+    const col = def.colored ? COLORS[obj.color] : def;
+    return { r1: def.glyph[0], r2: def.glyph[1], fg: col.fg, bg: col.bg };
+  }
+  return { r1: def.glyph[0], r2: def.glyph[1], fg: def.fg, bg: floor.bg };
+}
+
+// ---- web SVG icons ----
+function svgFor(r, c) {
+  const fl = map.floor[r][c];
+  const floorBg = fl === "road" ? ROAD.bg : GRASS.bg;
+  const obj = map.objects[r][c];
+  let bg = floorBg, inner = "";
+
+  if (fl === "road" && (!obj || !OBJ[obj.type].opaque)) {
+    inner += `<line x1="16" y1="0" x2="16" y2="32" stroke="#dadada" stroke-width="2" stroke-dasharray="4 4"/>`;
+  }
+  if (obj) {
+    const def = OBJ[obj.type];
+    const col = def.colored ? COLORS[obj.color] : (def.bg ? def : null);
+    if (def.opaque) bg = col.bg;
+    inner += iconSvg(obj.type, obj.color);
+  }
+  return `<svg viewBox="0 0 32 32" style="background:${bg}">${inner}</svg>`;
+}
+
+function iconSvg(type, color) {
+  const c = color ? COLORS[color] : null;
+  switch (type) {
+    case "house":
+      return `<polygon points="3,15 16,4 29,15" fill="${c.fg}"/>`
+           + `<rect x="5" y="15" width="22" height="14" fill="${c.bg}"/>`
+           + `<rect x="12" y="18" width="8" height="8" fill="${c.fg}"/>`;
+    case "block":
+      return `<rect x="4" y="6" width="24" height="22" rx="2" fill="${c.bg}"/>`
+           + [ [10,12],[22,12],[10,22],[22,22] ].map(([x,y]) =>
+               `<circle cx="${x}" cy="${y}" r="2.4" fill="${c.fg}"/>`).join("");
+    case "box":
+      return `<rect x="4" y="4" width="24" height="24" rx="2" fill="${OBJ.box.bg}" stroke="${OBJ.box.fg}" stroke-width="2"/>`
+           + `<line x1="6" y1="6" x2="26" y2="26" stroke="${OBJ.box.fg}" stroke-width="2"/>`
+           + `<line x1="26" y1="6" x2="6" y2="26" stroke="${OBJ.box.fg}" stroke-width="2"/>`;
+    case "tree":
+      return `<rect x="14" y="22" width="4" height="8" fill="#875f00"/>`
+           + `<polygon points="16,3 6,17 26,17" fill="#005f00"/>`
+           + `<polygon points="16,10 8,23 24,23" fill="#007000"/>`;
+    case "bush":
+      return `<circle cx="10" cy="22" r="7" fill="#00c000"/>`
+           + `<circle cx="22" cy="22" r="7" fill="#00c000"/>`
+           + `<circle cx="16" cy="17" r="8" fill="#00d700"/>`;
+    case "player":
+      return `<circle cx="16" cy="11" r="6" fill="#ffffff" stroke="#222" stroke-width="1.5"/>`
+           + `<path d="M8 30 Q16 18 24 30 Z" fill="#ff3b3b" stroke="#222" stroke-width="1"/>`;
+  }
+  return "";
+}
+
+// ---- rendering ----
+const gridEl = document.getElementById("grid");
+const cellEls = [];
+
+function buildGrid() {
+  gridEl.innerHTML = "";
+  cellEls.length = 0;
+  for (let r = 0; r < H; r++) {
+    const row = [];
+    for (let c = 0; c < W; c++) {
+      const d = document.createElement("div");
+      d.className = "cell";
+      d.dataset.r = r; d.dataset.c = c;
+      gridEl.appendChild(d);
+      row.push(d);
+    }
+    cellEls.push(row);
+  }
+  refreshAllCells();
+}
+
+function refreshCell(r, c) {
+  const d = cellEls[r][c];
+  d.innerHTML = svgFor(r, c);
+  d.classList.toggle("cursor", r === cursor.r && c === cursor.c);
+}
+function refreshAllCells() {
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) refreshCell(r, c);
+}
+
+const asciiPre = document.querySelector("#ascii pre");
+function renderAscii() {
+  let html = "";
+  for (let r = 0; r < H; r++) {
+    for (let line = 0; line < 2; line++) {
+      for (let c = 0; c < W; c++) {
+        const s = cellStyle(r, c);
+        const txt = (line === 0 ? s.r1 : s.r2).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+        html += `<span style="color:${s.fg};background:${s.bg}">${txt}</span>`;
+      }
+      html += "\n";
+    }
+  }
+  asciiPre.innerHTML = html;
+}
+
+const statusEl = document.getElementById("status");
+function renderStatus() {
+  const brush = activeLayer === "floor" ? floorBrush : objBrush;
+  statusEl.innerHTML = `游標 <b>(${cursor.r},${cursor.c})</b> · 層 <b>${activeLayer === "floor" ? "地板" : "地上物"}</b> · 筆刷 <b>${brush}</b>`
+    + (activeLayer === "object" && (objBrush === "house" || objBrush === "block") ? ` · 色 <b>${activeColor}</b>` : "");
+}
+
+function renderAll() {
+  refreshAllCells();
+  renderAscii();
+  renderStatus();
+  persist();
+}
+
+// ---- painting ----
+function paintAt(r, c, erase) {
+  if (r < 0 || r >= H || c < 0 || c >= W) return;
+  if (activeLayer === "floor") {
+    map.floor[r][c] = erase ? "grass" : floorBrush;
+  } else {
+    if (erase || objBrush === "erase") {
+      map.objects[r][c] = null;
+    } else if (objBrush === "house" || objBrush === "block") {
+      map.objects[r][c] = { type: objBrush, color: activeColor };
+    } else {
+      map.objects[r][c] = { type: objBrush };
+    }
+  }
+  refreshCell(r, c);
+  renderAscii();
+  persist();
+}
+
+function moveCursor(dr, dc) {
+  const pr = cursor.r, pc = cursor.c;
+  cursor.r = Math.max(0, Math.min(H - 1, cursor.r + dr));
+  cursor.c = Math.max(0, Math.min(W - 1, cursor.c + dc));
+  refreshCell(pr, pc);
+  refreshCell(cursor.r, cursor.c);
+  renderStatus();
+}
+
+// ---- palette UI ----
+function buildPalette() {
+  document.querySelectorAll(".layer-tab").forEach(t => {
+    t.classList.toggle("active", t.dataset.layer === activeLayer);
+    t.onclick = () => { activeLayer = t.dataset.layer; buildPalette(); renderStatus(); };
+  });
+
+  const list = activeLayer === "floor" ? FLOOR_BRUSHES : OBJ_BRUSHES;
+  const box = document.getElementById("brushes");
+  box.innerHTML = "";
+  list.forEach((b, i) => {
+    const cur = activeLayer === "floor" ? floorBrush : objBrush;
+    const el = document.createElement("div");
+    el.className = "brush" + (b.id === cur ? " active" : "");
+    el.innerHTML = swatchSvg(b.id) + `<span>${i + 1}. ${b.label}</span>`;
+    el.onclick = () => {
+      if (activeLayer === "floor") floorBrush = b.id; else objBrush = b.id;
+      buildPalette(); renderStatus();
+    };
+    box.appendChild(el);
+  });
+
+  const sw = document.getElementById("swatches");
+  sw.innerHTML = "";
+  COLOR_KEYS.forEach(k => {
+    const s = document.createElement("div");
+    s.className = "swatch" + (k === activeColor ? " active" : "");
+    s.style.background = COLORS[k].bg;
+    s.title = k;
+    s.onclick = () => { activeColor = k; buildPalette(); renderStatus(); };
+    sw.appendChild(s);
+  });
+}
+
+function swatchSvg(id) {
+  if (id === "erase") return `<svg viewBox="0 0 32 32"><rect x="4" y="4" width="24" height="24" rx="3" fill="#333" stroke="#666"/><line x1="9" y1="9" x2="23" y2="23" stroke="#e66" stroke-width="2"/><line x1="23" y1="9" x2="9" y2="23" stroke="#e66" stroke-width="2"/></svg>`;
+  if (id === "grass") return `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="${GRASS.bg}"/></svg>`;
+  if (id === "road") return `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="${ROAD.bg}"/><line x1="16" y1="0" x2="16" y2="32" stroke="#dadada" stroke-width="2" stroke-dasharray="4 4"/></svg>`;
+  const color = (id === "house" || id === "block") ? activeColor : null;
+  return `<svg viewBox="0 0 32 32"><rect width="32" height="32" fill="${GRASS.bg}"/>${iconSvg(id, color)}</svg>`;
+}
+
+// ---- serialize: compact permalink + full JSON ----
+function objToChar(o) {
+  if (!o) return ".";
+  const hC = { red: "r", orange: "o", yellow: "y", blue: "b" };
+  const bC = { red: "R", orange: "O", yellow: "Y", blue: "B" };
+  switch (o.type) {
+    case "house": return hC[o.color] || ".";
+    case "block": return bC[o.color] || ".";
+    case "box": return "x";
+    case "tree": return "t";
+    case "bush": return "s";
+    case "player": return "p";
+  }
+  return ".";
+}
+function charToObj(ch) {
+  const hC = { r: "red", o: "orange", y: "yellow", b: "blue" };
+  const bC = { R: "red", O: "orange", Y: "yellow", B: "blue" };
+  if (hC[ch]) return { type: "house", color: hC[ch] };
+  if (bC[ch]) return { type: "block", color: bC[ch] };
+  if (ch === "x") return { type: "box" };
+  if (ch === "t") return { type: "tree" };
+  if (ch === "s") return { type: "bush" };
+  if (ch === "p") return { type: "player" };
+  return null;
+}
+
+function encodeMap() {
+  let floorStr = "", objStr = "";
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+    floorStr += map.floor[r][c] === "road" ? "-" : ".";
+    objStr += objToChar(map.objects[r][c]);
+  }
+  return `1;${encodeURIComponent(map.name)};${W};${H};${floorStr};${objStr}`;
+}
+function decodeMap(payload) {
+  const p = payload.split(";");
+  if (p[0] !== "1") throw new Error("bad version");
+  const w = +p[2], h = +p[3], floorStr = p[4], objStr = p[5];
+  if (w !== W || h !== H) throw new Error("size mismatch");
+  const m = blankMap();
+  m.name = decodeURIComponent(p[1] || "untitled");
+  for (let i = 0; i < W * H; i++) {
+    const r = Math.floor(i / W), c = i % W;
+    m.floor[r][c] = floorStr[i] === "-" ? "road" : "grass";
+    m.objects[r][c] = charToObj(objStr[i]);
+  }
+  return m;
+}
+
+// ---- ANSI output ----
+function hexRGB(hex) {
+  return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+}
+function ansiBody(escChar) {
+  let out = "";
+  for (let r = 0; r < H; r++) {
+    for (let line = 0; line < 2; line++) {
+      for (let c = 0; c < W; c++) {
+        const s = cellStyle(r, c);
+        const [br, bgc, bb] = hexRGB(s.bg), [fr, fgc, fb] = hexRGB(s.fg);
+        out += `${escChar}[48;2;${br};${bgc};${bb};38;2;${fr};${fgc};${fb}m` + (line === 0 ? s.r1 : s.r2);
+      }
+      out += `${escChar}[0m` + (escChar === "\\033" ? "\\n" : "\n");
+    }
+  }
+  return out;
+}
+
+// ---- persistence ----
+let persistTimer = null;
+function persist() {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    try { localStorage.setItem("tilemap", JSON.stringify(map)); } catch (e) {}
+    history.replaceState(null, "", "#m=" + encodeMap());
+  }, 150);
+}
+
+// ---- toast ----
+const toastEl = document.getElementById("toast");
+let toastTimer = null;
+function toast(msg) {
+  toastEl.textContent = msg; toastEl.classList.add("show");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1400);
+}
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); toast("已複製"); }
+  catch (e) { toast("複製失敗，請手動複製"); }
+}
+function download(filename, text, mime) {
+  const blob = new Blob([text], { type: mime || "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ---- events ----
+function cellFromEvent(e) {
+  const t = e.target.closest(".cell");
+  if (!t) return null;
+  return { r: +t.dataset.r, c: +t.dataset.c };
+}
+gridEl.addEventListener("contextmenu", e => e.preventDefault());
+gridEl.addEventListener("mousedown", e => {
+  const p = cellFromEvent(e); if (!p) return;
+  e.preventDefault();
+  painting = true; paintErase = e.button === 2;
+  cursor = { r: p.r, c: p.c };
+  paintAt(p.r, p.c, paintErase);
+  refreshAllCells(); renderStatus();
+  gridEl.focus();
+});
+gridEl.addEventListener("mousemove", e => {
+  if (!painting) return;
+  const p = cellFromEvent(e); if (!p) return;
+  if (p.r === cursor.r && p.c === cursor.c) return;
+  const pr = cursor.r, pc = cursor.c;
+  cursor = { r: p.r, c: p.c };
+  paintAt(p.r, p.c, paintErase);
+  refreshCell(pr, pc); refreshCell(cursor.r, cursor.c);
+  renderStatus();
+});
+window.addEventListener("mouseup", () => { painting = false; });
+
+window.addEventListener("keydown", e => {
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || e.target.isContentEditable) return;
+  const k = e.key;
+  if (k === "Tab") { e.preventDefault(); activeLayer = activeLayer === "floor" ? "object" : "floor"; buildPalette(); renderStatus(); return; }
+  if (k === "ArrowUp" || k === "k") { e.preventDefault(); moveCursor(-1, 0); return; }
+  if (k === "ArrowDown" || k === "j") { e.preventDefault(); moveCursor(1, 0); return; }
+  if (k === "ArrowLeft" || k === "h") { e.preventDefault(); moveCursor(0, -1); return; }
+  if (k === "ArrowRight" || k === "l") { e.preventDefault(); moveCursor(0, 1); return; }
+  if (k === " ") { e.preventDefault(); paintAt(cursor.r, cursor.c, false); return; }
+  if (k === "x") { paintAt(cursor.r, cursor.c, true); return; }
+  if (k === "c") {
+    const i = COLOR_KEYS.indexOf(activeColor);
+    activeColor = COLOR_KEYS[(i + 1) % COLOR_KEYS.length];
+    buildPalette(); renderStatus(); return;
+  }
+  if (k === "s") { e.preventDefault(); doExportJson(); return; }
+  if (/^[1-9]$/.test(k)) {
+    const list = activeLayer === "floor" ? FLOOR_BRUSHES : OBJ_BRUSHES;
+    const idx = +k - 1;
+    if (idx < list.length) {
+      if (activeLayer === "floor") floorBrush = list[idx].id; else objBrush = list[idx].id;
+      buildPalette(); renderStatus();
+    }
+    return;
+  }
+});
+
+document.getElementById("name").addEventListener("input", e => { map.name = e.target.value || "untitled"; persist(); });
+
+// ---- export/import buttons ----
+function doExportJson() {
+  download((map.name || "map") + ".json", JSON.stringify(map, null, 2), "application/json");
+  toast("已下載 JSON");
+}
+document.getElementById("exportJson").onclick = doExportJson;
+document.getElementById("dlAnsi").onclick = () => { download((map.name || "map") + ".ansi.txt", ansiBody(""), "text/plain"); toast("已下載 .txt"); };
+document.getElementById("copyLink").onclick = () => copy(location.origin + location.pathname + "#m=" + encodeMap());
+document.getElementById("clearMap").onclick = () => {
+  if (!confirm("清空整張地圖？")) return;
+  const name = map.name; map = blankMap(); map.name = name; renderAll();
+};
+document.getElementById("importJson").onclick = () => document.getElementById("fileInput").click();
+document.getElementById("fileInput").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    try {
+      const m = JSON.parse(fr.result);
+      if (m.w !== W || m.h !== H) throw new Error("size mismatch");
+      map = m; document.getElementById("name").value = map.name || "";
+      renderAll(); toast("已匯入");
+    } catch (err) { toast("匯入失敗：" + err.message); }
+  };
+  fr.readAsText(f);
+  e.target.value = "";
+};
+
+// ---- init ----
+function init() {
+  const hash = location.hash;
+  if (hash.startsWith("#m=")) {
+    try { map = decodeMap(hash.slice(3)); }
+    catch (e) { console.warn("permalink decode failed", e); }
+  } else {
+    try {
+      const saved = localStorage.getItem("tilemap");
+      if (saved) { const m = JSON.parse(saved); if (m.w === W && m.h === H) map = m; }
+    } catch (e) {}
+  }
+  document.getElementById("name").value = map.name || "";
+  buildGrid();
+  buildPalette();
+  renderAscii();
+  renderStatus();
+}
+init();
+</script>
+</body>
+</html>
