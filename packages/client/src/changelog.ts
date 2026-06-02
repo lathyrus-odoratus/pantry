@@ -9,6 +9,16 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.28",
+    date: "2026-06-02",
+    title: "新增 /game：在聊天室裡玩 CLI 小遊戲",
+    highlights: [
+      "輸入 /game 從遊戲清單挑一款小遊戲開始玩，畫面直接顯示在聊天室裡，房間其他人可以繼續聊天。",
+      "別人會在狀態列看到提示，輸入 /watch 就能旁觀你的遊戲。",
+      "按 q 離開、斷線或閒置兩分鐘後，遊戲會自動結束。",
+    ],
+  },
+  {
     version: "0.1.27",
     date: "2026-06-01",
     title: "修正 /ca-bomb 一進去就顯示「遊戲結束」",
