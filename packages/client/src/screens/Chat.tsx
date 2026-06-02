@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import { Box, Static, Text } from "ink";
 import type { Message } from "@pantry/shared";
-import { useStore } from "../store.js";
+import { useStore, type FontScale } from "../store.js";
 import { TransportClient } from "../transport/client.js";
 import { InputBar } from "./components/InputBar.js";
 import { StatusBar } from "./components/StatusBar.js";
@@ -22,11 +22,35 @@ import { MapGrid } from "./components/MapGrid.js";
 
 type Props = { serverUrl: string };
 
+const FONT_SCALE_LINE_HEIGHT: Record<FontScale, number> = {
+  normal: 1.2,
+  medium: 1.5,
+  large: 2.0,
+};
+
+function lineHeightToMargin(lh: number): number {
+  return Math.floor((lh - 1) * 2);
+}
+
 function hashColor(label: string): string {
   let h = 0;
   for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) | 0;
   const palette = ["cyan", "green", "yellow", "magenta", "blueBright", "redBright"];
   return palette[Math.abs(h) % palette.length] ?? "white";
+}
+
+function parseMentionSegments(
+  body: string,
+  mention: string,
+): Array<{ text: string; isMention: boolean }> {
+  const parts = body.split(mention);
+  if (parts.length === 1) return [{ text: body, isMention: false }];
+  return parts.flatMap((part, i) => {
+    const out: Array<{ text: string; isMention: boolean }> = [];
+    if (part) out.push({ text: part, isMention: false });
+    if (i < parts.length - 1) out.push({ text: mention, isMention: true });
+    return out;
+  });
 }
 
 // While a world is active, render an emoji in front of each speaker's nick
@@ -41,6 +65,9 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
   // Static items render exactly once; resolve store state at that moment via
   // getState() to avoid subscribing (which would defeat Static).
   const snapshot = useStore.getState();
+  const marginBottom = lineHeightToMargin(
+    FONT_SCALE_LINE_HEIGHT[snapshot.fontScale],
+  );
   const padding = snapshot.prefs.messagePadding;
 
   // System notices (joins, leaves, renames, local /h help, world.open/end,
@@ -48,7 +75,7 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
   // may be multi-line.
   if (m.author.discriminator === "sys") {
     return (
-      <Box flexDirection="column" marginTop={padding}>
+      <Box flexDirection="column" marginTop={padding} marginBottom={marginBottom}>
         {m.body.split("\n").map((line, i) => (
           <Text key={i} dimColor>
             {line}
@@ -70,19 +97,35 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
     : snapshot.worldActive
       ? PLAYER_WORLD_EMOJI
       : null;
+  const me = snapshot.authedUser;
+  const mentionStr = me ? `@${me.nickname}#${me.discriminator}` : null;
+  const segments = mentionStr ? parseMentionSegments(m.body, mentionStr) : null;
+  const isMentioned = segments?.some((s) => s.isMention) ?? false;
   // A pasted map-editor permalink is unfurled into a full-size map below the
   // message, terminal-side only — the message body stays the raw URL (that's
   // what Discord and other clients see).
   const maps = findMaps(m.body);
   return (
-    <Box flexDirection="column" marginTop={padding} marginBottom={isNpc ? 1 : 0}>
+    <Box flexDirection="column" marginTop={padding} marginBottom={marginBottom + (isNpc ? 1 : 0)}>
       <Box>
         {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
         <Text color={color} bold>
           {label}
         </Text>
         <Text dimColor>: </Text>
-        <Text>{linkify(m.body)}</Text>
+        {isMentioned && segments ? (
+          <Text>
+            {segments.map((seg, i) =>
+              seg.isMention ? (
+                <Text key={i} bold inverse color="#F1F5F9">{seg.text}</Text>
+              ) : (
+                <Text key={i} color="white">{seg.text}</Text>
+              ),
+            )}
+          </Text>
+        ) : (
+          <Text>{linkify(m.body)}</Text>
+        )}
       </Box>
       {maps.map((map, i) => (
         <MapGrid key={i} map={map} />
@@ -108,6 +151,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   const setPresence = useStore((s) => s.setPresence);
   const setUpdateAvailable = useStore((s) => s.setUpdateAvailable);
   const setWorldState = useStore((s) => s.setWorldState);
+  const setFontScale = useStore((s) => s.setFontScale);
   const setCurrentGame = useStore((s) => s.setCurrentGame);
   const currentGame = useStore((s) => s.currentGame);
   const cabombView = useStore((s) => s.cabombView);
@@ -477,6 +521,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
               onHelp={onHelp}
               onWorldOpen={onWorldOpen}
               onDiceRoll={onDiceRoll}
+              onFontScale={setFontScale}
               onGameStart={onGameStart}
               onCabomb={onCabomb}
               onWatch={onWatch}
