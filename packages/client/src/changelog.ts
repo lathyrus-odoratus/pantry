@@ -9,6 +9,16 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.30",
+    date: "2026-06-02",
+    title: "/game 穩定性修正",
+    highlights: [
+      "/game 選擇畫面在服務異常時會顯示錯誤訊息，不再卡在「載入中…」。",
+      "/ca-bomb 與 /game 不能同時進行，避免互相干擾。",
+      "旁觀者加入時直接看到目前畫面，不再是佔位符號。",
+    ],
+  },
+  {
     version: "0.1.29",
     date: "2026-06-02",
     title: "被 @提及時訊息高亮 + /font 調整行距",

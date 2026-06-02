@@ -1,7 +1,7 @@
 // Bump in lockstep with packages/client/package.json `version`.
 // Phase 6 (Task 10) of Plan C flips tsconfig rootDir; at that point this can
 // be swapped for `import pkg from "../package.json" with { type: "json" }`.
-export const CLIENT_VERSION = "0.1.29";
+export const CLIENT_VERSION = "0.1.30";
 
 export function compareSemver(a: string, b: string): number {
   const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
