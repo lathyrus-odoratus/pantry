@@ -305,8 +305,27 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
             }
             break;
           }
-          case "ext.game.error":
+          case "ext.game.error": {
+            const reason = m.reason;
+            if (reason === "already_active") {
+              addMessage({
+                id: `extgame-err-${Date.now()}`,
+                body: "── 房間內已有遊戲進行中 ──",
+                createdAt: new Date().toISOString(),
+                author: { nickname: "·", discriminator: "sys" },
+              });
+            } else if (reason === "api_error" || reason === "game_not_found") {
+              addMessage({
+                id: `extgame-err-${Date.now()}`,
+                body: "── 遊戲服務暫時無法使用 ──",
+                createdAt: new Date().toISOString(),
+                author: { nickname: "·", discriminator: "sys" },
+              });
+            }
+            useStore.getState().cancelExtGameSelect();
+            useStore.getState().exitExtGame();
             break;
+          }
           case "cabomb.over": {
             useStore.getState().setCabombResult(m);
             useStore.getState().setCabombActive(null);

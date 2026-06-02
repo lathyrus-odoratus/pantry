@@ -2,6 +2,7 @@ import type { ExtGameInfo, ServerMessage } from "@pantry/shared";
 import { listGames, startSession, sendInput, getFrame } from "./api.js";
 import { broadcastToRoom, send } from "../ws/broadcast.js";
 import type { AuthedConnection, ConnectionRegistry } from "../ws/connection-registry.js";
+import { isCabombActive } from "../cabomb/manager.js";
 import { logger } from "../logger.js";
 
 // Poll the game service for frame updates. Most games only change on input, but
@@ -21,6 +22,7 @@ type ActiveExtGame = {
   spectators: Map<string, AuthedConnection>;
   pollTimer: ReturnType<typeof setInterval>;
   lastTick: number;
+  lastFrame: string;
   startedAt: number;
   lastInputAt: number;
 };
@@ -45,6 +47,7 @@ function nameOf(conn: AuthedConnection): string {
 }
 
 function pushFrame(g: ActiveExtGame, frame: string, tick: number): void {
+  g.lastFrame = frame;
   const raw = JSON.stringify({
     type: "ext.game.frame",
     frame,
@@ -81,7 +84,7 @@ export async function startExtGame(
   registry: ConnectionRegistry,
   baseUrl: string,
 ): Promise<"ok" | "already_active" | "game_not_found" | "api_error"> {
-  if (games.has(conn.roomId)) return "already_active";
+  if (games.has(conn.roomId) || isCabombActive(conn.roomId)) return "already_active";
 
   let session;
   try {
@@ -107,6 +110,7 @@ export async function startExtGame(
     spectators: new Map(),
     pollTimer: null!,
     lastTick: session.tick,
+    lastFrame: session.frame,
     startedAt: now,
     lastInputAt: now,
   };
@@ -128,6 +132,7 @@ export async function startExtGame(
       }
       if (result.tick !== game.lastTick) {
         game.lastTick = result.tick;
+        game.lastInputAt = Date.now();
         pushFrame(game, result.frame, result.tick);
       }
     } catch (err) {
@@ -163,19 +168,19 @@ export async function inputExtGame(
       endExtGame(conn.roomId, "quit", registry);
       return "ok";
     }
-    if ("quit" in result && result.quit) {
+    if ("quit" in result) {
       endExtGame(conn.roomId, "quit", registry);
       return "ok";
     }
-    const r = result as { frame: string; tick: number; over: boolean; result: string | null };
-    g.lastTick = r.tick;
-    pushFrame(g, r.frame, r.tick);
-    if (r.over) {
-      const res = r.result === "win" ? "win" : r.result === "loss" ? "loss" : "quit";
+    g.lastTick = result.tick;
+    pushFrame(g, result.frame, result.tick);
+    if (result.over) {
+      const res = result.result === "win" ? "win" : result.result === "loss" ? "loss" : "quit";
       endExtGame(conn.roomId, res, registry);
     }
   } catch (err) {
     logger.error({ err, roomId: conn.roomId }, "ext game input error");
+    endExtGame(conn.roomId, "quit", registry);
   }
   return "ok";
 }
@@ -187,7 +192,7 @@ export function watchExtGame(conn: AuthedConnection): boolean {
   // Send the most recent frame immediately so the spectator isn't blank.
   send(conn, {
     type: "ext.game.frame",
-    frame: "…",
+    frame: g.lastFrame,
     tick: g.lastTick,
     by: g.driverName,
     gameId: g.gameId,

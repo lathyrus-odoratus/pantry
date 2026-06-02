@@ -365,7 +365,6 @@ export const useStore = create<Store>((set) => ({
       extGameFrame: null,
       extGameOver: null,
       extGameActive: null,
-      extGameSend: null,
     }),
   setExtGameSend: (extGameSend) => set({ extGameSend }),
 
