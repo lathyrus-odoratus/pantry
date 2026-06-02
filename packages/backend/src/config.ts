@@ -35,6 +35,12 @@ const EnvSchema = z.object({
   // endpoint returns 503. GITHUB_WEBHOOK_SECRET verifies X-Hub-Signature-256.
   DISCORD_WEBHOOK_URL: z.string().url().optional(),
   GITHUB_WEBHOOK_SECRET: z.string().min(1).optional(),
+
+  // External game service base URL.
+  GAME_SERVICE_URL: z
+    .string()
+    .url()
+    .default("https://backend.instantcheeseshao.com/game_service"),
 });
 
 export type ProviderCreds = { clientId: string; clientSecret: string };
@@ -55,6 +61,7 @@ export type Config = {
   worldCreditTotal: number;
   discordWebhookUrl: string | null;
   githubWebhookSecret: string | null;
+  gameServiceUrl: string;
 };
 
 export function parseConfig(env: Record<string, string | undefined>): Config {
@@ -87,6 +94,7 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
     worldCreditTotal: parsed.WORLD_CREDIT_TOTAL,
     discordWebhookUrl: parsed.DISCORD_WEBHOOK_URL ?? null,
     githubWebhookSecret: parsed.GITHUB_WEBHOOK_SECRET ?? null,
+    gameServiceUrl: parsed.GAME_SERVICE_URL,
   };
 }
 

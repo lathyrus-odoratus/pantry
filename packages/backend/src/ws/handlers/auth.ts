@@ -12,6 +12,7 @@ import type { MessagesRepo } from "../../db/messages.js";
 import type { ConnectionRegistry, AuthedConnection } from "../connection-registry.js";
 import { broadcastToRoom, presenceFor, send } from "../broadcast.js";
 import { isCabombActive, cabombDriver } from "../../cabomb/manager.js";
+import { extGameInfo } from "../../ext-game/manager.js";
 import {
   formatSystem,
   notify,
@@ -176,6 +177,7 @@ export async function admitConnection(
     activeGame: isCabombActive(conn.roomId)
       ? { kind: "cabomb", by: cabombDriver(conn.roomId) ?? "?" }
       : null,
+    extGame: extGameInfo(conn.roomId),
   };
   send(conn, snapshot);
 

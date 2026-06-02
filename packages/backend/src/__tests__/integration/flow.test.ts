@@ -26,6 +26,7 @@ const TEST_CONFIG: Config = {
   worldCreditTotal: 100_000,
   discordWebhookUrl: null,
   githubWebhookSecret: null,
+  gameServiceUrl: "https://backend.instantcheeseshao.com/game_service",
 };
 
 type WaitingConsumer = {
