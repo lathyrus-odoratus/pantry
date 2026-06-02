@@ -9,6 +9,15 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.29",
+    date: "2026-06-02",
+    title: "被 @提及時訊息高亮 + /font 調整行距",
+    highlights: [
+      "有人用 @你的暱稱#編號 提及你時，該訊息的提及欄位會反白高亮，比較不會漏看。",
+      "新增 /font normal|medium|large，可調整訊息行距讓畫面更好讀。",
+    ],
+  },
+  {
     version: "0.1.28",
     date: "2026-06-02",
     title: "新增 /game：在聊天室裡玩 CLI 小遊戲",
