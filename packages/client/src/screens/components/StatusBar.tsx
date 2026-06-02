@@ -9,6 +9,7 @@ type Props = {
   updateAvailable?: string | null;
   lastDisconnect?: DisconnectDetail | null;
   cabombActive?: { by: string } | null;
+  extGameActive?: { by: string; gameId: string; title: string } | null;
 };
 
 function formatDisconnect(d: DisconnectDetail): string {
@@ -44,6 +45,7 @@ export function StatusBar({
   updateAvailable,
   lastDisconnect,
   cabombActive,
+  extGameActive,
 }: Props): React.JSX.Element {
   const extra =
     status === "reconnecting" && reconnectAttempt > 0
@@ -78,9 +80,16 @@ export function StatusBar({
           </Text>
         </Box>
       ) : null}
+      {extGameActive ? (
+        <Box>
+          <Text color="cyan">
+            🕹 {extGameActive.by} 玩 {extGameActive.title} · /watch 旁觀
+          </Text>
+        </Box>
+      ) : null}
       <Box>
         <Text dimColor>
-          /h · /changelog · /settings · /nick · /color · /the-world · /roll · /ca-bomb
+          /h · /changelog · /settings · /nick · /color · /the-world · /roll · /game · /ca-bomb
         </Text>
       </Box>
     </Box>

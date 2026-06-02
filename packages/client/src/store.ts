@@ -7,6 +7,7 @@ import type {
   CabombStateMsg,
   CabombOver,
   ClientMessage,
+  ExtGameInfo,
 } from "@pantry/shared";
 import type { DisconnectDetail } from "./transport/client.js";
 import { DEFAULT_PREFS, savePrefs, type Prefs } from "./prefs.js";
@@ -105,6 +106,15 @@ export type Store = {
   // A game is in progress in this room (drives the status-bar /watch hint).
   cabombActive: { by: string } | null;
 
+  // External game service
+  extGameSelecting: boolean;
+  extGames: ExtGameInfo[] | null;
+  extGameActive: { by: string; gameId: string; title: string } | null;
+  extGameView: { role: "driver" | "spectator" } | null;
+  extGameFrame: string | null;
+  extGameOver: { result: string } | null;
+  extGameSend: ((msg: ClientMessage) => void) | null;
+
   // Actions
   setScreen: (s: Screen) => void;
   commitRoomName: (name: string) => void;
@@ -143,6 +153,16 @@ export type Store = {
   setCabombSend: (fn: ((msg: ClientMessage) => void) | null) => void;
   setCabombLatency: (ms: number) => void;
   setCabombActive: (a: { by: string } | null) => void;
+  startExtGameSelect: () => void;
+  cancelExtGameSelect: () => void;
+  setExtGames: (games: ExtGameInfo[]) => void;
+  enterExtGameDriver: () => void;
+  enterExtGameSpectator: () => void;
+  setExtGameActive: (v: { by: string; gameId: string; title: string } | null) => void;
+  setExtGameFrame: (frame: string) => void;
+  setExtGameOver: (v: { result: string }) => void;
+  exitExtGame: () => void;
+  setExtGameSend: (fn: ((msg: ClientMessage) => void) | null) => void;
   reset: () => void;
 };
 
@@ -177,6 +197,16 @@ const initial: Omit<
   | "setCabombSend"
   | "setCabombLatency"
   | "setCabombActive"
+  | "startExtGameSelect"
+  | "cancelExtGameSelect"
+  | "setExtGames"
+  | "enterExtGameDriver"
+  | "enterExtGameSpectator"
+  | "setExtGameActive"
+  | "setExtGameFrame"
+  | "setExtGameOver"
+  | "exitExtGame"
+  | "setExtGameSend"
   | "reset"
 > = {
   screen: "room_input",
@@ -209,6 +239,13 @@ const initial: Omit<
   cabombSend: null,
   cabombLatencyMs: null,
   cabombActive: null,
+  extGameSelecting: false,
+  extGames: null,
+  extGameActive: null,
+  extGameView: null,
+  extGameFrame: null,
+  extGameOver: null,
+  extGameSend: null,
 };
 
 export const useStore = create<Store>((set) => ({
@@ -300,6 +337,28 @@ export const useStore = create<Store>((set) => ({
           : Math.round(s.cabombLatencyMs * 0.7 + ms * 0.3),
     })),
   setCabombActive: (cabombActive) => set({ cabombActive }),
+
+  startExtGameSelect: () => set({ extGameSelecting: true, extGames: null }),
+  cancelExtGameSelect: () => set({ extGameSelecting: false, extGames: null }),
+  setExtGames: (extGames) => set({ extGames }),
+  enterExtGameDriver: () =>
+    set({ extGameSelecting: false, extGames: null, extGameView: { role: "driver" }, extGameOver: null }),
+  enterExtGameSpectator: () =>
+    set({ extGameView: { role: "spectator" }, extGameFrame: null, extGameOver: null }),
+  setExtGameActive: (extGameActive) => set({ extGameActive }),
+  setExtGameFrame: (extGameFrame) => set({ extGameFrame }),
+  setExtGameOver: (extGameOver) => set({ extGameOver }),
+  exitExtGame: () =>
+    set({
+      extGameSelecting: false,
+      extGames: null,
+      extGameView: null,
+      extGameFrame: null,
+      extGameOver: null,
+      extGameActive: null,
+      extGameSend: null,
+    }),
+  setExtGameSend: (extGameSend) => set({ extGameSend }),
 
   setError: (errorMessage) => set({ errorMessage, screen: "error" }),
 

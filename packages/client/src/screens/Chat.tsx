@@ -10,6 +10,8 @@ import { Settings } from "./components/Settings.js";
 import { WorldPanel } from "./components/WorldPanel.js";
 import { GameView } from "./components/GameView.js";
 import { GameSpectate } from "./components/GameSpectate.js";
+import { ExtGameSelect } from "./components/ExtGameSelect.js";
+import { ExtGameView } from "./components/ExtGameView.js";
 import { CHANGELOG } from "../changelog.js";
 import { HELP_TEXT } from "../help.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
@@ -110,6 +112,10 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   const currentGame = useStore((s) => s.currentGame);
   const cabombView = useStore((s) => s.cabombView);
   const cabombActive = useStore((s) => s.cabombActive);
+  const extGameView = useStore((s) => s.extGameView);
+  const extGameActive = useStore((s) => s.extGameActive);
+  const extGameSelecting = useStore((s) => s.extGameSelecting);
+  const extGames = useStore((s) => s.extGames);
   const setError = useStore((s) => s.setError);
 
   const transportRef = useRef<TransportClient | null>(null);
@@ -141,6 +147,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
             useStore.getState().setCabombActive(
               m.activeGame ? { by: m.activeGame.by } : null,
             );
+            useStore.getState().setExtGameActive(m.extGame ?? null);
             break;
           case "message":
             addMessage(m.data);
@@ -211,6 +218,51 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
           case "cabomb.pong":
             useStore.getState().setCabombLatency(Date.now() - m.t);
             break;
+          case "ext.games":
+            useStore.getState().setExtGames(m.games);
+            break;
+          case "ext.game.started": {
+            useStore.getState().setExtGameActive({ by: m.by, gameId: m.gameId, title: m.title });
+            const me = useStore.getState().authedUser;
+            const myName = me ? `${me.nickname}#${me.discriminator}` : null;
+            if (m.by === myName) {
+              useStore.getState().enterExtGameDriver();
+            } else {
+              addMessage({
+                id: `extgame-start-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+                body: `── 🎮 ${m.by} 開始玩 ${m.title}，輸入 /watch 旁觀 ──`,
+                createdAt: new Date().toISOString(),
+                author: { nickname: "·", discriminator: "sys" },
+              });
+            }
+            break;
+          }
+          case "ext.game.frame":
+            useStore.getState().setExtGameFrame(m.frame);
+            break;
+          case "ext.game.over": {
+            useStore.getState().setExtGameActive(null);
+            const isParticipant = useStore.getState().extGameView !== null;
+            if (isParticipant) {
+              useStore.getState().setExtGameOver({ result: m.result });
+            } else {
+              const txt =
+                m.result === "win"
+                  ? `🎮 ${m.by} 完成了 ${m.title}！`
+                  : m.result === "loss"
+                    ? `💀 ${m.by} 在 ${m.title} 失敗了。`
+                    : `${m.by} 結束了 ${m.title}。`;
+              addMessage({
+                id: `extgame-over-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+                body: `── ${txt} ──`,
+                createdAt: new Date().toISOString(),
+                author: { nickname: "·", discriminator: "sys" },
+              });
+            }
+            break;
+          }
+          case "ext.game.error":
+            break;
           case "cabomb.over": {
             useStore.getState().setCabombResult(m);
             useStore.getState().setCabombActive(null);
@@ -242,6 +294,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
     });
     transportRef.current = client;
     useStore.getState().setCabombSend((msg) => client.send(msg));
+    useStore.getState().setExtGameSend((msg) => client.send(msg));
     client.connect();
     const unsub = useStore.subscribe((state, prev) => {
       if (state.status === "connected" && prev.status !== "connected") {
@@ -268,6 +321,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
       client.close();
       transportRef.current = null;
       useStore.getState().setCabombSend(null);
+      useStore.getState().setExtGameSend(null);
     };
   }, [pending, roomName, serverUrl, setStatus, onAuthOk, setSnapshot, addMessage, setPresence, setUpdateAvailable, setWorldState, setError]);
 
@@ -308,9 +362,18 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
     useStore.getState().enterCabomb({ role: "driver", mono: false });
   }, []);
   const onWatch = useCallback((mono: boolean) => {
-    if (!useStore.getState().cabombActive) return;
-    transportRef.current?.send({ type: "cabomb.watch" });
-    useStore.getState().enterCabomb({ role: "spectator", mono });
+    const state = useStore.getState();
+    if (state.cabombActive) {
+      transportRef.current?.send({ type: "cabomb.watch" });
+      state.enterCabomb({ role: "spectator", mono });
+    } else if (state.extGameActive) {
+      transportRef.current?.send({ type: "ext.game.watch" });
+      state.enterExtGameSpectator();
+    }
+  }, []);
+  const onExtGame = useCallback(() => {
+    useStore.getState().startExtGameSelect();
+    transportRef.current?.send({ type: "ext.game.list" });
   }, []);
 
   const worldActive = useStore((s) => s.worldActive);
@@ -339,6 +402,15 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   // message→store dispatch that feeds the overlay) stays alive.
   if (cabombView) return null;
 
+  const onExtGameSelect = (gameId: string) => {
+    useStore.getState().cancelExtGameSelect();
+    transportRef.current?.send({ type: "ext.game.start", gameId });
+  };
+  const onExtGameQuit = () => {
+    useStore.getState().extGameSend?.({ type: "ext.game.input", key: "quit" });
+    useStore.getState().exitExtGame();
+  };
+
   // Messages are rendered via <Static>: each item writes to terminal
   // scrollback exactly once, then is never redrawn. This keeps the live
   // Ink frame tiny (header + online + input + status) so keystrokes don't
@@ -362,7 +434,15 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
           <Text dimColor>Online ({onlineUsers.length}): </Text>
           <Text>{onlineSummary}</Text>
         </Box>
-        {currentGame && authedUser &&
+        {extGameView ? (
+          <ExtGameView onQuit={onExtGameQuit} />
+        ) : extGameSelecting ? (
+          <ExtGameSelect
+            games={extGames}
+            onSelect={onExtGameSelect}
+            onCancel={() => useStore.getState().cancelExtGameSelect()}
+          />
+        ) : currentGame && authedUser &&
         currentGame.playerNickname === authedUser.nickname &&
         currentGame.playerDiscriminator === authedUser.discriminator ? (
           <GameView game={currentGame} onInput={onGameInput} />
@@ -400,6 +480,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
               onGameStart={onGameStart}
               onCabomb={onCabomb}
               onWatch={onWatch}
+              onExtGame={onExtGame}
             />
             <StatusBar
               status={status}
@@ -407,6 +488,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
               updateAvailable={updateAvailable}
               lastDisconnect={lastDisconnect}
               cabombActive={cabombActive}
+              extGameActive={extGameActive}
             />
           </>
         )}

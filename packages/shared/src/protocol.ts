@@ -124,6 +124,19 @@ export const CabombPingSchema = z.object({
   t: z.number(),
 });
 
+// ── External game service (GET /games → POST /games/:id/sessions → input loop) ──
+export const ExtGameListSchema = z.object({ type: z.literal("ext.game.list") });
+export const ExtGameStartSchema = z.object({
+  type: z.literal("ext.game.start"),
+  gameId: z.string().min(1),
+});
+export const ExtGameInputSchema = z.object({
+  type: z.literal("ext.game.input"),
+  key: z.string().min(1),
+});
+export const ExtGameWatchSchema = z.object({ type: z.literal("ext.game.watch") });
+export const ExtGameLeaveSchema = z.object({ type: z.literal("ext.game.leave") });
+
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   AuthAnonSchema,
   AuthOAuthSchema,
@@ -146,6 +159,11 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   CabombWatchSchema,
   CabombLeaveSchema,
   CabombPingSchema,
+  ExtGameListSchema,
+  ExtGameStartSchema,
+  ExtGameInputSchema,
+  ExtGameWatchSchema,
+  ExtGameLeaveSchema,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
@@ -170,6 +188,11 @@ export type CabombInput = z.infer<typeof CabombInputSchema>;
 export type CabombWatch = z.infer<typeof CabombWatchSchema>;
 export type CabombLeave = z.infer<typeof CabombLeaveSchema>;
 export type CabombPing = z.infer<typeof CabombPingSchema>;
+export type ExtGameList = z.infer<typeof ExtGameListSchema>;
+export type ExtGameStart = z.infer<typeof ExtGameStartSchema>;
+export type ExtGameInput = z.infer<typeof ExtGameInputSchema>;
+export type ExtGameWatch = z.infer<typeof ExtGameWatchSchema>;
+export type ExtGameLeave = z.infer<typeof ExtGameLeaveSchema>;
 
 // ─── Server → Client ──────────────────────────────────────────────────────────
 
@@ -205,6 +228,10 @@ export const RoomSnapshotSchema = z.object({
   // status-bar "/watch" hint immediately. Optional for backward compatibility.
   activeGame: z
     .object({ kind: z.literal("cabomb"), by: z.string() })
+    .nullable()
+    .optional(),
+  extGame: z
+    .object({ gameId: z.string(), title: z.string(), by: z.string() })
     .nullable()
     .optional(),
 });
@@ -359,6 +386,41 @@ export const CabombPongSchema = z.object({
   t: z.number(),
 });
 
+// ── External game service server → client ──
+const ExtGameInfoSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+});
+export const ExtGamesSchema = z.object({
+  type: z.literal("ext.games"),
+  games: z.array(ExtGameInfoSchema),
+});
+export const ExtGameStartedSchema = z.object({
+  type: z.literal("ext.game.started"),
+  gameId: z.string(),
+  title: z.string(),
+  by: z.string(),
+});
+export const ExtGameFrameSchema = z.object({
+  type: z.literal("ext.game.frame"),
+  frame: z.string(),
+  tick: z.number().int(),
+  by: z.string(),
+  gameId: z.string(),
+});
+export const ExtGameOverSchema = z.object({
+  type: z.literal("ext.game.over"),
+  result: z.enum(["win", "loss", "quit"]),
+  by: z.string(),
+  gameId: z.string(),
+  title: z.string(),
+});
+export const ExtGameErrorSchema = z.object({
+  type: z.literal("ext.game.error"),
+  reason: z.enum(["already_active", "game_not_found", "api_error", "not_driver", "no_game"]),
+});
+
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   AuthOkSchema,
   AuthErrorSchema,
@@ -380,6 +442,11 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   CabombStateSchema,
   CabombOverSchema,
   CabombPongSchema,
+  ExtGamesSchema,
+  ExtGameStartedSchema,
+  ExtGameFrameSchema,
+  ExtGameOverSchema,
+  ExtGameErrorSchema,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
 export type WorldState = z.infer<typeof WorldStateSchema>;
@@ -395,3 +462,9 @@ export type CabombStarted = z.infer<typeof CabombStartedSchema>;
 export type CabombStateMsg = z.infer<typeof CabombStateSchema>;
 export type CabombOver = z.infer<typeof CabombOverSchema>;
 export type CabombPong = z.infer<typeof CabombPongSchema>;
+export type ExtGameInfo = z.infer<typeof ExtGameInfoSchema>;
+export type ExtGames = z.infer<typeof ExtGamesSchema>;
+export type ExtGameStarted = z.infer<typeof ExtGameStartedSchema>;
+export type ExtGameFrame = z.infer<typeof ExtGameFrameSchema>;
+export type ExtGameOver = z.infer<typeof ExtGameOverSchema>;
+export type ExtGameError = z.infer<typeof ExtGameErrorSchema>;

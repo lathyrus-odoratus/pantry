@@ -20,6 +20,7 @@ function makeConfig(over: Partial<Config> = {}): Config {
     worldCreditTotal: 100000,
     discordWebhookUrl: WEBHOOK,
     githubWebhookSecret: SECRET,
+    gameServiceUrl: "https://backend.instantcheeseshao.com/game_service",
     ...over,
   };
 }
