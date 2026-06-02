@@ -8,11 +8,16 @@ import {
   watchCabomb,
   unwatchCabomb,
 } from "../../cabomb/manager.js";
+import { isExtGameActive } from "../../ext-game/manager.js";
 
 export function handleCabombStart(
   conn: AuthedConnection,
   registry: ConnectionRegistry,
 ): void {
+  if (isExtGameActive(conn.roomId)) {
+    send(conn, { type: "error", code: "bad_request" });
+    return;
+  }
   startCabomb(conn, registry);
 }
 
