@@ -7,7 +7,7 @@ import { logger } from "../logger.js";
 
 // Poll the game service for frame updates. Most games only change on input, but
 // AI-ticking games (e.g. bomber) advance automatically — polling at 200ms catches
-// both cases. Frames with unchanged tick are skipped to avoid noise.
+// both cases. Frames with unchanged content are skipped to avoid noise.
 const POLL_MS = 200;
 // End a game if the driver sends no input for this long.
 const IDLE_MS = 120_000;
@@ -109,7 +109,7 @@ export async function startExtGame(
     roomId,
     spectators: new Map(),
     pollTimer: null!,
-    lastTick: session.tick,
+    lastTick: 0,
     lastFrame: session.frame,
     startedAt: now,
     lastInputAt: now,
@@ -130,10 +130,10 @@ export async function startExtGame(
         endExtGame(roomId, "quit", registry);
         return;
       }
-      if (result.tick !== game.lastTick) {
-        game.lastTick = result.tick;
+      if (result.frame !== game.lastFrame) {
+        game.lastTick++;
         game.lastInputAt = Date.now();
-        pushFrame(game, result.frame, result.tick);
+        pushFrame(game, result.frame, game.lastTick);
       }
     } catch (err) {
       logger.warn({ err, roomId }, "ext game poll error");
@@ -146,7 +146,7 @@ export async function startExtGame(
     title,
     by: driverName,
   });
-  pushFrame(g, session.frame, session.tick);
+  pushFrame(g, session.frame, 0);
   logger.info({ roomId, gameId, driver: driverName }, "ext game started");
   return "ok";
 }
@@ -172,8 +172,8 @@ export async function inputExtGame(
       endExtGame(conn.roomId, "quit", registry);
       return "ok";
     }
-    g.lastTick = result.tick;
-    pushFrame(g, result.frame, result.tick);
+    g.lastTick++;
+    pushFrame(g, result.frame, g.lastTick);
     if (result.over) {
       const res = result.result === "win" ? "win" : result.result === "loss" ? "loss" : "quit";
       endExtGame(conn.roomId, res, registry);

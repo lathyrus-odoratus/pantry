@@ -1,12 +1,12 @@
 import type { ExtGameInfo } from "@pantry/shared";
 
-export type SessionStarted = { sessionId: string; frame: string; tick: number };
+export type SessionStarted = { sessionId: string; frame: string; tick?: number };
 
 export type InputResult =
   | { quit: true }
-  | { frame: string; tick: number; over: boolean; result: string | null };
+  | { frame: string; tick?: number; over: boolean; result: string | null };
 
-export type FrameResult = { frame: string; tick: number };
+export type FrameResult = { frame: string; tick?: number };
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | null> {
   const res = await fetch(url, options);
