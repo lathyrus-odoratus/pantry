@@ -279,7 +279,13 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
               });
             }
             useStore.getState().cancelExtGameSelect();
-            useStore.getState().exitExtGame();
+            // Only force-exit if this user was actually in the game view.
+            // Calling exitExtGame unconditionally would clear extGameActive for
+            // bystanders who got an already_active/api_error on a start attempt,
+            // breaking the /watch hint and command until the next reconnect.
+            if (useStore.getState().extGameView !== null) {
+              useStore.getState().exitExtGame();
+            }
             break;
           }
           case "cabomb.over": {
