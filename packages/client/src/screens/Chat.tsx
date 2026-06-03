@@ -142,13 +142,25 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
             setError(`Auth failed: ${m.reason}`);
             client.close();
             break;
-          case "room.snapshot":
+          case "room.snapshot": {
             setSnapshot(m.room.id, m.messages, m.onlineUsers);
             useStore.getState().setCabombActive(
               m.activeGame ? { by: m.activeGame.by } : null,
             );
             useStore.getState().setExtGameActive(m.extGame ?? null);
+            // If the snapshot shows we are the driver of a running game but
+            // extGameView is not set (e.g. WS dropped between ext.game.start
+            // and ext.game.started), re-enter driver mode so the game screen
+            // appears without requiring a manual restart.
+            if (m.extGame) {
+              const me = useStore.getState().authedUser;
+              const myName = me ? `${me.nickname}#${me.discriminator}` : null;
+              if (m.extGame.by === myName && useStore.getState().extGameView === null) {
+                useStore.getState().enterExtGameDriver();
+              }
+            }
             break;
+          }
           case "message":
             addMessage(m.data);
             break;
@@ -311,6 +323,9 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
             // confuse the order. History loading is intentionally disabled
             // in the Static-based layout; users can use their terminal's
             // own scrollback to read older messages.
+            break;
+          case "nick.ok":
+            useStore.getState().renameSelf(m.nickname, m.discriminator);
             break;
           case "error":
             break;
