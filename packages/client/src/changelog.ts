@@ -9,6 +9,16 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.31",
+    date: "2026-06-03",
+    title: "/game 按鍵與離開、改名體驗修正",
+    highlights: [
+      "/game 支援更多按鍵（方向鍵、Enter、Tab、PageUp/Down 以及各種字元鍵），玩起來更順。",
+      "遊戲中按 q 可以一次離開，不用再按兩下；旁觀時按 q 也能正常退出。",
+      "改名後立刻看到自己的新名字，斷線重連時若你正在玩遊戲會自動回到遊戲畫面。",
+    ],
+  },
+  {
     version: "0.1.30",
     date: "2026-06-02",
     title: "/game 穩定性修正",
