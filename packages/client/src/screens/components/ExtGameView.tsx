@@ -14,22 +14,41 @@ export function ExtGameView({ onQuit }: Props): React.JSX.Element {
   const send = useStore((s) => s.extGameSend);
 
   useInput((input, key) => {
-    if (input === "q" || key.escape) { onQuit(); return; }
-    if (over || view?.role !== "driver") return;
+    if (over) {
+      if (input === "q" || key.escape) onQuit();
+      return;
+    }
+    if (view?.role !== "driver") return;
 
+    // q exits via the backend's quit mechanism so the session is cleaned up.
+    if (input === "q") {
+      send?.({ type: "ext.game.input", key: "quit" });
+      return;
+    }
+
+    // Special keys are translated to the API names; everything else (all
+    // printable chars) goes through as-is, so new games never need a frontend
+    // change just to add a new letter/symbol key.
     let gameKey: string | null = null;
     if (key.upArrow) gameKey = "up";
     else if (key.downArrow) gameKey = "down";
     else if (key.leftArrow) gameKey = "left";
     else if (key.rightArrow) gameKey = "right";
     else if (key.return) gameKey = "enter";
+    else if (key.escape) gameKey = "escape";
     else if (key.backspace) gameKey = "backspace";
+    else if (key.delete) gameKey = "delete";
+    else if (key.tab) gameKey = "tab";
+    else if (key.pageUp) gameKey = "pageup";
+    else if (key.pageDown) gameKey = "pagedown";
     else if (input) gameKey = input;
 
     if (gameKey) send?.({ type: "ext.game.input", key: gameKey });
   });
 
   const tag = view?.role === "driver" ? "你在玩" : "旁觀中";
+  // Split on \n but keep the raw line content so ANSI SGR colour codes inside
+  // each line are written through to the terminal by Ink unchanged.
   const lines = frame ? frame.split("\n") : null;
 
   return (
