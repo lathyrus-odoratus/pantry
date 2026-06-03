@@ -31,6 +31,12 @@ export async function handleNick(
   const updated = await deps.users.renameWithDiscriminatorRetry(conn.userId, result.value);
   deps.registry.rename(conn.id, updated.nickname, updated.discriminator);
 
+  send(conn, {
+    type: "nick.ok",
+    nickname: updated.nickname,
+    discriminator: updated.discriminator,
+  });
+
   const newLabel = `${updated.nickname}#${updated.discriminator}`;
   const renameBody = `${oldLabel} → ${newLabel}`;
   const sys: ServerMessage = {
