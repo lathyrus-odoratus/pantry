@@ -272,6 +272,12 @@ export const ErrorSchema = z.object({
   message: z.string().optional(),
 });
 
+export const NickOkSchema = z.object({
+  type: z.literal("nick.ok"),
+  nickname: z.string(),
+  discriminator: z.string().length(4),
+});
+
 export const WorldStateSchema = z.object({
   type: z.literal("world.state"),
   active: z.boolean(),
@@ -430,6 +436,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   PresenceSchema,
   HistoryResponseSchema,
   ErrorSchema,
+  NickOkSchema,
   WorldStateSchema,
   AdminAuthOkSchema,
   AdminRoomsSchema,
@@ -462,6 +469,7 @@ export type CabombStarted = z.infer<typeof CabombStartedSchema>;
 export type CabombStateMsg = z.infer<typeof CabombStateSchema>;
 export type CabombOver = z.infer<typeof CabombOverSchema>;
 export type CabombPong = z.infer<typeof CabombPongSchema>;
+export type NickOk = z.infer<typeof NickOkSchema>;
 export type ExtGameInfo = z.infer<typeof ExtGameInfoSchema>;
 export type ExtGames = z.infer<typeof ExtGamesSchema>;
 export type ExtGameStarted = z.infer<typeof ExtGameStartedSchema>;

@@ -170,8 +170,10 @@ describe("backend integration flow", () => {
     expect(received.data.body).toBe("hello");
     expect(received.data.author.nickname).toBe("Alice");
 
-    // Alice renames; Bob should see a system message and a presence update
+    // Alice renames; she should get nick.ok, Bob should see system + presence
     alice.send({ type: "nick.change", newNickname: "Alicia" });
+    const nickOk = await alice.next("nick.ok");
+    expect(nickOk.nickname).toBe("Alicia");
     const sys = await bob.next("system");
     expect(sys.body).toMatch(/Alice/);
     expect(sys.body).toMatch(/Alicia/);

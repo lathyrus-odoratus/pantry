@@ -89,4 +89,21 @@ describe("store", () => {
     useStore.getState().setChangelogIndex(5);
     expect(useStore.getState().changelogIndex).toBe(5);
   });
+
+  it("renameSelf updates authedUser nickname and discriminator", () => {
+    useStore.setState({
+      authedUser: { id: "u-1", nickname: "Alice", discriminator: "ab12" },
+    });
+    useStore.getState().renameSelf("Alicia", "cd34");
+    expect(useStore.getState().authedUser).toEqual({
+      id: "u-1",
+      nickname: "Alicia",
+      discriminator: "cd34",
+    });
+  });
+
+  it("renameSelf is a no-op when authedUser is null", () => {
+    useStore.getState().renameSelf("Anyone", "0000");
+    expect(useStore.getState().authedUser).toBeNull();
+  });
 });
