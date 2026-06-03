@@ -101,6 +101,27 @@ describe("ExtGameView key handling", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("spectator can quit with q", async () => {
+    useStore.setState({ extGameView: { role: "spectator" } });
+    const onQuit = vi.fn();
+    const { stdin } = render(<ExtGameView onQuit={onQuit} />);
+    await flush();
+    stdin.write("q");
+    await flush();
+    expect(onQuit).toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("spectator can quit with escape", async () => {
+    useStore.setState({ extGameView: { role: "spectator" } });
+    const onQuit = vi.fn();
+    const { stdin } = render(<ExtGameView onQuit={onQuit} />);
+    await flush();
+    stdin.write("\x1b");
+    await flush();
+    expect(onQuit).toHaveBeenCalled();
+  });
+
   it("q calls onQuit after game over, not send", async () => {
     useStore.setState({ extGameOver: { result: "win" } });
     const onQuit = vi.fn();

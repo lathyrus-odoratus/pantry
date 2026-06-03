@@ -18,7 +18,10 @@ export function ExtGameView({ onQuit }: Props): React.JSX.Element {
       if (input === "q" || key.escape) onQuit();
       return;
     }
-    if (view?.role !== "driver") return;
+    if (view?.role !== "driver") {
+      if (input === "q" || key.escape) onQuit();
+      return;
+    }
 
     // q exits immediately; onQuit (→ onExtGameQuit in Chat) sends "quit" to
     // the backend for session cleanup and calls exitExtGame.
