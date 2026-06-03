@@ -83,14 +83,15 @@ describe("ExtGameView key handling", () => {
     expect(send).toHaveBeenCalledWith({ type: "ext.game.input", key: "right" });
   });
 
-  it("q sends quit to backend during active game", async () => {
+  it("q calls onQuit immediately during active game (onQuit sends quit to backend)", async () => {
     const onQuit = vi.fn();
     const { stdin } = render(<ExtGameView onQuit={onQuit} />);
     await flush();
     stdin.write("q");
     await flush();
-    expect(send).toHaveBeenCalledWith({ type: "ext.game.input", key: "quit" });
-    expect(onQuit).not.toHaveBeenCalled();
+    expect(onQuit).toHaveBeenCalled();
+    // ExtGameView does not call send directly for q — that's onExtGameQuit's job
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("does not forward keys when spectator", async () => {

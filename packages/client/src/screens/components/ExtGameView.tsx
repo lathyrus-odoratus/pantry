@@ -20,11 +20,9 @@ export function ExtGameView({ onQuit }: Props): React.JSX.Element {
     }
     if (view?.role !== "driver") return;
 
-    // q exits via the backend's quit mechanism so the session is cleaned up.
-    if (input === "q") {
-      send?.({ type: "ext.game.input", key: "quit" });
-      return;
-    }
+    // q exits immediately; onQuit (→ onExtGameQuit in Chat) sends "quit" to
+    // the backend for session cleanup and calls exitExtGame.
+    if (input === "q") { onQuit(); return; }
 
     // Special keys are translated to the API names; everything else (all
     // printable chars) goes through as-is, so new games never need a frontend
