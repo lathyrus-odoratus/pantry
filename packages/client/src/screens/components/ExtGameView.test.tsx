@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import React from "react";
 import { render } from "ink-testing-library";
 import { ExtGameView } from "./ExtGameView.js";
 import { useStore } from "../../store.js";
-import type { ClientMessage } from "@pantry/shared";
 
 async function flush() {
   await new Promise((r) => setImmediate(r));
@@ -11,7 +9,7 @@ async function flush() {
 }
 
 describe("ExtGameView key handling", () => {
-  let send: (msg: ClientMessage) => void;
+  let send: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     useStore.getState().reset();
