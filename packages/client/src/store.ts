@@ -15,6 +15,7 @@ import { DEFAULT_PREFS, savePrefs, type Prefs } from "./prefs.js";
 export type Screen =
   | "room_input"
   | "identity_select"
+  | "identity_confirm"
   | "nickname_input"
   | "oauth_waiting"
   | "chat"

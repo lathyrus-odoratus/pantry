@@ -6,11 +6,20 @@ export const AuthorSchema = z.object({
 });
 export type Author = z.infer<typeof AuthorSchema>;
 
+export const ReplyToSchema = z.object({
+  id: z.string().uuid(),
+  body: z.string().min(1).max(2000),
+  createdAt: z.string().datetime({ offset: true }),
+  author: AuthorSchema,
+});
+export type ReplyTo = z.infer<typeof ReplyToSchema>;
+
 export const MessageSchema = z.object({
   id: z.string().uuid(),
   body: z.string().min(1).max(2000),
   createdAt: z.string().datetime({ offset: true }),
   author: AuthorSchema,
+  replyTo: ReplyToSchema.optional(),
 });
 export type Message = z.infer<typeof MessageSchema>;
 

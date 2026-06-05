@@ -30,6 +30,7 @@ export const AuthOAuthSchema = z.object({
 export const MessageSendSchema = z.object({
   type: z.literal("message.send"),
   body: z.string().min(1).max(2000),
+  replyToMessageId: z.string().uuid().optional(),
 });
 
 export const NickChangeSchema = z.object({

@@ -60,6 +60,18 @@ function parseMentionSegments(
 const NPC_NICKNAME = "灰袍旅人";
 const NPC_EMOJI = "🌫";
 const PLAYER_WORLD_EMOJI = "🎲";
+const QUOTE_PREVIEW_MAX = 120;
+
+function isChatMessage(m: Message): boolean {
+  return m.author.discriminator !== "sys";
+}
+
+function truncateInline(text: string): string {
+  const oneLine = text.replace(/\s+/g, " ").trim();
+  return oneLine.length <= QUOTE_PREVIEW_MAX
+    ? oneLine
+    : `${oneLine.slice(0, QUOTE_PREVIEW_MAX - 1)}…`;
+}
 
 function MessageRow({ m }: { m: Message }): React.JSX.Element {
   // Static items render exactly once; resolve store state at that moment via
@@ -85,6 +97,8 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
     );
   }
   const label = `${m.author.nickname}#${m.author.discriminator}`;
+  const shortCode =
+    snapshot.messages.filter(isChatMessage).findIndex((item) => item.id === m.id) + 1;
   const author = snapshot.onlineUsers.find(
     (u) =>
       u.nickname === m.author.nickname &&
@@ -107,8 +121,17 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
   const maps = findMaps(m.body);
   return (
     <Box flexDirection="column" marginTop={padding} marginBottom={marginBottom + (isNpc ? 1 : 0)}>
+      {m.replyTo ? (
+        <Box>
+          <Text dimColor>
+            ↳ {m.replyTo.author.nickname}#{m.replyTo.author.discriminator}:{" "}
+            {truncateInline(m.replyTo.body)}
+          </Text>
+        </Box>
+      ) : null}
       <Box>
         {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
+        {shortCode > 0 ? <Text dimColor>[{shortCode}] </Text> : null}
         <Text color={color} bold>
           {label}
         </Text>
@@ -412,6 +435,26 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   const onSend = useCallback((body: string) => {
     transportRef.current?.send({ type: "message.send", body });
   }, []);
+  const addLocalSystem = useCallback((body: string) => {
+    addMessage({
+      id: `local-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
+      body,
+      createdAt: new Date().toISOString(),
+      author: { nickname: "·", discriminator: "sys" },
+    });
+  }, [addMessage]);
+  const onReply = useCallback((shortCode: number, body: string) => {
+    const target = useStore.getState().messages.filter(isChatMessage)[shortCode - 1];
+    if (!target) {
+      addLocalSystem(`── 找不到可引用的訊息編號 [${shortCode}] ──`);
+      return;
+    }
+    transportRef.current?.send({
+      type: "message.send",
+      body,
+      replyToMessageId: target.id,
+    });
+  }, [addLocalSystem]);
   const onNick = useCallback((newNickname: string) => {
     transportRef.current?.send({ type: "nick.change", newNickname });
   }, []);
@@ -554,6 +597,8 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
             {currentGame ? <GameSpectate game={currentGame} /> : null}
             <InputBar
               onSend={onSend}
+              onReply={onReply}
+              onError={(message) => addLocalSystem(`── ${message} ──`)}
               onNick={onNick}
               onColor={onColor}
               onChangelog={openChangelog}

@@ -20,9 +20,16 @@ const MAX_DISCORD_CONTENT = 2000;
 export function formatChat(
   author: { nickname: string; discriminator: string },
   body: string,
+  replyTo?: {
+    author: { nickname: string; discriminator: string };
+    body: string;
+  },
 ): string {
   const label = `**${author.nickname}#${author.discriminator}**`;
-  const content = `${label}: ${body}`;
+  const quoted = replyTo
+    ? `> ${replyTo.author.nickname}#${replyTo.author.discriminator}: ${replyTo.body.replace(/\n/g, "\n> ")}\n`
+    : "";
+  const content = `${quoted}${label}: ${body}`;
   return content.length <= MAX_DISCORD_CONTENT
     ? content
     : `${content.slice(0, MAX_DISCORD_CONTENT - 1)}…`;

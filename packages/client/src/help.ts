@@ -4,6 +4,7 @@ export const HELP_TEXT = [
   "/changelog       What's new (per-version notes, [/] flips pages, q closes)",
   "/settings        Open settings panel",
   "/nick <name>     Change your nickname",
+  "/reply <number> <message>   Reply to a numbered chat message",
   "/color <hex>     Set your nick color, e.g. /color ff6b6b (# optional)",
   "/color reset     Clear nick color",
   "/the-world       Open a TRPG world in this room (one global at a time)",
