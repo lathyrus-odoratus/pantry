@@ -14,7 +14,7 @@ import { ErrorScreen } from "./screens/ErrorScreen.js";
 
 const config = loadConfig();
 
-export function App(): React.JSX.Element {
+export function App(): React.JSX.Element | null {
   const screen = useStore((s) => s.screen);
   const cabombView = useStore((s) => s.cabombView);
   switch (screen) {
@@ -42,4 +42,5 @@ export function App(): React.JSX.Element {
     case "error":
       return <ErrorScreen />;
   }
+  return null;
 }
