@@ -42,5 +42,4 @@ export function App(): React.JSX.Element | null {
     case "error":
       return <ErrorScreen />;
   }
-  return null;
 }
