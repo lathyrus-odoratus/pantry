@@ -7,18 +7,18 @@ type Props = {
   onSend: (body: string) => void;
   onReply?: (shortCode: number, body: string) => void;
   onError?: (message: string) => void;
-  onNick?: (newNickname: string) => void;
-  onColor?: (color: string | null) => void;
-  onChangelog?: () => void;
-  onSettings?: () => void;
-  onHelp?: () => void;
-  onWorldOpen?: () => void;
-  onDiceRoll?: () => void;
-  onFontScale?: (scale: FontScale) => void;
-  onGameStart?: () => void;
-  onCabomb?: () => void;
-  onWatch?: (mono: boolean) => void;
-  onExtGame?: () => void;
+  onNick: (newNickname: string) => void;
+  onColor: (color: string | null) => void;
+  onChangelog: () => void;
+  onSettings: () => void;
+  onHelp: () => void;
+  onWorldOpen: () => void;
+  onDiceRoll: () => void;
+  onFontScale: (scale: FontScale) => void;
+  onGameStart: () => void;
+  onCabomb: () => void;
+  onWatch: (mono: boolean) => void;
+  onExtGame: () => void;
 };
 
 const FONT_SCALES: FontScale[] = ["normal", "medium", "large"];
@@ -29,18 +29,18 @@ export function InputBar({
   onSend,
   onReply = () => {},
   onError = () => {},
-  onNick = () => {},
-  onColor = () => {},
-  onChangelog = () => {},
-  onSettings = () => {},
-  onHelp = () => {},
-  onWorldOpen = () => {},
-  onDiceRoll = () => {},
-  onFontScale = () => {},
-  onGameStart = () => {},
-  onCabomb = () => {},
-  onWatch = () => {},
-  onExtGame = () => {},
+  onNick,
+  onColor,
+  onChangelog,
+  onSettings,
+  onHelp,
+  onWorldOpen,
+  onDiceRoll,
+  onFontScale,
+  onGameStart,
+  onCabomb,
+  onWatch,
+  onExtGame,
 }: Props): React.JSX.Element {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
