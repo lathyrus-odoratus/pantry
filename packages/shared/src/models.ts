@@ -7,7 +7,7 @@ export const AuthorSchema = z.object({
 export type Author = z.infer<typeof AuthorSchema>;
 
 export const ReplyToSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().uuid().nullable(),
   body: z.string().min(1).max(2000),
   createdAt: z.string().datetime({ offset: true }),
   author: AuthorSchema,

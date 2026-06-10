@@ -29,10 +29,9 @@ function rowToMessage(r: MessageRow): Message {
     },
   };
   if (
-    r.reply_to_message_id &&
+    r.reply_to_body &&
     r.reply_to_author_nickname &&
     r.reply_to_author_discriminator &&
-    r.reply_to_body &&
     r.reply_to_created_at
   ) {
     message.replyTo = {
