@@ -9,6 +9,15 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.32",
+    date: "2026-06-24",
+    title: "遊戲排行榜",
+    highlights: [
+      "在 /game 選單中，標有 🏆 的遊戲可按 l 查看前 10 名排行榜。",
+      "完成一局後，排行榜會顯示你正確的玩家名稱，不再是「匿名」。",
+    ],
+  },
+  {
     version: "0.1.31",
     date: "2026-06-03",
     title: "/game 按鍵與離開、改名體驗修正",
