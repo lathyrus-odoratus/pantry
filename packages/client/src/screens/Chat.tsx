@@ -12,6 +12,7 @@ import { GameView } from "./components/GameView.js";
 import { GameSpectate } from "./components/GameSpectate.js";
 import { ExtGameSelect } from "./components/ExtGameSelect.js";
 import { ExtGameView } from "./components/ExtGameView.js";
+import { ExtGameLeaderboardView } from "./components/ExtGameLeaderboard.js";
 import { CHANGELOG } from "../changelog.js";
 import { HELP_TEXT } from "../help.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
@@ -160,6 +161,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   const extGameActive = useStore((s) => s.extGameActive);
   const extGameSelecting = useStore((s) => s.extGameSelecting);
   const extGames = useStore((s) => s.extGames);
+  const extGameLeaderboard = useStore((s) => s.extGameLeaderboard);
   const setError = useStore((s) => s.setError);
 
   const transportRef = useRef<TransportClient | null>(null);
@@ -335,6 +337,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
               });
             }
             useStore.getState().cancelExtGameSelect();
+            useStore.getState().setExtGameLeaderboard(null);
             // Only force-exit if this user was actually in the game view.
             // Calling exitExtGame unconditionally would clear extGameActive for
             // bystanders who got an already_active/api_error on a start attempt,
@@ -344,6 +347,9 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
             }
             break;
           }
+          case "ext.game.leaderboard":
+            useStore.getState().setExtGameLeaderboard(m);
+            break;
           case "cabomb.over": {
             useStore.getState().setCabombResult(m);
             useStore.getState().setCabombActive(null);
@@ -459,6 +465,9 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
     useStore.getState().startExtGameSelect();
     transportRef.current?.send({ type: "ext.game.list" });
   }, []);
+  const onExtGameLeaderboard = useCallback((gameId: string) => {
+    transportRef.current?.send({ type: "ext.game.leaderboard", gameId });
+  }, []);
 
   const worldActive = useStore((s) => s.worldActive);
   const worldCreditUsed = useStore((s) => s.worldCreditUsed);
@@ -494,6 +503,9 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
     useStore.getState().extGameSend?.({ type: "ext.game.input", key: "quit" });
     useStore.getState().exitExtGame();
   };
+  const onLeaderboardClose = () => {
+    useStore.getState().setExtGameLeaderboard(null);
+  };
 
   // Messages are rendered via <Static>: each item writes to terminal
   // scrollback exactly once, then is never redrawn. This keeps the live
@@ -520,11 +532,14 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
         </Box>
         {extGameView ? (
           <ExtGameView onQuit={onExtGameQuit} />
+        ) : extGameLeaderboard ? (
+          <ExtGameLeaderboardView data={extGameLeaderboard} onClose={onLeaderboardClose} />
         ) : extGameSelecting ? (
           <ExtGameSelect
             games={extGames}
             onSelect={onExtGameSelect}
             onCancel={() => useStore.getState().cancelExtGameSelect()}
+            onLeaderboard={onExtGameLeaderboard}
           />
         ) : currentGame && authedUser &&
         currentGame.playerNickname === authedUser.nickname &&

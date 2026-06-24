@@ -18,7 +18,7 @@ import * as api from "./api.js";
 import * as broadcast from "../ws/broadcast.js";
 
 const BASE = "http://game-svc";
-const GAME_LIST = [{ id: "game-1", title: "Test Game", description: "A test game" }];
+const GAME_LIST = [{ id: "game-1", title: "Test Game", description: "A test game", hasLeaderboard: false }];
 const SESSION = { sessionId: "sess-1", frame: "init-frame", tick: 0 };
 
 let roomSeq = 0;

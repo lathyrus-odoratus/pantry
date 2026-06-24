@@ -40,24 +40,24 @@ describe("startSession", () => {
   it("returns session on 200", async () => {
     const session = { sessionId: "s1", frame: "init", tick: 0 };
     mockFetch(200, session);
-    expect(await startSession(BASE, "g1")).toEqual(session);
+    expect(await startSession(BASE, "g1", "player")).toEqual(session);
   });
 
   it("returns null on 404", async () => {
     mockFetch(404, null);
-    expect(await startSession(BASE, "g1")).toBeNull();
+    expect(await startSession(BASE, "g1", "player")).toBeNull();
   });
 
   it("throws on non-2xx non-404", async () => {
     mockFetch(503, null);
-    await expect(startSession(BASE, "g1")).rejects.toThrow("HTTP 503");
+    await expect(startSession(BASE, "g1", "player")).rejects.toThrow("HTTP 503");
   });
 
   it("encodes gameId in URL", async () => {
     const session = { sessionId: "s1", frame: "init", tick: 0 };
     const fetch = vi.fn().mockResolvedValue({ status: 200, ok: true, json: () => Promise.resolve(session) });
     vi.stubGlobal("fetch", fetch);
-    await startSession(BASE, "my game/1");
+    await startSession(BASE, "my game/1", "player");
     expect((fetch.mock.calls[0] as unknown[])[0]).toContain(encodeURIComponent("my game/1"));
   });
 });
