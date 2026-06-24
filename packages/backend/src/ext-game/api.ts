@@ -22,9 +22,12 @@ export async function listGames(baseUrl: string): Promise<ExtGameInfo[]> {
 export async function startSession(
   baseUrl: string,
   gameId: string,
+  nickname: string,
 ): Promise<SessionStarted | null> {
   return fetchJson<SessionStarted>(`${baseUrl}/games/${encodeURIComponent(gameId)}/sessions`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nickname }),
   });
 }
 
@@ -50,4 +53,28 @@ export async function getFrame(
   return fetchJson<FrameResult>(
     `${baseUrl}/sessions/${encodeURIComponent(sessionId)}/frame`,
   );
+}
+
+export type LeaderboardResult = {
+  gameId: string;
+  metric: string;
+  lowerIsBetter: boolean;
+  label: string;
+  entries: Array<{
+    rank: number;
+    nickname: string;
+    value: number;
+    difficulty: string | null;
+    createdAt: string;
+  }>;
+};
+
+export async function getLeaderboard(
+  baseUrl: string,
+  gameId: string,
+  difficulty?: string,
+): Promise<LeaderboardResult | null> {
+  const url = new URL(`${baseUrl}/games/${encodeURIComponent(gameId)}/leaderboard`);
+  if (difficulty) url.searchParams.set("difficulty", difficulty);
+  return fetchJson<LeaderboardResult>(url.toString());
 }

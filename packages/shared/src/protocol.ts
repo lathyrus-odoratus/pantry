@@ -136,6 +136,11 @@ export const ExtGameInputSchema = z.object({
 });
 export const ExtGameWatchSchema = z.object({ type: z.literal("ext.game.watch") });
 export const ExtGameLeaveSchema = z.object({ type: z.literal("ext.game.leave") });
+export const ExtGameLeaderboardReqSchema = z.object({
+  type: z.literal("ext.game.leaderboard"),
+  gameId: z.string().min(1),
+  difficulty: z.string().optional(),
+});
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   AuthAnonSchema,
@@ -164,6 +169,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   ExtGameInputSchema,
   ExtGameWatchSchema,
   ExtGameLeaveSchema,
+  ExtGameLeaderboardReqSchema,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
@@ -397,6 +403,7 @@ const ExtGameInfoSchema = z.object({
   id: z.string(),
   title: z.string(),
   description: z.string(),
+  hasLeaderboard: z.boolean(),
 });
 export const ExtGamesSchema = z.object({
   type: z.literal("ext.games"),
@@ -426,6 +433,21 @@ export const ExtGameErrorSchema = z.object({
   type: z.literal("ext.game.error"),
   reason: z.enum(["already_active", "game_not_found", "api_error", "not_driver", "no_game"]),
 });
+const ExtGameLeaderboardEntrySchema = z.object({
+  rank: z.number().int(),
+  nickname: z.string(),
+  value: z.number(),
+  difficulty: z.string().nullable(),
+  createdAt: z.string(),
+});
+export const ExtGameLeaderboardSchema = z.object({
+  type: z.literal("ext.game.leaderboard"),
+  gameId: z.string(),
+  metric: z.string(),
+  lowerIsBetter: z.boolean(),
+  label: z.string(),
+  entries: z.array(ExtGameLeaderboardEntrySchema),
+});
 
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   AuthOkSchema,
@@ -454,6 +476,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   ExtGameFrameSchema,
   ExtGameOverSchema,
   ExtGameErrorSchema,
+  ExtGameLeaderboardSchema,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
 export type WorldState = z.infer<typeof WorldStateSchema>;
@@ -476,3 +499,5 @@ export type ExtGameStarted = z.infer<typeof ExtGameStartedSchema>;
 export type ExtGameFrame = z.infer<typeof ExtGameFrameSchema>;
 export type ExtGameOver = z.infer<typeof ExtGameOverSchema>;
 export type ExtGameError = z.infer<typeof ExtGameErrorSchema>;
+export type ExtGameLeaderboard = z.infer<typeof ExtGameLeaderboardSchema>;
+export type ExtGameLeaderboardReq = z.infer<typeof ExtGameLeaderboardReqSchema>;

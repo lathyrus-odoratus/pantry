@@ -40,6 +40,7 @@ import {
   handleExtGameInput,
   handleExtGameWatch,
   handleExtGameLeave,
+  handleExtGameLeaderboard,
 } from "./handlers/ext-game.js";
 import { extGameOnDisconnect } from "../ext-game/manager.js";
 import {
@@ -272,6 +273,9 @@ export function attachWebSocketServer(
             break;
           case "ext.game.leave":
             handleExtGameLeave(conn);
+            break;
+          case "ext.game.leaderboard":
+            await handleExtGameLeaderboard(conn, parsed, deps.config.gameServiceUrl);
             break;
           case "auth.anon":
           case "auth.oauth":

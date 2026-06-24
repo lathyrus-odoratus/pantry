@@ -1,5 +1,5 @@
 import type { ExtGameInfo, ServerMessage } from "@pantry/shared";
-import { listGames, startSession, sendInput, getFrame } from "./api.js";
+import { listGames, startSession, sendInput, getFrame, getLeaderboard } from "./api.js";
 import { broadcastToRoom, send } from "../ws/broadcast.js";
 import type { AuthedConnection, ConnectionRegistry } from "../ws/connection-registry.js";
 import { isCabombActive } from "../cabomb/manager.js";
@@ -88,7 +88,7 @@ export async function startExtGame(
 
   let session;
   try {
-    session = await startSession(baseUrl, gameId);
+    session = await startSession(baseUrl, gameId, nameOf(conn));
   } catch (err) {
     logger.error({ err, gameId }, "ext game start failed");
     return "api_error";
@@ -231,4 +231,12 @@ export function extGameOnDisconnect(
   if (!g) return;
   if (g.driver.id === conn.id) endExtGame(conn.roomId, "quit", registry);
   else g.spectators.delete(conn.id);
+}
+
+export async function getExtGameLeaderboard(
+  baseUrl: string,
+  gameId: string,
+  difficulty?: string,
+) {
+  return getLeaderboard(baseUrl, gameId, difficulty);
 }

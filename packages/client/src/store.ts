@@ -8,6 +8,7 @@ import type {
   CabombOver,
   ClientMessage,
   ExtGameInfo,
+  ExtGameLeaderboard,
 } from "@pantry/shared";
 import type { DisconnectDetail } from "./transport/client.js";
 import { DEFAULT_PREFS, savePrefs, type Prefs } from "./prefs.js";
@@ -119,6 +120,7 @@ export type Store = {
   extGameFrame: string | null;
   extGameOver: { result: string } | null;
   extGameSend: ((msg: ClientMessage) => void) | null;
+  extGameLeaderboard: ExtGameLeaderboard | null;
 
   // Actions
   setScreen: (s: Screen) => void;
@@ -169,6 +171,7 @@ export type Store = {
   setExtGameOver: (v: { result: string }) => void;
   exitExtGame: () => void;
   setExtGameSend: (fn: ((msg: ClientMessage) => void) | null) => void;
+  setExtGameLeaderboard: (data: ExtGameLeaderboard | null) => void;
   reset: () => void;
 };
 
@@ -214,6 +217,7 @@ const initial: Omit<
   | "setExtGameOver"
   | "exitExtGame"
   | "setExtGameSend"
+  | "setExtGameLeaderboard"
   | "reset"
 > = {
   screen: "room_input",
@@ -254,6 +258,7 @@ const initial: Omit<
   extGameFrame: null,
   extGameOver: null,
   extGameSend: null,
+  extGameLeaderboard: null,
 };
 
 export const useStore = create<Store>((set) => ({
@@ -367,6 +372,7 @@ export const useStore = create<Store>((set) => ({
       extGameActive: null,
     }),
   setExtGameSend: (extGameSend) => set({ extGameSend }),
+  setExtGameLeaderboard: (extGameLeaderboard) => set({ extGameLeaderboard }),
 
   setError: (errorMessage) => set({ errorMessage, screen: "error" }),
 
