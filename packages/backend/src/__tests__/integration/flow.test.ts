@@ -169,6 +169,30 @@ describe("backend integration flow", () => {
     const received = await bob.next("message");
     expect(received.data.body).toBe("hello");
     expect(received.data.author.nickname).toBe("Alice");
+    await alice.next("message");
+    await new Promise((r) => setTimeout(r, 50));
+
+    bob.send({
+      type: "message.send",
+      body: "replying",
+      replyToMessageId: received.data.id,
+    });
+    const reply = await alice.next("message");
+    expect(reply.data.body).toBe("replying");
+    expect(reply.data.replyTo).toEqual({
+      id: received.data.id,
+      body: "hello",
+      createdAt: received.data.createdAt,
+      author: received.data.author,
+    });
+
+    bob.send({
+      type: "message.send",
+      body: "bad reply",
+      replyToMessageId: "00000000-0000-0000-0000-000000000099",
+    });
+    const replyErr = await bob.next("error");
+    expect(replyErr.code).toBe("reply_target_not_found");
 
     // Alice renames; she should get nick.ok, Bob should see system + presence
     alice.send({ type: "nick.change", newNickname: "Alicia" });

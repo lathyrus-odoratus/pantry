@@ -50,6 +50,36 @@ describe("InputBar", () => {
     expect(onNick).toHaveBeenCalledWith("Alicia");
   });
 
+  it("calls onReply when input starts with /reply", async () => {
+    const onReply = vi.fn();
+    const { stdin } = render(
+      <InputBar
+        onSend={() => {}}
+        onReply={onReply}
+      />,
+    );
+    await flush();
+    stdin.write("/reply 12 hello back");
+    stdin.write("\r");
+    await flush();
+    expect(onReply).toHaveBeenCalledWith(12, "hello back");
+  });
+
+  it("calls onError for malformed /reply", async () => {
+    const onError = vi.fn();
+    const { stdin } = render(
+      <InputBar
+        onSend={() => {}}
+        onError={onError}
+      />,
+    );
+    await flush();
+    stdin.write("/reply nope");
+    stdin.write("\r");
+    await flush();
+    expect(onError).toHaveBeenCalledWith("用法：/reply <number> <message>");
+  });
+
   it("ignores empty submissions", async () => {
     const onSend = vi.fn();
     const { stdin } = render(

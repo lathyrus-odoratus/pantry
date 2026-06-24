@@ -23,15 +23,36 @@ export async function handleSend(
   raw: MessageSend,
   deps: SendDeps,
 ): Promise<void> {
+  const target = raw.replyToMessageId
+    ? await deps.messages.findInRoom(raw.replyToMessageId, conn.roomId)
+    : null;
+  if (raw.replyToMessageId && !target) {
+    send(conn, {
+      type: "error",
+      code: "reply_target_not_found",
+      message: "Quoted message was not found in this room.",
+    });
+    return;
+  }
+  const replyTo = target
+    ? {
+        id: target.id,
+        body: target.body,
+        createdAt: target.createdAt,
+        author: target.author,
+      }
+    : undefined;
+
   const message: Message = {
     id: randomUUID(),
     body: raw.body,
     createdAt: new Date().toISOString(),
     author: { nickname: conn.nickname, discriminator: conn.discriminator },
+    ...(replyTo ? { replyTo } : {}),
   };
   const out: ServerMessage = { type: "message", data: message };
   broadcastToRoom(deps.registry, conn.roomId, out);
-  notify(conn.webhook, formatChat(message.author, message.body));
+  notify(conn.webhook, formatChat(message.author, message.body, message.replyTo));
 
   // If a world is active in this room and this is a real player (not the
   // virtual NPC), feed the message to the brain. The brain handles its own
@@ -76,6 +97,7 @@ export async function handleSend(
         authorDiscriminator: conn.discriminator,
         body: message.body,
         createdAt: message.createdAt,
+        replyTo: message.replyTo,
       });
       return;
     } catch (err) {

@@ -83,6 +83,60 @@ describe("forward-compat: optional version fields", () => {
   });
 });
 
+describe("forward-compat: optional message replies", () => {
+  const replyTo = {
+    id: "00000000-0000-0000-0000-000000000002",
+    body: "original",
+    createdAt: "2026-05-12T17:49:11.979Z",
+    author: { nickname: "bob", discriminator: "1234" },
+  };
+
+  it("parses message.send WITHOUT replyToMessageId", () => {
+    const result = ClientMessageSchema.parse({
+      type: "message.send",
+      body: "hello",
+    });
+    expect(result.type).toBe("message.send");
+  });
+
+  it("parses message.send WITH replyToMessageId", () => {
+    const result = ClientMessageSchema.parse({
+      type: "message.send",
+      body: "hello",
+      replyToMessageId: replyTo.id,
+    });
+    expect((result as { replyToMessageId?: string }).replyToMessageId).toBe(replyTo.id);
+  });
+
+  it("parses server message WITHOUT replyTo", () => {
+    const result = ServerMessageSchema.parse({
+      type: "message",
+      data: {
+        id: "00000000-0000-0000-0000-000000000001",
+        body: "hello",
+        createdAt: "2026-05-12T17:50:11.979Z",
+        author: { nickname: "alice", discriminator: "5678" },
+      },
+    });
+    expect(result.type).toBe("message");
+  });
+
+  it("parses server message WITH replyTo", () => {
+    const result = ServerMessageSchema.parse({
+      type: "message",
+      data: {
+        id: "00000000-0000-0000-0000-000000000001",
+        body: "hello",
+        createdAt: "2026-05-12T17:50:11.979Z",
+        author: { nickname: "alice", discriminator: "5678" },
+        replyTo,
+      },
+    }) as Extract<ReturnType<typeof ServerMessageSchema.parse>, { type: "message" }>;
+    expect(result.type).toBe("message");
+    expect(result.data.replyTo?.id).toBe(replyTo.id);
+  });
+});
+
 describe("color.change client message", () => {
   it("accepts uppercase hex with #", () => {
     const r = ClientMessageSchema.parse({ type: "color.change", color: "#FF6B6B" });

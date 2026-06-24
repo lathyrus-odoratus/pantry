@@ -127,10 +127,45 @@ type MessageRow = {
   author_discriminator: string;
   body: string;
   created_at: string;
+  reply_to_message_id: string | null;
+  reply_to_author_nickname: string | null;
+  reply_to_author_discriminator: string | null;
+  reply_to_body: string | null;
+  reply_to_created_at: string | null;
 };
 
 export class FakeMessagesRepo {
   private rows: MessageRow[] = [];
+
+  private rowToMessage(r: MessageRow): Message {
+    const message: Message = {
+      id: r.id,
+      body: r.body,
+      createdAt: r.created_at,
+      author: {
+        nickname: r.author_nickname,
+        discriminator: r.author_discriminator,
+      },
+    };
+    if (
+      r.reply_to_message_id &&
+      r.reply_to_author_nickname &&
+      r.reply_to_author_discriminator &&
+      r.reply_to_body &&
+      r.reply_to_created_at
+    ) {
+      message.replyTo = {
+        id: r.reply_to_message_id,
+        body: r.reply_to_body,
+        createdAt: r.reply_to_created_at,
+        author: {
+          nickname: r.reply_to_author_nickname,
+          discriminator: r.reply_to_author_discriminator,
+        },
+      };
+    }
+    return message;
+  }
 
   async insert(input: {
     id: string;
@@ -140,6 +175,7 @@ export class FakeMessagesRepo {
     authorDiscriminator: string;
     body: string;
     createdAt: string;
+    replyTo?: Message["replyTo"];
   }): Promise<void> {
     this.rows.push({
       id: input.id,
@@ -149,7 +185,17 @@ export class FakeMessagesRepo {
       author_discriminator: input.authorDiscriminator,
       body: input.body,
       created_at: input.createdAt,
+      reply_to_message_id: input.replyTo?.id ?? null,
+      reply_to_author_nickname: input.replyTo?.author.nickname ?? null,
+      reply_to_author_discriminator: input.replyTo?.author.discriminator ?? null,
+      reply_to_body: input.replyTo?.body ?? null,
+      reply_to_created_at: input.replyTo?.createdAt ?? null,
     });
+  }
+
+  async findInRoom(messageId: string, roomId: string): Promise<Message | null> {
+    const row = this.rows.find((r) => r.id === messageId && r.room_id === roomId);
+    return row ? this.rowToMessage(row) : null;
   }
 
   async listRecent(roomId: string, limit = 50): Promise<Message[]> {
@@ -157,14 +203,6 @@ export class FakeMessagesRepo {
       .filter((r) => r.room_id === roomId)
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
       .slice(-limit)
-      .map((r) => ({
-        id: r.id,
-        body: r.body,
-        createdAt: r.created_at,
-        author: {
-          nickname: r.author_nickname,
-          discriminator: r.author_discriminator,
-        },
-      }));
+      .map((r) => this.rowToMessage(r));
   }
 }

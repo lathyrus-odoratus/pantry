@@ -5,6 +5,8 @@ import type { FontScale } from "../../store.js";
 
 type Props = {
   onSend: (body: string) => void;
+  onReply?: (shortCode: number, body: string) => void;
+  onError?: (message: string) => void;
   onNick: (newNickname: string) => void;
   onColor: (color: string | null) => void;
   onChangelog: () => void;
@@ -25,6 +27,8 @@ const HEX_COLOR_RE = /^#?[0-9a-fA-F]{6}$/;
 
 export function InputBar({
   onSend,
+  onReply = () => {},
+  onError = () => {},
   onNick,
   onColor,
   onChangelog,
@@ -56,6 +60,15 @@ export function InputBar({
       const arg = rest.join(" ").trim();
       if (cmd === "nick" && arg) {
         onNick(arg);
+      } else if (cmd === "reply") {
+        const [shortCodeRaw, ...bodyParts] = rest;
+        const shortCode = Number(shortCodeRaw);
+        const body = bodyParts.join(" ").trim();
+        if (Number.isInteger(shortCode) && shortCode > 0 && body) {
+          onReply(shortCode, body);
+        } else {
+          onError("用法：/reply <number> <message>");
+        }
       } else if (cmd === "color") {
         if (!arg || arg === "reset") {
           onColor(null);

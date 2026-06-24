@@ -9,10 +9,15 @@ export type MessageRow = {
   author_discriminator: string;
   body: string;
   created_at: string;
+  reply_to_message_id: string | null;
+  reply_to_author_nickname: string | null;
+  reply_to_author_discriminator: string | null;
+  reply_to_body: string | null;
+  reply_to_created_at: string | null;
 };
 
 function rowToMessage(r: MessageRow): Message {
-  return {
+  const message: Message = {
     id: r.id,
     body: r.body,
     // Postgres timestamptz serializes as "+00:00"; normalize to "Z" so the
@@ -23,6 +28,23 @@ function rowToMessage(r: MessageRow): Message {
       discriminator: r.author_discriminator,
     },
   };
+  if (
+    r.reply_to_body &&
+    r.reply_to_author_nickname &&
+    r.reply_to_author_discriminator &&
+    r.reply_to_created_at
+  ) {
+    message.replyTo = {
+      id: r.reply_to_message_id,
+      body: r.reply_to_body,
+      createdAt: new Date(r.reply_to_created_at).toISOString(),
+      author: {
+        nickname: r.reply_to_author_nickname,
+        discriminator: r.reply_to_author_discriminator,
+      },
+    };
+  }
+  return message;
 }
 
 export class MessagesRepo {
@@ -36,6 +58,7 @@ export class MessagesRepo {
     authorDiscriminator: string;
     body: string;
     createdAt: string;
+    replyTo?: Message["replyTo"];
   }): Promise<void> {
     const { error } = await this.db.from("messages").insert({
       id: input.id,
@@ -45,8 +68,25 @@ export class MessagesRepo {
       author_discriminator: input.authorDiscriminator,
       body: input.body,
       created_at: input.createdAt,
+      reply_to_message_id: input.replyTo?.id ?? null,
+      reply_to_author_nickname: input.replyTo?.author.nickname ?? null,
+      reply_to_author_discriminator: input.replyTo?.author.discriminator ?? null,
+      reply_to_body: input.replyTo?.body ?? null,
+      reply_to_created_at: input.replyTo?.createdAt ?? null,
     });
     if (error) throw error;
+  }
+
+  async findInRoom(messageId: string, roomId: string): Promise<Message | null> {
+    const { data, error } = await this.db
+      .from("messages")
+      .select("*")
+      .eq("id", messageId)
+      .eq("room_id", roomId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return rowToMessage(data as MessageRow);
   }
 
   /**
