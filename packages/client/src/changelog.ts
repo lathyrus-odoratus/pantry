@@ -9,6 +9,15 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.33",
+    date: "2026-06-24",
+    title: "訊息引用／回覆",
+    highlights: [
+      "用 /reply <編號> <訊息> 引用某則訊息回覆；每則訊息前的 [編號] 就是用來指定的對象。",
+      "被引用的訊息會在你的回覆上方顯示一行預覽，原訊息之後被改名或刪除也不影響。",
+    ],
+  },
+  {
     version: "0.1.32",
     date: "2026-06-24",
     title: "遊戲排行榜",
