@@ -145,6 +145,8 @@ The client publishes to npm as `@lathyrus-odoratus/pantry` (scoped, public). `bi
 
 Triggered by pushing a tag matching `client-v*`. Workflow at `.github/workflows/publish-client.yml` runs `pnpm install --frozen-lockfile`, verifies the tag matches `packages/client/package.json#version`, builds (which also typechecks), then `npm publish` from `packages/client/`. Auth via **npm OIDC trusted publishing** — no `NPM_TOKEN` secret. This requires `permissions.id-token: write` on the job, Node ≥ 22.14.0, and npm ≥ 11.5.1 (the workflow runs `npm install -g npm@latest`), plus a matching trusted-publisher entry configured on npmjs.com. pnpm still does install/build (workspace + `@pantry/shared` inlining), but the publish step uses `npm` because pnpm 9 has no OIDC support; npm generates provenance automatically.
 
+**Provenance requires `packages/client/package.json` to have a `repository` field** (`url` + monorepo `directory: "packages/client"`) matching this repo — otherwise the registry rejects the upload with `E422 ... Error verifying sigstore provenance bundle: "repository.url" is ""`. This bit us on the first OIDC release (0.1.34, which had to be re-rolled as 0.1.35): the old `pnpm publish` path carried no provenance so it never checked, and the field had simply never been added. Keep `repository` present on any npm-published package here. (Unrelated but noted: `bin` paths should omit the leading `./`, e.g. `"pantry": "dist/client/src/cli.js"`, to avoid npm publish's bin auto-correct warning.)
+
 Three version constants must be **bumped in lockstep** before tagging, plus one new changelog entry:
 
 1. `packages/client/package.json` — `version`
