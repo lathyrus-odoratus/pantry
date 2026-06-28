@@ -20,6 +20,7 @@ import { saveAnon } from "../auth/anon.js";
 import { linkify } from "../util/links.js";
 import { findMaps } from "../util/mapLinks.js";
 import { MapGrid } from "./components/MapGrid.js";
+import { tint, dimText } from "../theme.js";
 
 type Props = { serverUrl: string };
 
@@ -78,6 +79,7 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
   // Static items render exactly once; resolve store state at that moment via
   // getState() to avoid subscribing (which would defeat Static).
   const snapshot = useStore.getState();
+  const theme = snapshot.prefs.theme;
   const marginBottom = lineHeightToMargin(
     FONT_SCALE_LINE_HEIGHT[snapshot.fontScale],
   );
@@ -90,7 +92,7 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
     return (
       <Box flexDirection="column" marginTop={padding} marginBottom={marginBottom}>
         {m.body.split("\n").map((line, i) => (
-          <Text key={i} dimColor>
+          <Text key={i} {...dimText(theme)}>
             {line}
           </Text>
         ))}
@@ -105,7 +107,7 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
       u.nickname === m.author.nickname &&
       u.discriminator === m.author.discriminator,
   );
-  const color = author?.color ?? hashColor(label);
+  const color = tint(author?.color ?? hashColor(label), theme);
   const isNpc = m.author.nickname === NPC_NICKNAME;
   const prefixEmoji = isNpc
     ? NPC_EMOJI
@@ -124,7 +126,7 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
     <Box flexDirection="column" marginTop={padding} marginBottom={marginBottom + (isNpc ? 1 : 0)}>
       {m.replyTo ? (
         <Box>
-          <Text dimColor>
+          <Text {...dimText(theme)}>
             ↳ {m.replyTo.author.nickname}#{m.replyTo.author.discriminator}:{" "}
             {truncateInline(m.replyTo.body)}
           </Text>
@@ -132,27 +134,27 @@ function MessageRow({ m }: { m: Message }): React.JSX.Element {
       ) : null}
       <Box>
         {prefixEmoji ? <Text>{prefixEmoji} </Text> : null}
-        {shortCode > 0 ? <Text dimColor>[{shortCode}] </Text> : null}
+        {shortCode > 0 ? <Text {...dimText(theme)}>[{shortCode}] </Text> : null}
         <Text color={color} bold>
           {label}
         </Text>
-        <Text dimColor>: </Text>
+        <Text {...dimText(theme)}>: </Text>
         {isMentioned && segments ? (
-          <Text>
+          <Text color={tint(undefined, theme)}>
             {segments.map((seg, i) =>
               seg.isMention ? (
-                <Text key={i} bold inverse color="#F1F5F9">{seg.text}</Text>
+                <Text key={i} bold inverse color={tint("#F1F5F9", theme)}>{seg.text}</Text>
               ) : (
-                <Text key={i} color="white">{seg.text}</Text>
+                <Text key={i} color={tint("white", theme)}>{seg.text}</Text>
               ),
             )}
           </Text>
         ) : (
-          <Text>{linkify(m.body)}</Text>
+          <Text color={tint(undefined, theme)}>{linkify(m.body)}</Text>
         )}
       </Box>
       {maps.map((map, i) => (
-        <MapGrid key={i} map={map} />
+        <MapGrid key={i} map={map} theme={theme} />
       ))}
     </Box>
   );
@@ -527,6 +529,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   const closeSettings = useStore((s) => s.closeSettings);
   const prefs = useStore((s) => s.prefs);
   const setPrefs = useStore((s) => s.setPrefs);
+  const theme = prefs.theme;
 
   const onlineSummary =
     onlineUsers.length === 0
@@ -561,17 +564,17 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
       </Static>
       <Box flexDirection="column">
         <Box>
-          <Text bold>Room: {roomName}</Text>
+          <Text bold color={tint(undefined, theme)}>Room: {roomName}</Text>
           {authedUser ? (
-            <Text dimColor>
+            <Text {...dimText(theme)}>
               {" "}
               (you are {authedUser.nickname}#{authedUser.discriminator})
             </Text>
           ) : null}
         </Box>
         <Box>
-          <Text dimColor>Online ({onlineUsers.length}): </Text>
-          <Text>{onlineSummary}</Text>
+          <Text {...dimText(theme)}>Online ({onlineUsers.length}): </Text>
+          <Text color={tint(undefined, theme)}>{onlineSummary}</Text>
         </Box>
         {extGameView ? (
           <ExtGameView onQuit={onExtGameQuit} />
@@ -594,6 +597,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
             index={changelogIndex}
             onIndexChange={setChangelogIndex}
             onClose={closeChangelog}
+            theme={theme}
           />
         ) : settingsOpen ? (
           <Settings
@@ -607,6 +611,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
               <WorldPanel
                 creditUsed={worldCreditUsed}
                 creditTotal={worldCreditTotal}
+                theme={theme}
               />
             ) : null}
             {currentGame ? <GameSpectate game={currentGame} /> : null}
@@ -626,6 +631,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
               onCabomb={onCabomb}
               onWatch={onWatch}
               onExtGame={onExtGame}
+              theme={theme}
             />
             <StatusBar
               status={status}
@@ -634,6 +640,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
               lastDisconnect={lastDisconnect}
               cabombActive={cabombActive}
               extGameActive={extGameActive}
+              theme={theme}
             />
           </>
         )}

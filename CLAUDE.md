@@ -143,7 +143,7 @@ The client publishes to npm as `@lathyrus-odoratus/pantry` (scoped, public). `bi
 
 ### Client (npm publish via GitHub Actions)
 
-Triggered by pushing a tag matching `client-v*`. Workflow at `.github/workflows/publish-client.yml` runs `pnpm install --frozen-lockfile`, verifies the tag matches `packages/client/package.json#version`, builds (which also typechecks), then `pnpm publish` from `packages/client/`. Auth via `NPM_TOKEN` repo secret.
+Triggered by pushing a tag matching `client-v*`. Workflow at `.github/workflows/publish-client.yml` runs `pnpm install --frozen-lockfile`, verifies the tag matches `packages/client/package.json#version`, builds (which also typechecks), then `npm publish` from `packages/client/`. Auth via **npm OIDC trusted publishing** — no `NPM_TOKEN` secret. This requires `permissions.id-token: write` on the job, Node ≥ 22.14.0, and npm ≥ 11.5.1 (the workflow runs `npm install -g npm@latest`), plus a matching trusted-publisher entry configured on npmjs.com. pnpm still does install/build (workspace + `@pantry/shared` inlining), but the publish step uses `npm` because pnpm 9 has no OIDC support; npm generates provenance automatically.
 
 Three version constants must be **bumped in lockstep** before tagging, plus one new changelog entry:
 

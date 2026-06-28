@@ -1,6 +1,8 @@
 import React from "react";
 import { Box, Text, useInput } from "ink";
 import type { GameState } from "@pantry/shared";
+import { useStore } from "../../store.js";
+import { tint, dimText } from "../../theme.js";
 
 type Props = {
   game: GameState;
@@ -54,6 +56,7 @@ function cellColor(ch: string): string | undefined {
 }
 
 export function GameView({ game, onInput }: Props): React.JSX.Element {
+  const theme = useStore((s) => s.prefs.theme);
   useInput((input, key) => {
     if (input === "w") onInput("w");
     else if (input === "s") onInput("s");
@@ -69,19 +72,19 @@ export function GameView({ game, onInput }: Props): React.JSX.Element {
 
   return (
     <Box flexDirection="column" paddingTop={1}>
-      <Text bold>
+      <Text bold color={tint(undefined, theme)}>
         {game.playerNickname}#{game.playerDiscriminator}{"  "}
-        <Text color="red">{hearts}</Text>
-        <Text dimColor>{lost}</Text>
+        <Text color={tint("red", theme)}>{hearts}</Text>
+        <Text {...dimText(theme)}>{lost}</Text>
       </Text>
       {screen.map((row, y) => (
         <Text key={y}>
           {row.map((ch, x) => (
-            <Text key={x} color={cellColor(ch)}>{ch}</Text>
+            <Text key={x} color={tint(cellColor(ch), theme)}>{ch}</Text>
           ))}
         </Text>
       ))}
-      <Text dimColor>WASD 移動  Space 放炸彈  q 離開</Text>
+      <Text {...dimText(theme)}>WASD 移動  Space 放炸彈  q 離開</Text>
     </Box>
   );
 }

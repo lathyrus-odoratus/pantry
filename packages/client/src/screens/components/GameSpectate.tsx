@@ -1,6 +1,8 @@
 import React from "react";
 import { Box, Text } from "ink";
 import type { GameState } from "@pantry/shared";
+import { useStore } from "../../store.js";
+import { tint, dimText } from "../../theme.js";
 
 type Props = { game: GameState };
 
@@ -32,6 +34,7 @@ function cellColor(ch: string): string | undefined {
 }
 
 export function GameSpectate({ game }: Props): React.JSX.Element {
+  const theme = useStore((s) => s.prefs.theme);
   const screen = game.map.map((row) => [...row]);
   if (game.bomb) {
     if (game.bomb.exploded) {
@@ -52,15 +55,15 @@ export function GameSpectate({ game }: Props): React.JSX.Element {
 
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text bold>
+      <Text bold color={tint(undefined, theme)}>
         🎮 {game.playerNickname}#{game.playerDiscriminator}{" "}
-        <Text color="red">{hearts}</Text>
-        <Text dimColor>{lost}</Text>
+        <Text color={tint("red", theme)}>{hearts}</Text>
+        <Text {...dimText(theme)}>{lost}</Text>
       </Text>
       {screen.map((row, y) => (
         <Text key={y}>
           {row.map((ch, x) => (
-            <Text key={x} color={cellColor(ch)}>{ch}</Text>
+            <Text key={x} color={tint(cellColor(ch), theme)}>{ch}</Text>
           ))}
         </Text>
       ))}

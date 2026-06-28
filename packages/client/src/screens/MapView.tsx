@@ -2,9 +2,11 @@ import React from "react";
 import { Box, Text, useApp, useInput } from "ink";
 import { useStore } from "../store.js";
 import { MapGrid } from "./components/MapGrid.js";
+import { tint, dimText } from "../theme.js";
 
 export function MapView(): React.JSX.Element {
   const map = useStore((s) => s.viewedMap);
+  const theme = useStore((s) => s.prefs.theme);
   const { exit } = useApp();
   useInput((input, key) => {
     if (input === "q" || key.escape) exit();
@@ -13,16 +15,16 @@ export function MapView(): React.JSX.Element {
   if (!map) {
     return (
       <Box padding={1}>
-        <Text color="red">沒有地圖資料</Text>
+        <Text color={tint("red", theme)}>沒有地圖資料</Text>
       </Box>
     );
   }
 
   return (
     <Box flexDirection="column" padding={1}>
-      <MapGrid map={map} />
+      <MapGrid map={map} theme={theme} />
       <Box marginTop={1}>
-        <Text dimColor>q / Esc 離開</Text>
+        <Text {...dimText(theme)}>q / Esc 離開</Text>
       </Box>
     </Box>
   );

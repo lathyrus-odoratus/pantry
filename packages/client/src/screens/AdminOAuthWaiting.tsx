@@ -3,6 +3,7 @@ import { Box, Text } from "ink";
 import { useStore } from "../store.js";
 import { runOAuthFlow } from "../auth/oauth.js";
 import { loadCredentials, saveCredentials } from "../auth/credentials.js";
+import { tint, dimText } from "../theme.js";
 
 const OSC_PREFIX = "]";
 const ST = "\\";
@@ -16,6 +17,7 @@ export function AdminOAuthWaiting({ backendHttpUrl }: Props): React.JSX.Element 
   const setPending = useStore((s) => s.setPendingIdentity);
   const setScreen = useStore((s) => s.setScreen);
   const setError = useStore((s) => s.setError);
+  const theme = useStore((s) => s.prefs.theme);
   const [authUrl, setAuthUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,22 +65,22 @@ export function AdminOAuthWaiting({ backendHttpUrl }: Props): React.JSX.Element 
     <Box flexDirection="column">
       <Box flexDirection="column" paddingX={1} paddingTop={1}>
         <Box marginBottom={1}>
-          <Text bold>Admin mode — sign in with Discord</Text>
+          <Text color={tint(undefined, theme)} bold>Admin mode — sign in with Discord</Text>
         </Box>
         {authUrl ? (
-          <Text>Open this URL in your browser:</Text>
+          <Text color={tint(undefined, theme)}>Open this URL in your browser:</Text>
         ) : (
-          <Text dimColor>Preparing authorization request…</Text>
+          <Text {...dimText(theme)}>Preparing authorization request…</Text>
         )}
       </Box>
       {authUrl ? (
         <Box marginY={1}>
-          <Text color="cyan">{osc8(authUrl, authUrl)}</Text>
+          <Text color={tint("cyan", theme)}>{osc8(authUrl, authUrl)}</Text>
         </Box>
       ) : null}
       {authUrl ? (
         <Box paddingX={1} paddingBottom={1}>
-          <Text dimColor>Waiting for authorization... (Ctrl+C to cancel)</Text>
+          <Text {...dimText(theme)}>Waiting for authorization... (Ctrl+C to cancel)</Text>
         </Box>
       ) : null}
     </Box>

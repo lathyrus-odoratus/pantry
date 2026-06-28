@@ -3,6 +3,7 @@ import { Box, Text } from "ink";
 import SelectInput from "ink-select-input";
 import { useStore } from "../store.js";
 import { loadAnon, type AnonIdentity } from "../auth/anon.js";
+import { tint } from "../theme.js";
 
 type ItemValue = "anon" | "github" | "google" | "discord";
 
@@ -10,6 +11,7 @@ export function IdentitySelect(): React.JSX.Element {
   const roomName = useStore((s) => s.roomName);
   const setScreen = useStore((s) => s.setScreen);
   const setPending = useStore((s) => s.setPendingIdentity);
+  const theme = useStore((s) => s.prefs.theme);
   const [saved, setSaved] = useState<AnonIdentity | null>(null);
 
   useEffect(() => {
@@ -50,10 +52,10 @@ export function IdentitySelect(): React.JSX.Element {
   return (
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
-        <Text>Room: <Text bold>{roomName}</Text></Text>
+        <Text color={tint(undefined, theme)}>Room: <Text color={tint(undefined, theme)} bold>{roomName}</Text></Text>
       </Box>
       <Box marginBottom={1}>
-        <Text>How do you want to join?</Text>
+        <Text color={tint(undefined, theme)}>How do you want to join?</Text>
       </Box>
       <SelectInput items={items} onSelect={onSelect} />
     </Box>

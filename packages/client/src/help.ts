@@ -2,7 +2,7 @@ export const HELP_TEXT = [
   "── Commands ──",
   "/h, /help        Show this help",
   "/changelog       What's new (per-version notes, [/] flips pages, q closes)",
-  "/settings        Open settings panel",
+  "/settings        Open settings (theme, message spacing — ↑↓ pick, ← → adjust)",
   "/nick <name>     Change your nickname",
   "/reply <number> <message>   Reply to a numbered chat message",
   "/color <hex>     Set your nick color, e.g. /color ff6b6b (# optional)",

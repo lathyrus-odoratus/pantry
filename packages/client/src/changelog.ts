@@ -9,6 +9,15 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.34",
+    date: "2026-06-29",
+    title: "新增 Matrix 主題（駭客任務風格）",
+    highlights: [
+      "/settings 新增主題切換：Default 與 Matrix（駭客任務）綠色風格，選 Matrix 整個畫面會變成深淺不同的綠。",
+      "設定面板改用 ↑↓ 選項目、← → 調整數值；主題選擇會記住，下次開啟自動套用。",
+    ],
+  },
+  {
     version: "0.1.33",
     date: "2026-06-24",
     title: "訊息引用／回覆",

@@ -1,4 +1,5 @@
 import { cellStyle, type ItemType, type MapV1 } from "@pantry/shared";
+import { tint, type Theme } from "../../theme.js";
 
 // Shared ANSI drawing for the CA-bomb full-screen renderers (offline sandbox +
 // networked room overlay). All glyphs are 4 narrow chars × 2 rows — no emoji
@@ -95,6 +96,7 @@ export function boardLines(
   view: BoardView,
   ghosts: Map<string, number>,
   mono: boolean,
+  theme: Theme = "default",
 ): string[] {
   const { map } = view;
   const bombs = new Set(view.bombs.map((b) => `${b.x},${b.y}`));
@@ -130,7 +132,7 @@ export function boardLines(
           const s = cellStyle(map, r, c);
           fg = s.fg; cbg = s.bg; seg = part === 0 ? s.r1 : s.r2;
         }
-        line += sgrCell(fg, cbg, mono) + seg;
+        line += sgrCell(tint(fg, theme) ?? fg, tint(cbg, theme) ?? cbg, mono) + seg;
       }
       lines.push(line + RESET);
     }
