@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render } from "ink-testing-library";
 import { Settings } from "./Settings.js";
 import { DEFAULT_PREFS, type Prefs } from "../../prefs.js";
+import { useStore } from "../../store.js";
 
 const ESC = "\x1b";
 const RIGHT = "\x1b[C";
@@ -72,5 +73,44 @@ describe("Settings", () => {
     stdin.write(LEFT); // already at 0
     await flush();
     expect(onPrefsChange).not.toHaveBeenCalled();
+  });
+
+  it("bumps themeEpoch on Esc when the theme changed during the session", async () => {
+    useStore.setState({ themeEpoch: 0 });
+    const { stdin, rerender } = render(
+      <Settings
+        prefs={{ ...DEFAULT_PREFS, theme: "default" }}
+        onPrefsChange={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    await flush();
+    // Parent commits a theme switch (controlled component) before exit.
+    rerender(
+      <Settings
+        prefs={{ ...DEFAULT_PREFS, theme: "matrix" }}
+        onPrefsChange={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    await flush();
+    stdin.write(ESC);
+    await flush();
+    expect(useStore.getState().themeEpoch).toBe(1);
+  });
+
+  it("does not bump themeEpoch on Esc when the theme is unchanged", async () => {
+    useStore.setState({ themeEpoch: 0 });
+    const { stdin } = render(
+      <Settings
+        prefs={{ ...DEFAULT_PREFS, theme: "default" }}
+        onPrefsChange={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    await flush();
+    stdin.write(ESC);
+    await flush();
+    expect(useStore.getState().themeEpoch).toBe(0);
   });
 });

@@ -9,6 +9,14 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.36",
+    date: "2026-06-29",
+    title: "切換主題時即時套用到整個畫面",
+    highlights: [
+      "在 /settings 切換主題後按 Esc 離開，整個聊天畫面會立刻重新套用新主題的顏色（先前只有之後的新訊息會變色）。",
+    ],
+  },
+  {
     version: "0.1.35",
     date: "2026-06-29",
     title: "新增 Matrix 主題（駭客任務風格）",
