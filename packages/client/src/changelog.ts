@@ -9,7 +9,7 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.1.34",
+    version: "0.1.35",
     date: "2026-06-29",
     title: "新增 Matrix 主題（駭客任務風格）",
     highlights: [
