@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Text } from "ink";
 import type { ConnStatus } from "../../store.js";
 import type { DisconnectDetail } from "../../transport/client.js";
+import { tint, dimText, type Theme } from "../../theme.js";
 
 type Props = {
   status: ConnStatus;
@@ -10,6 +11,7 @@ type Props = {
   lastDisconnect?: DisconnectDetail | null;
   cabombActive?: { by: string } | null;
   extGameActive?: { by: string; gameId: string; title: string } | null;
+  theme?: Theme;
 };
 
 function formatDisconnect(d: DisconnectDetail): string {
@@ -46,6 +48,7 @@ export function StatusBar({
   lastDisconnect,
   cabombActive,
   extGameActive,
+  theme = "default",
 }: Props): React.JSX.Element {
   const extra =
     status === "reconnecting" && reconnectAttempt > 0
@@ -58,16 +61,16 @@ export function StatusBar({
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color={COLORS[status]} bold>
+        <Text color={tint(COLORS[status], theme)} bold>
           {LABELS[status]}
           {extra}
         </Text>
         {detailStr ? (
-          <Text dimColor> · last: {detailStr}</Text>
+          <Text {...dimText(theme)}> · last: {detailStr}</Text>
         ) : null}
-        <Text dimColor> · Ctrl+C to quit</Text>
+        <Text {...dimText(theme)}> · Ctrl+C to quit</Text>
         {updateAvailable ? (
-          <Text color="cyan">
+          <Text color={tint("cyan", theme)}>
             {" "}
             · ↑ {updateAvailable} available (run `npx @lathyrus-odoratus/pantry@latest`)
           </Text>
@@ -75,20 +78,20 @@ export function StatusBar({
       </Box>
       {cabombActive ? (
         <Box>
-          <Text color="magenta">
+          <Text color={tint("magenta", theme)}>
             🎮 {cabombActive.by} 進行中 · /watch 旁觀（/watch bw 黑白）
           </Text>
         </Box>
       ) : null}
       {extGameActive ? (
         <Box>
-          <Text color="cyan">
+          <Text color={tint("cyan", theme)}>
             🕹 {extGameActive.by} 玩 {extGameActive.title} · /watch 旁觀
           </Text>
         </Box>
       ) : null}
       <Box>
-        <Text dimColor>
+        <Text {...dimText(theme)}>
           /h · /changelog · /settings · /nick · /color · /the-world · /roll · /game · /ca-bomb
         </Text>
       </Box>

@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { Box, Text } from "ink";
 import TextInput from "ink-text-input";
 import type { FontScale } from "../../store.js";
+import { tint, type Theme } from "../../theme.js";
 
 type Props = {
   onSend: (body: string) => void;
@@ -19,6 +20,7 @@ type Props = {
   onCabomb: () => void;
   onWatch: (mono: boolean) => void;
   onExtGame: () => void;
+  theme?: Theme;
 };
 
 const FONT_SCALES: FontScale[] = ["normal", "medium", "large"];
@@ -41,6 +43,7 @@ export function InputBar({
   onCabomb,
   onWatch,
   onExtGame,
+  theme = "default",
 }: Props): React.JSX.Element {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
@@ -107,7 +110,7 @@ export function InputBar({
 
   return (
     <Box>
-      <Text>&gt; </Text>
+      <Text color={tint(undefined, theme)}>&gt; </Text>
       <TextInput value={value} onChange={onChange} onSubmit={onSubmit} />
     </Box>
   );

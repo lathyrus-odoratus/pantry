@@ -5,6 +5,7 @@ import type { ClientMessage } from "@pantry/shared";
 import { useStore } from "../store.js";
 import { TransportClient } from "../transport/client.js";
 import { clearCredentials } from "../auth/credentials.js";
+import { tint, dimText } from "../theme.js";
 
 type Props = { serverUrl: string };
 
@@ -22,6 +23,7 @@ export function AdminMenu({ serverUrl }: Props): React.JSX.Element {
   const setError = useStore((s) => s.setError);
   const status = useStore((s) => s.status);
   const setStatus = useStore((s) => s.setStatus);
+  const theme = useStore((s) => s.prefs.theme);
 
   const transportRef = useRef<TransportClient | null>(null);
   const [authed, setAuthed] = useState(false);
@@ -125,7 +127,7 @@ export function AdminMenu({ serverUrl }: Props): React.JSX.Element {
   if (!pending || pending.kind !== "oauth") {
     return (
       <Box padding={1}>
-        <Text>Admin session lost — restart with --admin.</Text>
+        <Text color={tint(undefined, theme)}>Admin session lost — restart with --admin.</Text>
       </Box>
     );
   }
@@ -133,18 +135,18 @@ export function AdminMenu({ serverUrl }: Props): React.JSX.Element {
   return (
     <Box flexDirection="column">
       <Box paddingX={1} paddingTop={1}>
-        <Text bold>Admin · pantry</Text>
-        <Text dimColor>  ({status}{authed ? ", authed" : ""})</Text>
+        <Text color={tint(undefined, theme)} bold>Admin · pantry</Text>
+        <Text {...dimText(theme)}>  ({status}{authed ? ", authed" : ""})</Text>
       </Box>
       <Box paddingX={1} paddingY={1} flexDirection="column">
         {rooms.length === 0 ? (
-          <Text dimColor>
+          <Text {...dimText(theme)}>
             {authed ? "(no rooms — press n to create)" : "Connecting…"}
           </Text>
         ) : (
           <>
             <Box>
-              <Text bold>
+              <Text color={tint(undefined, theme)} bold>
                 {"  "}
                 {"NAME".padEnd(24)}
                 {"STATE".padEnd(8)}
@@ -158,7 +160,7 @@ export function AdminMenu({ serverUrl }: Props): React.JSX.Element {
               const created = r.createdAt.slice(0, 10);
               return (
                 <Box key={r.id}>
-                  <Text inverse={i === selected}>
+                  <Text color={tint(undefined, theme)} inverse={i === selected}>
                     {marker}
                     {r.name.padEnd(24)}
                     {state.padEnd(8)}
@@ -173,7 +175,7 @@ export function AdminMenu({ serverUrl }: Props): React.JSX.Element {
       </Box>
       {prompt.kind === "create" ? (
         <Box paddingX={1}>
-          <Text>New room name: </Text>
+          <Text color={tint(undefined, theme)}>New room name: </Text>
           <TextInput
             value={createInput}
             onChange={setCreateInput}
@@ -187,10 +189,10 @@ export function AdminMenu({ serverUrl }: Props): React.JSX.Element {
         </Box>
       ) : prompt.kind === "delete-confirm" ? (
         <Box paddingX={1} flexDirection="column">
-          <Text color="red">
+          <Text color={tint("red", theme)}>
             Delete &quot;{prompt.roomName}&quot;? This cascades all messages.
           </Text>
-          <Text dimColor>Press y to confirm, any other key to cancel.</Text>
+          <Text {...dimText(theme)}>Press y to confirm, any other key to cancel.</Text>
           <DeleteConfirm
             roomName={prompt.roomName}
             onConfirm={() => {
@@ -202,10 +204,10 @@ export function AdminMenu({ serverUrl }: Props): React.JSX.Element {
         </Box>
       ) : (
         <Box paddingX={1} flexDirection="column">
-          <Text dimColor>
+          <Text {...dimText(theme)}>
             ↑/↓ select · c close · r reopen · n create · d delete · R refresh · q quit
           </Text>
-          {statusLine ? <Text>{statusLine}</Text> : null}
+          {statusLine ? <Text color={tint(undefined, theme)}>{statusLine}</Text> : null}
         </Box>
       )}
     </Box>

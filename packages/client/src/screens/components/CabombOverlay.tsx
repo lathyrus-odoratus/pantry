@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useStore } from "../../store.js";
+import { tint, type Theme } from "../../theme.js";
 import {
   type BoardView,
   TrailTracker,
@@ -13,11 +14,17 @@ import {
 const RENDER_MS = 33;
 const PING_MS = 1500;
 
+// Under matrix, "dim" terminal text muddies the green, so render dim hints as
+// dark green instead. Mono (bw spectate) still wins — it stays grayscale.
+function dimT(text: string, theme: Theme, mono: boolean): string {
+  return theme === "matrix" && !mono ? fgOnly(text, "#0A7A0A", mono) : dim(text);
+}
+
 // Colour the latency readout green/amber/red by RTT, respecting mono mode.
-function latencyText(ms: number | null, mono: boolean): string {
-  if (ms == null) return dim("⚡ —");
+function latencyText(ms: number | null, mono: boolean, theme: Theme): string {
+  if (ms == null) return dimT("⚡ —", theme, mono);
   const hex = ms < 80 ? "#5fff5f" : ms < 200 ? "#ffd700" : "#ff5f5f";
-  return fgOnly(`⚡ ${ms}ms`, hex, mono);
+  return fgOnly(`⚡ ${ms}ms`, tint(hex, theme) ?? hex, mono);
 }
 
 // Full-screen, flicker-free CA-bomb view rendered OUTSIDE Ink while the chat
@@ -29,6 +36,7 @@ export function CabombOverlay(): null {
     const view = useStore.getState().cabombView;
     if (!view) return;
     const { role, mono } = view;
+    const theme = useStore.getState().prefs.theme;
     const out = process.stdout;
     const stdin = process.stdin;
     const trail = new TrailTracker();
@@ -79,7 +87,7 @@ export function CabombOverlay(): null {
       const result = useStore.getState().cabombResult;
       const lines: string[] = [];
       if (!msg) {
-        lines.push(dim("連線中…  q 離開"));
+        lines.push(dimT("連線中…  q 離開", theme, mono));
       } else {
         const st = msg.state;
         const now = Date.now();
@@ -94,20 +102,20 @@ export function CabombOverlay(): null {
         };
         const tag = role === "driver" ? "你在玩" : mono ? "旁觀中（黑白）" : "旁觀中";
         lines.push(
-          `${fgOnly("CA BOMB", "#ff5fff", mono)}  ${fgOnly(msg.by, "#ffffff", mono)}  ${dim(tag)}`,
+          `${fgOnly("CA BOMB", tint("#ff5fff", theme) ?? "#ff5fff", mono)}  ${fgOnly(msg.by, tint("#ffffff", theme) ?? "#ffffff", mono)}  ${dimT(tag, theme, mono)}`,
         );
         lines.push("");
         lines.push(
           [
-            stat("❤", st.player.hp, "#ff5f5f", mono),
-            stat("水球", st.player.bombCap, "#33b5ff", mono),
-            stat("水力", st.player.range, "#ffd700", mono),
-            dim(`敵人 ${st.enemies.length}`),
-            latencyText(useStore.getState().cabombLatencyMs, mono),
+            stat("❤", st.player.hp, tint("#ff5f5f", theme) ?? "#ff5f5f", mono),
+            stat("水球", st.player.bombCap, tint("#33b5ff", theme) ?? "#33b5ff", mono),
+            stat("水力", st.player.range, tint("#ffd700", theme) ?? "#ffd700", mono),
+            dimT(`敵人 ${st.enemies.length}`, theme, mono),
+            latencyText(useStore.getState().cabombLatencyMs, mono, theme),
           ].join("   "),
         );
         lines.push("");
-        lines.push(...boardLines(board, trail.ghosts(now), mono));
+        lines.push(...boardLines(board, trail.ghosts(now), mono, theme));
         lines.push("");
         if (result) {
           const txt =
@@ -116,14 +124,14 @@ export function CabombOverlay(): null {
               : result.result === "loss"
                 ? "被炸飛了。"
                 : "遊戲結束。";
-          lines.push(fgOnly(`── ${txt} q 離開 ──`, "#ffd700", mono));
+          lines.push(fgOnly(`── ${txt} q 離開 ──`, tint("#ffd700", theme) ?? "#ffd700", mono));
           if (result.summary) {
             lines.push("");
-            for (const ln of result.summary.split("\n")) lines.push(dim(ln));
+            for (const ln of result.summary.split("\n")) lines.push(dimT(ln, theme, mono));
           }
         } else {
           lines.push(
-            dim(role === "driver" ? "WASD 移動（推箱）  Space 放水球  q 離開" : "旁觀中  q 離開"),
+            dimT(role === "driver" ? "WASD 移動（推箱）  Space 放水球  q 離開" : "旁觀中  q 離開", theme, mono),
           );
         }
       }

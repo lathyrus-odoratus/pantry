@@ -1,21 +1,33 @@
 import { mkdir, readFile, writeFile, chmod } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { THEMES, type Theme } from "./theme.js";
 
 export type Prefs = {
   messagePadding: number;
+  theme: Theme;
 };
 
-export const DEFAULT_PREFS: Prefs = { messagePadding: 0 };
+export const DEFAULT_PREFS: Prefs = { messagePadding: 0, theme: "default" };
 
 export function defaultPrefsPath(): string {
   return join(homedir(), ".pantry", "prefs.json");
 }
 
-function isPrefs(value: unknown): value is Prefs {
-  if (typeof value !== "object" || value === null) return false;
+// Tolerant of older/partial prefs files: unknown or missing fields fall back to
+// the default rather than discarding the whole file (so adding `theme` doesn't
+// reset existing users' messagePadding).
+function normalizePrefs(value: unknown): Prefs {
+  if (typeof value !== "object" || value === null) return { ...DEFAULT_PREFS };
   const p = value as Record<string, unknown>;
-  return typeof p.messagePadding === "number";
+  const messagePadding =
+    typeof p.messagePadding === "number"
+      ? p.messagePadding
+      : DEFAULT_PREFS.messagePadding;
+  const theme = THEMES.includes(p.theme as Theme)
+    ? (p.theme as Theme)
+    : DEFAULT_PREFS.theme;
+  return { messagePadding, theme };
 }
 
 export async function loadPrefs(path = defaultPrefsPath()): Promise<Prefs> {
@@ -31,7 +43,7 @@ export async function loadPrefs(path = defaultPrefsPath()): Promise<Prefs> {
   } catch {
     return { ...DEFAULT_PREFS };
   }
-  return isPrefs(parsed) ? parsed : { ...DEFAULT_PREFS };
+  return normalizePrefs(parsed);
 }
 
 export async function savePrefs(

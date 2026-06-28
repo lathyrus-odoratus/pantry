@@ -3,12 +3,14 @@ import { Box, Text } from "ink";
 import TextInput from "ink-text-input";
 import { useStore } from "../store.js";
 import { newAnonSubject } from "../auth/anon.js";
+import { tint } from "../theme.js";
 
 export function NicknameInput(): React.JSX.Element {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
   const setPending = useStore((s) => s.setPendingIdentity);
   const setScreen = useStore((s) => s.setScreen);
+  const theme = useStore((s) => s.prefs.theme);
   const onChange = (v: string) => {
     valueRef.current = v;
     setValue(v);
@@ -22,10 +24,10 @@ export function NicknameInput(): React.JSX.Element {
   return (
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
-        <Text>Nickname (1-20 chars):</Text>
+        <Text color={tint(undefined, theme)}>Nickname (1-20 chars):</Text>
       </Box>
       <Box>
-        <Text>&gt; </Text>
+        <Text color={tint(undefined, theme)}>&gt; </Text>
         <TextInput value={value} onChange={onChange} onSubmit={onSubmit} />
       </Box>
     </Box>

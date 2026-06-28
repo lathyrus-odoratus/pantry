@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import type { ExtGameInfo } from "@pantry/shared";
+import { useStore } from "../../store.js";
+import { tint, dimText } from "../../theme.js";
 
 type Props = {
   games: ExtGameInfo[] | null;
@@ -10,6 +12,7 @@ type Props = {
 };
 
 export function ExtGameSelect({ games, onSelect, onCancel, onLeaderboard }: Props): React.JSX.Element {
+  const theme = useStore((s) => s.prefs.theme);
   const [idx, setIdx] = useState(0);
 
   useInput((input, key) => {
@@ -33,7 +36,7 @@ export function ExtGameSelect({ games, onSelect, onCancel, onLeaderboard }: Prop
   if (!games) {
     return (
       <Box paddingTop={1}>
-        <Text dimColor>載入遊戲清單中… q 取消</Text>
+        <Text {...dimText(theme)}>載入遊戲清單中… q 取消</Text>
       </Box>
     );
   }
@@ -43,20 +46,20 @@ export function ExtGameSelect({ games, onSelect, onCancel, onLeaderboard }: Prop
 
   return (
     <Box flexDirection="column" paddingTop={1}>
-      <Text bold>選擇遊戲</Text>
+      <Text bold color={tint(undefined, theme)}>選擇遊戲</Text>
       {games.map((g, i) => (
         <Box key={g.id} flexDirection="column">
           <Box>
-            <Text color={i === idx ? "cyan" : undefined} bold={i === idx}>
+            <Text color={tint(i === idx ? "cyan" : undefined, theme)} bold={i === idx}>
               {i === idx ? "> " : "  "}{i + 1}. {g.title}
             </Text>
-            {g.hasLeaderboard ? <Text dimColor> 🏆</Text> : null}
+            {g.hasLeaderboard ? <Text {...dimText(theme)}> 🏆</Text> : null}
           </Box>
-          <Text dimColor>     {g.description}</Text>
+          <Text {...dimText(theme)}>     {g.description}</Text>
         </Box>
       ))}
       <Box marginTop={1}>
-        <Text dimColor>
+        <Text {...dimText(theme)}>
           {"↑↓ / jk 選擇  Enter / 數字 確認"}
           {showLeaderboardHint ? "  l 排行榜" : ""}
           {"  q 取消"}

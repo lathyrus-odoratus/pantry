@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Box, Text } from "ink";
 import { useStore } from "../store.js";
 import { runOAuthFlow } from "../auth/oauth.js";
+import { tint, dimText } from "../theme.js";
 
 // OSC 8 hyperlink, emitted unconditionally. terminal-link's auto-detection
 // fails inside containers (TERM_PROGRAM doesn't propagate through Docker),
@@ -19,6 +20,7 @@ export function OAuthWaiting({ backendHttpUrl }: Props): React.JSX.Element {
   const pending = useStore((s) => s.pendingIdentity);
   const setPending = useStore((s) => s.setPendingIdentity);
   const setError = useStore((s) => s.setError);
+  const theme = useStore((s) => s.prefs.theme);
   const [authUrl, setAuthUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,14 +59,14 @@ export function OAuthWaiting({ backendHttpUrl }: Props): React.JSX.Element {
     <Box flexDirection="column">
       <Box flexDirection="column" paddingX={1} paddingTop={1}>
         <Box marginBottom={1}>
-          <Text bold>Sign in with {providerName}</Text>
+          <Text color={tint(undefined, theme)} bold>Sign in with {providerName}</Text>
         </Box>
         {authUrl ? (
           <Box>
-            <Text>Open this URL in your browser:</Text>
+            <Text color={tint(undefined, theme)}>Open this URL in your browser:</Text>
           </Box>
         ) : (
-          <Text dimColor>Preparing authorization request…</Text>
+          <Text {...dimText(theme)}>Preparing authorization request…</Text>
         )}
       </Box>
       {/* URL rendered at column 0 (outside paddingX) so wrap is flush-left.
@@ -74,12 +76,12 @@ export function OAuthWaiting({ backendHttpUrl }: Props): React.JSX.Element {
           full URL even when display is wrapped. */}
       {authUrl ? (
         <Box marginY={1}>
-          <Text color="cyan">{osc8(authUrl, authUrl)}</Text>
+          <Text color={tint("cyan", theme)}>{osc8(authUrl, authUrl)}</Text>
         </Box>
       ) : null}
       {authUrl ? (
         <Box paddingX={1} paddingBottom={1}>
-          <Text dimColor>Waiting for authorization... (Ctrl+C to cancel)</Text>
+          <Text {...dimText(theme)}>Waiting for authorization... (Ctrl+C to cancel)</Text>
         </Box>
       ) : null}
     </Box>

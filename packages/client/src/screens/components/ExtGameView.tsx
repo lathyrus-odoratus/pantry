@@ -1,12 +1,14 @@
 import React from "react";
 import { Box, Text, useInput } from "ink";
 import { useStore } from "../../store.js";
+import { tint, dimText } from "../../theme.js";
 
 type Props = {
   onQuit: () => void;
 };
 
 export function ExtGameView({ onQuit }: Props): React.JSX.Element {
+  const theme = useStore((s) => s.prefs.theme);
   const frame = useStore((s) => s.extGameFrame);
   const over = useStore((s) => s.extGameOver);
   const view = useStore((s) => s.extGameView);
@@ -55,22 +57,22 @@ export function ExtGameView({ onQuit }: Props): React.JSX.Element {
   return (
     <Box flexDirection="column" paddingTop={1}>
       <Box>
-        <Text bold>{active?.title ?? "遊戲"}</Text>
-        <Text dimColor>  {active?.by}  {tag}</Text>
+        <Text bold color={tint(undefined, theme)}>{active?.title ?? "遊戲"}</Text>
+        <Text {...dimText(theme)}>  {active?.by}  {tag}</Text>
       </Box>
       {lines ? (
-        lines.map((ln, i) => <Text key={i}>{ln || " "}</Text>)
+        lines.map((ln, i) => <Text key={i} color={tint(undefined, theme)}>{ln || " "}</Text>)
       ) : (
-        <Text dimColor>連線中…</Text>
+        <Text {...dimText(theme)}>連線中…</Text>
       )}
       {over ? (
-        <Text color="yellow">
+        <Text color={tint("yellow", theme)}>
           ──{" "}
           {over.result === "win" ? "獲勝！" : over.result === "loss" ? "失敗了。" : "遊戲結束。"}
           {"  q 離開 ──"}
         </Text>
       ) : (
-        <Text dimColor>
+        <Text {...dimText(theme)}>
           {view?.role === "driver" ? "q 離開遊戲" : "旁觀中  q 離開"}
         </Text>
       )}
