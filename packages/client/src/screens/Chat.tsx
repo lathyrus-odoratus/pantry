@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from "react";
-import { Box, Static, Text } from "ink";
+import { Box, Static, Text, useStdout } from "ink";
 import type { Message } from "@pantry/shared";
 import { useStore, type FontScale } from "../store.js";
 import { TransportClient } from "../transport/client.js";
@@ -530,6 +530,17 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   const prefs = useStore((s) => s.prefs);
   const setPrefs = useStore((s) => s.setPrefs);
   const theme = prefs.theme;
+  const themeEpoch = useStore((s) => s.themeEpoch);
+  const { stdout } = useStdout();
+  const lastThemeEpoch = useRef(themeEpoch);
+  if (lastThemeEpoch.current !== themeEpoch) {
+    lastThemeEpoch.current = themeEpoch;
+    // Theme changed and Settings was closed: wipe screen + scrollback so the
+    // <Static key={themeEpoch}> reprint below doesn't stack a second copy under
+    // the old-themed one. Done during render, before Ink flushes the new
+    // Static output (an effect would run after, clearing the fresh reprint).
+    stdout.write("\x1b[2J\x1b[3J\x1b[H");
+  }
 
   const onlineSummary =
     onlineUsers.length === 0
@@ -559,7 +570,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   // flicker the message history.
   return (
     <>
-      <Static items={messages}>
+      <Static key={themeEpoch} items={messages}>
         {(m) => <MessageRow key={m.id} m={m} />}
       </Static>
       <Box flexDirection="column">

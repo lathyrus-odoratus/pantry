@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import type { Prefs } from "../../prefs.js";
+import { useStore } from "../../store.js";
 import {
   THEMES,
   THEME_LABELS,
@@ -28,9 +29,15 @@ export function Settings({
 }: Props): React.JSX.Element {
   const [row, setRow] = useState(0);
   const theme = prefs.theme;
+  // Theme as of when this panel opened — drives the one-shot history repaint.
+  const themeOnOpen = useRef(prefs.theme).current;
+  const bumpThemeEpoch = useStore((s) => s.bumpThemeEpoch);
 
   useInput((_input, key) => {
     if (key.escape) {
+      // Repaint the chat history into the new theme only on exit, and only if
+      // it actually changed — left/right previews must not reflow history.
+      if (prefs.theme !== themeOnOpen) bumpThemeEpoch();
       onClose();
       return;
     }

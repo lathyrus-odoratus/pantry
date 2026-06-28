@@ -80,6 +80,10 @@ export type Store = {
   // Settings modal
   settingsOpen: boolean;
   prefs: Prefs;
+  // Bumped once when Settings is closed after the theme actually changed; used
+  // as the message <Static> key so the chat history is reprinted in the new
+  // theme (Static never repaints already-emitted rows otherwise).
+  themeEpoch: number;
 
   // World feature
   worldActive: boolean;
@@ -143,6 +147,7 @@ export type Store = {
   setChangelogIndex: (i: number) => void;
   openSettings: () => void;
   closeSettings: () => void;
+  bumpThemeEpoch: () => void;
   setPrefs: (p: Prefs) => void;
   setWorldState: (state: {
     active: boolean;
@@ -193,6 +198,7 @@ const initial: Omit<
   | "setChangelogIndex"
   | "openSettings"
   | "closeSettings"
+  | "bumpThemeEpoch"
   | "setPrefs"
   | "setWorldState"
   | "setFontScale"
@@ -237,6 +243,7 @@ const initial: Omit<
   changelogIndex: 0,
   settingsOpen: false,
   prefs: DEFAULT_PREFS,
+  themeEpoch: 0,
   worldActive: false,
   worldCreditUsed: 0,
   worldCreditTotal: 0,
@@ -313,6 +320,7 @@ export const useStore = create<Store>((set) => ({
 
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),
+  bumpThemeEpoch: () => set((s) => ({ themeEpoch: s.themeEpoch + 1 })),
   setPrefs: (prefs) => {
     set({ prefs });
     void savePrefs(prefs);
