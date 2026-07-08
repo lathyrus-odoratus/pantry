@@ -9,6 +9,15 @@ export type ChangelogEntry = {
 // when shipping a release (see CLAUDE.md release flow).
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.37",
+    date: "2026-07-08",
+    title: "遊戲改為全畫面操作",
+    highlights: [
+      "/game 現在直接進入遊戲畫面，選單、選遊戲、排行榜、結果都在畫面內用鍵盤操作，不再另外彈出選單。",
+      "按 q 會依當前畫面層級返回上一層或離開遊戲。",
+    ],
+  },
+  {
     version: "0.1.36",
     date: "2026-06-29",
     title: "切換主題時即時套用到整個畫面",
