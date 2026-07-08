@@ -10,9 +10,7 @@ import { Settings } from "./components/Settings.js";
 import { WorldPanel } from "./components/WorldPanel.js";
 import { GameView } from "./components/GameView.js";
 import { GameSpectate } from "./components/GameSpectate.js";
-import { ExtGameSelect } from "./components/ExtGameSelect.js";
 import { ExtGameView } from "./components/ExtGameView.js";
-import { ExtGameLeaderboardView } from "./components/ExtGameLeaderboard.js";
 import { CHANGELOG } from "../changelog.js";
 import { HELP_TEXT } from "../help.js";
 import { CLIENT_VERSION, compareSemver } from "../version.js";
@@ -184,9 +182,6 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   const cabombActive = useStore((s) => s.cabombActive);
   const extGameView = useStore((s) => s.extGameView);
   const extGameActive = useStore((s) => s.extGameActive);
-  const extGameSelecting = useStore((s) => s.extGameSelecting);
-  const extGames = useStore((s) => s.extGames);
-  const extGameLeaderboard = useStore((s) => s.extGameLeaderboard);
   const setError = useStore((s) => s.setError);
 
   const transportRef = useRef<TransportClient | null>(null);
@@ -301,9 +296,6 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
           case "cabomb.pong":
             useStore.getState().setCabombLatency(Date.now() - m.t);
             break;
-          case "ext.games":
-            useStore.getState().setExtGames(m.games);
-            break;
           case "ext.game.started": {
             useStore.getState().setExtGameActive({ by: m.by, gameId: m.gameId, title: m.title });
             const me = useStore.getState().authedUser;
@@ -324,20 +316,12 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
             useStore.getState().setExtGameFrame(m.frame);
             break;
           case "ext.game.over": {
-            useStore.getState().setExtGameActive(null);
-            const isParticipant = useStore.getState().extGameView !== null;
-            if (isParticipant) {
-              useStore.getState().setExtGameOver({ result: m.result });
-            } else {
-              const txt =
-                m.result === "win"
-                  ? `🎮 ${m.by} 完成了 ${m.title}！`
-                  : m.result === "loss"
-                    ? `💀 ${m.by} 在 ${m.title} 失敗了。`
-                    : `${m.by} 結束了 ${m.title}。`;
+            const wasParticipant = useStore.getState().extGameView !== null;
+            useStore.getState().exitExtGame();
+            if (!wasParticipant) {
               addMessage({
                 id: `extgame-over-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,
-                body: `── ${txt} ──`,
+                body: `── ${m.by} 結束了 ${m.title}。 ──`,
                 createdAt: new Date().toISOString(),
                 author: { nickname: "·", discriminator: "sys" },
               });
@@ -353,7 +337,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
                 createdAt: new Date().toISOString(),
                 author: { nickname: "·", discriminator: "sys" },
               });
-            } else if (reason === "api_error" || reason === "game_not_found") {
+            } else if (reason === "api_error") {
               addMessage({
                 id: `extgame-err-${Date.now()}`,
                 body: "── 遊戲服務暫時無法使用 ──",
@@ -361,20 +345,11 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
                 author: { nickname: "·", discriminator: "sys" },
               });
             }
-            useStore.getState().cancelExtGameSelect();
-            useStore.getState().setExtGameLeaderboard(null);
-            // Only force-exit if this user was actually in the game view.
-            // Calling exitExtGame unconditionally would clear extGameActive for
-            // bystanders who got an already_active/api_error on a start attempt,
-            // breaking the /watch hint and command until the next reconnect.
             if (useStore.getState().extGameView !== null) {
               useStore.getState().exitExtGame();
             }
             break;
           }
-          case "ext.game.leaderboard":
-            useStore.getState().setExtGameLeaderboard(m);
-            break;
           case "cabomb.over": {
             useStore.getState().setCabombResult(m);
             useStore.getState().setCabombActive(null);
@@ -507,11 +482,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
     }
   }, []);
   const onExtGame = useCallback(() => {
-    useStore.getState().startExtGameSelect();
-    transportRef.current?.send({ type: "ext.game.list" });
-  }, []);
-  const onExtGameLeaderboard = useCallback((gameId: string) => {
-    transportRef.current?.send({ type: "ext.game.leaderboard", gameId });
+    transportRef.current?.send({ type: "ext.game.start" });
   }, []);
 
   const worldActive = useStore((s) => s.worldActive);
@@ -552,16 +523,9 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
   // message→store dispatch that feeds the overlay) stays alive.
   if (cabombView) return null;
 
-  const onExtGameSelect = (gameId: string) => {
-    useStore.getState().cancelExtGameSelect();
-    transportRef.current?.send({ type: "ext.game.start", gameId });
-  };
-  const onExtGameQuit = () => {
-    useStore.getState().extGameSend?.({ type: "ext.game.input", key: "quit" });
+  const onExtGameLeave = () => {
+    transportRef.current?.send({ type: "ext.game.leave" });
     useStore.getState().exitExtGame();
-  };
-  const onLeaderboardClose = () => {
-    useStore.getState().setExtGameLeaderboard(null);
   };
 
   // Messages are rendered via <Static>: each item writes to terminal
@@ -588,16 +552,7 @@ export function Chat({ serverUrl }: Props): React.JSX.Element | null {
           <Text color={tint(undefined, theme)}>{onlineSummary}</Text>
         </Box>
         {extGameView ? (
-          <ExtGameView onQuit={onExtGameQuit} />
-        ) : extGameLeaderboard ? (
-          <ExtGameLeaderboardView data={extGameLeaderboard} onClose={onLeaderboardClose} />
-        ) : extGameSelecting ? (
-          <ExtGameSelect
-            games={extGames}
-            onSelect={onExtGameSelect}
-            onCancel={() => useStore.getState().cancelExtGameSelect()}
-            onLeaderboard={onExtGameLeaderboard}
-          />
+          <ExtGameView onLeave={onExtGameLeave} />
         ) : currentGame && authedUser &&
         currentGame.playerNickname === authedUser.nickname &&
         currentGame.playerDiscriminator === authedUser.discriminator ? (

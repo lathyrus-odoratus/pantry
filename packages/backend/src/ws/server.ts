@@ -35,12 +35,10 @@ import {
 } from "./handlers/cabomb.js";
 import { cabombOnDisconnect } from "../cabomb/manager.js";
 import {
-  handleExtGameList,
   handleExtGameStart,
   handleExtGameInput,
   handleExtGameWatch,
   handleExtGameLeave,
-  handleExtGameLeaderboard,
 } from "./handlers/ext-game.js";
 import { extGameOnDisconnect } from "../ext-game/manager.js";
 import {
@@ -259,11 +257,8 @@ export function attachWebSocketServer(
           case "cabomb.ping":
             handleCabombPing(conn, parsed);
             break;
-          case "ext.game.list":
-            await handleExtGameList(conn, deps.config.gameServiceUrl);
-            break;
           case "ext.game.start":
-            await handleExtGameStart(conn, parsed, deps.registry, deps.config.gameServiceUrl);
+            await handleExtGameStart(conn, deps.registry, deps.config.gameServiceUrl);
             break;
           case "ext.game.input":
             await handleExtGameInput(conn, parsed, deps.registry, deps.config.gameServiceUrl);
@@ -273,9 +268,6 @@ export function attachWebSocketServer(
             break;
           case "ext.game.leave":
             handleExtGameLeave(conn);
-            break;
-          case "ext.game.leaderboard":
-            await handleExtGameLeaderboard(conn, parsed, deps.config.gameServiceUrl);
             break;
           case "auth.anon":
           case "auth.oauth":
@@ -301,7 +293,7 @@ export function attachWebSocketServer(
       if (!authed) return;
       endGameForPlayer(authed.userId, deps.registry);
       cabombOnDisconnect(authed, deps.registry);
-      extGameOnDisconnect(authed, deps.registry);
+      extGameOnDisconnect(authed, deps.registry, deps.config.gameServiceUrl);
       deps.registry.remove(authed);
       const leaveLabel = `${authed.nickname}#${authed.discriminator} left`;
       broadcastToRoom(deps.registry, authed.roomId, {

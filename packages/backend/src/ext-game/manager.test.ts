@@ -18,8 +18,7 @@ import * as api from "./api.js";
 import * as broadcast from "../ws/broadcast.js";
 
 const BASE = "http://game-svc";
-const GAME_LIST = [{ id: "game-1", title: "Test Game", description: "A test game", hasLeaderboard: false }];
-const SESSION = { sessionId: "sess-1", frame: "init-frame", tick: 0 };
+const SESSION = { sessionId: "sess-1", frame: "main-menu-frame", tick: 0 };
 
 let roomSeq = 0;
 function nextRoom(): string {
@@ -50,10 +49,10 @@ function fakeConn(
 
 beforeEach(() => {
   vi.useFakeTimers();
-  vi.mocked(api.listGames).mockResolvedValue(GAME_LIST);
-  vi.mocked(api.startSession).mockResolvedValue(SESSION);
-  vi.mocked(api.sendInput).mockResolvedValue({ frame: "after", tick: 1, over: false, result: null });
-  vi.mocked(api.getFrame).mockResolvedValue({ frame: "polled", tick: 1 });
+  vi.mocked(api.startTuiSession).mockResolvedValue(SESSION);
+  vi.mocked(api.sendTuiInput).mockResolvedValue({ frame: "after", tick: 1 });
+  vi.mocked(api.getTuiFrame).mockResolvedValue({ frame: "polled", tick: 1 });
+  vi.mocked(api.deleteTuiSession).mockResolvedValue(undefined);
   vi.mocked(broadcast.broadcastToRoom).mockImplementation(() => {});
   vi.mocked(broadcast.send).mockImplementation(() => {});
 });
@@ -63,7 +62,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-// ── startExtGame ─────────────────────────────────────────────────────────────
+// ── startExtGame ──────────────────────────────────────────────────────────────
 
 describe("startExtGame", () => {
   it("returns ok, broadcasts ext.game.started, sends initial frame to driver", async () => {
@@ -72,18 +71,18 @@ describe("startExtGame", () => {
     const { conn: driver, outbox } = fakeConn("d1", roomId);
     registry.add(driver);
 
-    const result = await startExtGame(driver, "game-1", registry, BASE);
+    const result = await startExtGame(driver, registry, BASE);
 
     expect(result).toBe("ok");
     expect(isExtGameActive(roomId)).toBe(true);
 
     const broadcastCall = vi.mocked(broadcast.broadcastToRoom).mock.calls[0];
-    expect(broadcastCall?.[2]).toMatchObject({ type: "ext.game.started", gameId: "game-1" });
+    expect(broadcastCall?.[2]).toMatchObject({ type: "ext.game.started", gameId: "shell" });
 
     const frame = outbox.find((m) => m.type === "ext.game.frame");
     expect(frame).toMatchObject({ type: "ext.game.frame", frame: SESSION.frame });
 
-    extGameOnDisconnect(driver, registry);
+    extGameOnDisconnect(driver, registry, BASE);
   });
 
   it("returns already_active when a game is running in the room", async () => {
@@ -94,37 +93,37 @@ describe("startExtGame", () => {
     registry.add(d1);
     registry.add(d2);
 
-    await startExtGame(d1, "game-1", registry, BASE);
-    const result = await startExtGame(d2, "game-1", registry, BASE);
+    await startExtGame(d1, registry, BASE);
+    const result = await startExtGame(d2, registry, BASE);
 
     expect(result).toBe("already_active");
 
-    extGameOnDisconnect(d1, registry);
+    extGameOnDisconnect(d1, registry, BASE);
   });
 
-  it("returns api_error when startSession throws", async () => {
+  it("returns api_error when startTuiSession throws", async () => {
     const roomId = nextRoom();
     const registry = new ConnectionRegistry();
     const { conn: driver } = fakeConn("d1", roomId);
     registry.add(driver);
-    vi.mocked(api.startSession).mockRejectedValueOnce(new Error("network"));
+    vi.mocked(api.startTuiSession).mockRejectedValueOnce(new Error("network"));
 
-    const result = await startExtGame(driver, "game-1", registry, BASE);
+    const result = await startExtGame(driver, registry, BASE);
 
     expect(result).toBe("api_error");
     expect(isExtGameActive(roomId)).toBe(false);
   });
 
-  it("returns game_not_found when startSession returns null", async () => {
+  it("returns api_error when startTuiSession returns null", async () => {
     const roomId = nextRoom();
     const registry = new ConnectionRegistry();
     const { conn: driver } = fakeConn("d1", roomId);
     registry.add(driver);
-    vi.mocked(api.startSession).mockResolvedValueOnce(null);
+    vi.mocked(api.startTuiSession).mockResolvedValueOnce(null);
 
-    const result = await startExtGame(driver, "game-1", registry, BASE);
+    const result = await startExtGame(driver, registry, BASE);
 
-    expect(result).toBe("game_not_found");
+    expect(result).toBe("api_error");
     expect(isExtGameActive(roomId)).toBe(false);
   });
 });
@@ -150,12 +149,12 @@ describe("inputExtGame", () => {
     registry.add(driver);
     registry.add(other);
 
-    await startExtGame(driver, "game-1", registry, BASE);
+    await startExtGame(driver, registry, BASE);
     const result = await inputExtGame(other, "up", registry, BASE);
 
     expect(result).toBe("not_driver");
 
-    extGameOnDisconnect(driver, registry);
+    extGameOnDisconnect(driver, registry, BASE);
   });
 
   it("sends input and pushes updated frame to driver", async () => {
@@ -164,44 +163,45 @@ describe("inputExtGame", () => {
     const { conn: driver, outbox } = fakeConn("d1", roomId);
     registry.add(driver);
 
-    await startExtGame(driver, "game-1", registry, BASE);
+    await startExtGame(driver, registry, BASE);
     outbox.length = 0;
 
     await inputExtGame(driver, "up", registry, BASE);
 
-    expect(api.sendInput).toHaveBeenCalledWith(BASE, SESSION.sessionId, "up");
+    expect(api.sendTuiInput).toHaveBeenCalledWith(BASE, SESSION.sessionId, "up");
     const frame = outbox.find((m) => m.type === "ext.game.frame");
     expect(frame).toMatchObject({ type: "ext.game.frame", frame: "after" });
 
-    extGameOnDisconnect(driver, registry);
+    extGameOnDisconnect(driver, registry, BASE);
   });
 
-  it("ends game and broadcasts over when result is win", async () => {
+  it("ends session when shell returns quit", async () => {
     const roomId = nextRoom();
     const registry = new ConnectionRegistry();
     const { conn: driver } = fakeConn("d1", roomId);
     registry.add(driver);
 
-    await startExtGame(driver, "game-1", registry, BASE);
-    vi.mocked(api.sendInput).mockResolvedValueOnce({ frame: "end", tick: 99, over: true, result: "win" });
+    await startExtGame(driver, registry, BASE);
+    vi.mocked(api.sendTuiInput).mockResolvedValueOnce({ quit: true });
 
-    await inputExtGame(driver, "enter", registry, BASE);
+    await inputExtGame(driver, "q", registry, BASE);
 
     expect(isExtGameActive(roomId)).toBe(false);
     const overCall = vi.mocked(broadcast.broadcastToRoom).mock.calls.find(
       (c) => (c[2] as ServerMessage).type === "ext.game.over",
     );
-    expect(overCall?.[2]).toMatchObject({ type: "ext.game.over", result: "win" });
+    expect(overCall?.[2]).toMatchObject({ type: "ext.game.over", result: "quit" });
+    expect(api.deleteTuiSession).toHaveBeenCalledWith(BASE, SESSION.sessionId);
   });
 
-  it("ends game when sendInput throws (API error)", async () => {
+  it("ends session when sendTuiInput throws (API error)", async () => {
     const roomId = nextRoom();
     const registry = new ConnectionRegistry();
     const { conn: driver } = fakeConn("d1", roomId);
     registry.add(driver);
 
-    await startExtGame(driver, "game-1", registry, BASE);
-    vi.mocked(api.sendInput).mockRejectedValueOnce(new Error("timeout"));
+    await startExtGame(driver, registry, BASE);
+    vi.mocked(api.sendTuiInput).mockRejectedValueOnce(new Error("timeout"));
 
     await inputExtGame(driver, "up", registry, BASE);
 
@@ -213,14 +213,14 @@ describe("inputExtGame", () => {
     );
   });
 
-  it("ends game when sendInput returns null (session expired)", async () => {
+  it("ends session when sendTuiInput returns null (session expired)", async () => {
     const roomId = nextRoom();
     const registry = new ConnectionRegistry();
     const { conn: driver } = fakeConn("d1", roomId);
     registry.add(driver);
 
-    await startExtGame(driver, "game-1", registry, BASE);
-    vi.mocked(api.sendInput).mockResolvedValueOnce(null);
+    await startExtGame(driver, registry, BASE);
+    vi.mocked(api.sendTuiInput).mockResolvedValueOnce(null);
 
     await inputExtGame(driver, "up", registry, BASE);
 
@@ -248,7 +248,7 @@ describe("watchExtGame / unwatchExtGame", () => {
     registry.add(driver);
     registry.add(spectator);
 
-    await startExtGame(driver, "game-1", registry, BASE);
+    await startExtGame(driver, registry, BASE);
     const ok = watchExtGame(spectator);
 
     expect(ok).toBe(true);
@@ -257,7 +257,7 @@ describe("watchExtGame / unwatchExtGame", () => {
     );
     expect(sendCall?.[1]).toMatchObject({ type: "ext.game.frame", frame: SESSION.frame });
 
-    extGameOnDisconnect(driver, registry);
+    extGameOnDisconnect(driver, registry, BASE);
   });
 
   it("unwatchExtGame removes spectator; they no longer receive frames", async () => {
@@ -268,7 +268,7 @@ describe("watchExtGame / unwatchExtGame", () => {
     registry.add(driver);
     registry.add(spectator);
 
-    await startExtGame(driver, "game-1", registry, BASE);
+    await startExtGame(driver, registry, BASE);
     watchExtGame(spectator);
     unwatchExtGame(spectator);
     outbox.length = 0;
@@ -277,7 +277,7 @@ describe("watchExtGame / unwatchExtGame", () => {
 
     expect(outbox.filter((m) => m.type === "ext.game.frame")).toHaveLength(0);
 
-    extGameOnDisconnect(driver, registry);
+    extGameOnDisconnect(driver, registry, BASE);
   });
 });
 
@@ -290,10 +290,10 @@ describe("extGameOnDisconnect", () => {
     const { conn: driver } = fakeConn("d1", roomId);
     registry.add(driver);
 
-    await startExtGame(driver, "game-1", registry, BASE);
+    await startExtGame(driver, registry, BASE);
     vi.mocked(broadcast.broadcastToRoom).mockClear();
 
-    extGameOnDisconnect(driver, registry);
+    extGameOnDisconnect(driver, registry, BASE);
 
     expect(isExtGameActive(roomId)).toBe(false);
     expect(vi.mocked(broadcast.broadcastToRoom)).toHaveBeenCalledWith(
@@ -301,6 +301,7 @@ describe("extGameOnDisconnect", () => {
       roomId,
       expect.objectContaining({ type: "ext.game.over", result: "quit" }),
     );
+    expect(api.deleteTuiSession).toHaveBeenCalledWith(BASE, SESSION.sessionId);
   });
 
   it("removes spectator from room but does not end game when spectator disconnects", async () => {
@@ -311,16 +312,16 @@ describe("extGameOnDisconnect", () => {
     registry.add(driver);
     registry.add(spectator);
 
-    await startExtGame(driver, "game-1", registry, BASE);
+    await startExtGame(driver, registry, BASE);
     watchExtGame(spectator);
     vi.mocked(broadcast.broadcastToRoom).mockClear();
 
-    extGameOnDisconnect(spectator, registry);
+    extGameOnDisconnect(spectator, registry, BASE);
 
     expect(isExtGameActive(roomId)).toBe(true);
     expect(vi.mocked(broadcast.broadcastToRoom)).not.toHaveBeenCalled();
 
-    extGameOnDisconnect(driver, registry);
+    extGameOnDisconnect(driver, registry, BASE);
   });
 });
 
@@ -335,7 +336,7 @@ describe("idle timeout", () => {
     const { conn: driver } = fakeConn("d1", roomId);
     registry.add(driver);
 
-    await startExtGame(driver, "game-1", registry, BASE);
+    await startExtGame(driver, registry, BASE);
     vi.mocked(broadcast.broadcastToRoom).mockClear();
 
     await vi.advanceTimersByTimeAsync(IDLE_MS + POLL_MS);
