@@ -1,12 +1,6 @@
-import type { ExtGameInfo } from "@pantry/shared";
-
-export type SessionStarted = { sessionId: string; frame: string; tick?: number };
-
-export type InputResult =
-  | { quit: true }
-  | { frame: string; tick?: number; over: boolean; result: string | null };
-
-export type FrameResult = { frame: string; tick?: number };
+export type TuiSessionStarted = { sessionId: string; frame: string; tick: number };
+export type TuiInputResult = { quit: true } | { frame: string; tick: number };
+export type TuiFrameResult = { frame: string; tick: number };
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | null> {
   const res = await fetch(url, options);
@@ -15,29 +9,24 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | nul
   return res.json() as Promise<T>;
 }
 
-export async function listGames(baseUrl: string): Promise<ExtGameInfo[]> {
-  return (await fetchJson<ExtGameInfo[]>(`${baseUrl}/games`)) ?? [];
-}
-
-export async function startSession(
+export async function startTuiSession(
   baseUrl: string,
-  gameId: string,
   nickname: string,
-): Promise<SessionStarted | null> {
-  return fetchJson<SessionStarted>(`${baseUrl}/games/${encodeURIComponent(gameId)}/sessions`, {
+): Promise<TuiSessionStarted | null> {
+  return fetchJson<TuiSessionStarted>(`${baseUrl}/tui/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ nickname }),
   });
 }
 
-export async function sendInput(
+export async function sendTuiInput(
   baseUrl: string,
   sessionId: string,
   key: string,
-): Promise<InputResult | null> {
-  return fetchJson<InputResult>(
-    `${baseUrl}/sessions/${encodeURIComponent(sessionId)}/input`,
+): Promise<TuiInputResult | null> {
+  return fetchJson<TuiInputResult>(
+    `${baseUrl}/tui/sessions/${encodeURIComponent(sessionId)}/input`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -46,35 +35,21 @@ export async function sendInput(
   );
 }
 
-export async function getFrame(
+export async function getTuiFrame(
   baseUrl: string,
   sessionId: string,
-): Promise<FrameResult | null> {
-  return fetchJson<FrameResult>(
-    `${baseUrl}/sessions/${encodeURIComponent(sessionId)}/frame`,
+): Promise<TuiFrameResult | null> {
+  return fetchJson<TuiFrameResult>(
+    `${baseUrl}/tui/sessions/${encodeURIComponent(sessionId)}/frame`,
   );
 }
 
-export type LeaderboardResult = {
-  gameId: string;
-  metric: string;
-  lowerIsBetter: boolean;
-  label: string;
-  entries: Array<{
-    rank: number;
-    nickname: string;
-    value: number;
-    difficulty: string | null;
-    createdAt: string;
-  }>;
-};
-
-export async function getLeaderboard(
-  baseUrl: string,
-  gameId: string,
-  difficulty?: string,
-): Promise<LeaderboardResult | null> {
-  const url = new URL(`${baseUrl}/games/${encodeURIComponent(gameId)}/leaderboard`);
-  if (difficulty) url.searchParams.set("difficulty", difficulty);
-  return fetchJson<LeaderboardResult>(url.toString());
+export async function deleteTuiSession(baseUrl: string, sessionId: string): Promise<void> {
+  try {
+    await fetch(`${baseUrl}/tui/sessions/${encodeURIComponent(sessionId)}`, {
+      method: "DELETE",
+    });
+  } catch {
+    // fire-and-forget cleanup; errors are non-fatal
+  }
 }

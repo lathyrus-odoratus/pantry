@@ -1,35 +1,20 @@
-import type { ExtGameStart, ExtGameInput, ExtGameLeaderboardReq } from "@pantry/shared";
+import type { ExtGameInput } from "@pantry/shared";
 import type { AuthedConnection } from "../connection-registry.js";
 import type { ConnectionRegistry } from "../connection-registry.js";
 import { send } from "../broadcast.js";
 import {
-  listExtGames,
   startExtGame,
   inputExtGame,
   watchExtGame,
   unwatchExtGame,
-  getExtGameLeaderboard,
 } from "../../ext-game/manager.js";
-
-export async function handleExtGameList(
-  conn: AuthedConnection,
-  baseUrl: string,
-): Promise<void> {
-  try {
-    const games = await listExtGames(baseUrl);
-    send(conn, { type: "ext.games", games });
-  } catch {
-    send(conn, { type: "ext.game.error", reason: "api_error" });
-  }
-}
 
 export async function handleExtGameStart(
   conn: AuthedConnection,
-  msg: ExtGameStart,
   registry: ConnectionRegistry,
   baseUrl: string,
 ): Promise<void> {
-  const result = await startExtGame(conn, msg.gameId, registry, baseUrl);
+  const result = await startExtGame(conn, registry, baseUrl);
   if (result !== "ok") {
     send(conn, { type: "ext.game.error", reason: result });
   }
@@ -54,21 +39,4 @@ export function handleExtGameWatch(conn: AuthedConnection): void {
 
 export function handleExtGameLeave(conn: AuthedConnection): void {
   unwatchExtGame(conn);
-}
-
-export async function handleExtGameLeaderboard(
-  conn: AuthedConnection,
-  msg: ExtGameLeaderboardReq,
-  baseUrl: string,
-): Promise<void> {
-  try {
-    const data = await getExtGameLeaderboard(baseUrl, msg.gameId, msg.difficulty);
-    if (!data) {
-      send(conn, { type: "ext.game.error", reason: "game_not_found" });
-      return;
-    }
-    send(conn, { type: "ext.game.leaderboard", ...data });
-  } catch {
-    send(conn, { type: "ext.game.error", reason: "api_error" });
-  }
 }

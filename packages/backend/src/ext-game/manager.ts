@@ -1,21 +1,19 @@
-import type { ExtGameInfo, ServerMessage } from "@pantry/shared";
-import { listGames, startSession, sendInput, getFrame, getLeaderboard } from "./api.js";
+import type { ServerMessage } from "@pantry/shared";
+import { startTuiSession, sendTuiInput, getTuiFrame, deleteTuiSession } from "./api.js";
 import { broadcastToRoom, send } from "../ws/broadcast.js";
 import type { AuthedConnection, ConnectionRegistry } from "../ws/connection-registry.js";
 import { isCabombActive } from "../cabomb/manager.js";
 import { logger } from "../logger.js";
 
-// Poll the game service for frame updates. Most games only change on input, but
-// AI-ticking games (e.g. bomber) advance automatically — polling at 200ms catches
-// both cases. Frames with unchanged content are skipped to avoid noise.
 const POLL_MS = 200;
-// End a game if the driver sends no input for this long.
 const IDLE_MS = 120_000;
+
+// Constant identifiers used in WS protocol messages for the TUI shell session.
+const SHELL_GAME_ID = "shell";
+const SHELL_TITLE = "遊戲";
 
 type ActiveExtGame = {
   sessionId: string;
-  gameId: string;
-  title: string;
   driver: AuthedConnection;
   driverName: string;
   roomId: string;
@@ -29,19 +27,6 @@ type ActiveExtGame = {
 
 const games = new Map<string, ActiveExtGame>();
 
-// Simple in-process cache so we don't hit /games on every startExtGame call.
-let cachedGames: ExtGameInfo[] | null = null;
-async function resolveTitle(baseUrl: string, gameId: string): Promise<string> {
-  if (!cachedGames) {
-    try {
-      cachedGames = await listGames(baseUrl);
-    } catch {
-      return gameId;
-    }
-  }
-  return cachedGames.find((g) => g.id === gameId)?.title ?? gameId;
-}
-
 function nameOf(conn: AuthedConnection): string {
   return `${conn.nickname}#${conn.discriminator}`;
 }
@@ -53,7 +38,7 @@ function pushFrame(g: ActiveExtGame, frame: string, tick: number): void {
     frame,
     tick,
     by: g.driverName,
-    gameId: g.gameId,
+    gameId: SHELL_GAME_ID,
   } satisfies ServerMessage);
   g.driver.sendRaw(raw);
   for (const v of g.spectators.values()) {
@@ -70,40 +55,31 @@ export function extGameInfo(
 ): { gameId: string; title: string; by: string } | null {
   const g = games.get(roomId);
   if (!g) return null;
-  return { gameId: g.gameId, title: g.title, by: g.driverName };
-}
-
-export async function listExtGames(baseUrl: string): Promise<ExtGameInfo[]> {
-  cachedGames = null; // force fresh fetch on /game
-  return listGames(baseUrl);
+  return { gameId: SHELL_GAME_ID, title: SHELL_TITLE, by: g.driverName };
 }
 
 export async function startExtGame(
   conn: AuthedConnection,
-  gameId: string,
   registry: ConnectionRegistry,
   baseUrl: string,
-): Promise<"ok" | "already_active" | "game_not_found" | "api_error"> {
+): Promise<"ok" | "already_active" | "api_error"> {
   if (games.has(conn.roomId) || isCabombActive(conn.roomId)) return "already_active";
 
   let session;
   try {
-    session = await startSession(baseUrl, gameId, nameOf(conn));
+    session = await startTuiSession(baseUrl, nameOf(conn));
   } catch (err) {
-    logger.error({ err, gameId }, "ext game start failed");
+    logger.error({ err }, "tui session start failed");
     return "api_error";
   }
-  if (!session) return "game_not_found";
+  if (!session) return "api_error";
 
-  const title = await resolveTitle(baseUrl, gameId);
   const roomId = conn.roomId;
   const driverName = nameOf(conn);
   const now = Date.now();
 
   const g: ActiveExtGame = {
     sessionId: session.sessionId,
-    gameId,
-    title,
     driver: conn,
     driverName,
     roomId,
@@ -121,13 +97,13 @@ export async function startExtGame(
     if (!game) return;
     if (Date.now() - game.lastInputAt >= IDLE_MS) {
       logger.info({ roomId, driver: game.driverName }, "ext game idle timeout");
-      endExtGame(roomId, "quit", registry);
+      endExtGame(roomId, "quit", registry, baseUrl);
       return;
     }
     try {
-      const result = await getFrame(baseUrl, game.sessionId);
+      const result = await getTuiFrame(baseUrl, game.sessionId);
       if (!result) {
-        endExtGame(roomId, "quit", registry);
+        endExtGame(roomId, "quit", registry, baseUrl);
         return;
       }
       if (result.frame !== game.lastFrame) {
@@ -142,12 +118,12 @@ export async function startExtGame(
 
   broadcastToRoom(registry, roomId, {
     type: "ext.game.started",
-    gameId,
-    title,
+    gameId: SHELL_GAME_ID,
+    title: SHELL_TITLE,
     by: driverName,
   });
   pushFrame(g, session.frame, 0);
-  logger.info({ roomId, gameId, driver: driverName }, "ext game started");
+  logger.info({ roomId, driver: driverName }, "tui session started");
   return "ok";
 }
 
@@ -163,24 +139,20 @@ export async function inputExtGame(
 
   g.lastInputAt = Date.now();
   try {
-    const result = await sendInput(baseUrl, g.sessionId, key);
+    const result = await sendTuiInput(baseUrl, g.sessionId, key);
     if (!result) {
-      endExtGame(conn.roomId, "quit", registry);
+      endExtGame(conn.roomId, "quit", registry, baseUrl);
       return "ok";
     }
     if ("quit" in result) {
-      endExtGame(conn.roomId, "quit", registry);
+      endExtGame(conn.roomId, "quit", registry, baseUrl);
       return "ok";
     }
     g.lastTick++;
     pushFrame(g, result.frame, g.lastTick);
-    if (result.over) {
-      const res = result.result === "win" ? "win" : result.result === "loss" ? "loss" : "quit";
-      endExtGame(conn.roomId, res, registry);
-    }
   } catch (err) {
     logger.error({ err, roomId: conn.roomId }, "ext game input error");
-    endExtGame(conn.roomId, "quit", registry);
+    endExtGame(conn.roomId, "quit", registry, baseUrl);
   }
   return "ok";
 }
@@ -189,13 +161,12 @@ export function watchExtGame(conn: AuthedConnection): boolean {
   const g = games.get(conn.roomId);
   if (!g) return false;
   g.spectators.set(conn.id, conn);
-  // Send the most recent frame immediately so the spectator isn't blank.
   send(conn, {
     type: "ext.game.frame",
     frame: g.lastFrame,
     tick: g.lastTick,
     by: g.driverName,
-    gameId: g.gameId,
+    gameId: SHELL_GAME_ID,
   });
   return true;
 }
@@ -208,35 +179,30 @@ function endExtGame(
   roomId: string,
   result: "win" | "loss" | "quit",
   registry: ConnectionRegistry,
+  baseUrl: string,
 ): void {
   const g = games.get(roomId);
   if (!g) return;
   clearInterval(g.pollTimer);
   games.delete(roomId);
+  void deleteTuiSession(baseUrl, g.sessionId);
   broadcastToRoom(registry, roomId, {
     type: "ext.game.over",
     result,
     by: g.driverName,
-    gameId: g.gameId,
-    title: g.title,
+    gameId: SHELL_GAME_ID,
+    title: SHELL_TITLE,
   });
-  logger.info({ roomId, result, driver: g.driverName, gameId: g.gameId }, "ext game ended");
+  logger.info({ roomId, result, driver: g.driverName }, "tui session ended");
 }
 
 export function extGameOnDisconnect(
   conn: AuthedConnection,
   registry: ConnectionRegistry,
+  baseUrl: string,
 ): void {
   const g = games.get(conn.roomId);
   if (!g) return;
-  if (g.driver.id === conn.id) endExtGame(conn.roomId, "quit", registry);
+  if (g.driver.id === conn.id) endExtGame(conn.roomId, "quit", registry, baseUrl);
   else g.spectators.delete(conn.id);
-}
-
-export async function getExtGameLeaderboard(
-  baseUrl: string,
-  gameId: string,
-  difficulty?: string,
-) {
-  return getLeaderboard(baseUrl, gameId, difficulty);
 }
