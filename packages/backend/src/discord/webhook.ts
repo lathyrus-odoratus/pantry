@@ -35,6 +35,50 @@ export function formatChat(
     : `${content.slice(0, MAX_DISCORD_CONTENT - 1)}…`;
 }
 
+function truncate(content: string): string {
+  return content.length <= MAX_DISCORD_CONTENT
+    ? content
+    : `${content.slice(0, MAX_DISCORD_CONTENT - 1)}…`;
+}
+
+/**
+ * Webhook username for a chat author, or null when Discord would reject it
+ * (names follow the nickname rules: 1–80 chars, no "clyde"/"discord").
+ */
+export function chatUsername(author: {
+  nickname: string;
+  discriminator: string;
+}): string | null {
+  const name = `${author.nickname}#${author.discriminator}`;
+  if (name.length > 80 || /clyde|discord/i.test(name)) return null;
+  return name;
+}
+
+export type ChatPost = {
+  /** Sent with `username` set to the author, so no inline label. */
+  content: string;
+  /** Labeled form, sent under the bot's own name if the username is unusable. */
+  fallback: string;
+  username: string | null;
+};
+
+export function formatChatPost(
+  author: { nickname: string; discriminator: string },
+  body: string,
+  replyTo?: {
+    author: { nickname: string; discriminator: string };
+    body: string;
+  },
+): ChatPost {
+  const fallback = formatChat(author, body, replyTo);
+  const username = chatUsername(author);
+  if (!username) return { content: fallback, fallback, username: null };
+  const quoted = replyTo
+    ? `> ${replyTo.author.nickname}#${replyTo.author.discriminator}: ${replyTo.body.replace(/\n/g, "\n> ")}\n`
+    : "";
+  return { content: truncate(`${quoted}${body}`), fallback, username };
+}
+
 export function formatSystem(_event: string, body: string): string {
   return `> ${body}`;
 }
@@ -45,28 +89,60 @@ function buildUrl(target: WebhookTarget): string {
   return `${target.url}${sep}thread_id=${encodeURIComponent(target.threadId)}`;
 }
 
+/** Webhook id for logs. The URL itself carries the token and must not be logged. */
+function webhookId(target: WebhookTarget): string | null {
+  return /\/webhooks\/(\d+)\//.exec(target.url)?.[1] ?? null;
+}
+
+/**
+ * POST one message. Never throws; returns the HTTP status, or null when the
+ * request itself failed. Failed messages are dropped (logged, not retried).
+ */
 export async function pushToDiscord(
   target: WebhookTarget,
   content: string,
-): Promise<void> {
+  username?: string | null,
+): Promise<number | null> {
+  const where = { webhookId: webhookId(target), threadId: target.threadId };
   try {
     const res = await fetch(buildUrl(target), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         content,
+        ...(username ? { username } : {}),
         allowed_mentions: { parse: [] },
       }),
     });
-    if (!res.ok) {
+    if (res.status === 429) {
+      // No rate limiting on our side yet; this event is how we find out we need it.
+      const body = (await res.json().catch(() => ({}))) as {
+        retry_after?: number;
+        global?: boolean;
+      };
+      logger.warn(
+        {
+          event: "discord.rate_limited",
+          ...where,
+          retryAfterSec: body.retry_after ?? null,
+          global: body.global ?? false,
+          scope: res.headers.get("x-ratelimit-scope"),
+          bucket: res.headers.get("x-ratelimit-bucket"),
+          contentLength: content.length,
+        },
+        "discord webhook rate limited; message dropped",
+      );
+    } else if (!res.ok) {
       const text = await res.text().catch(() => "");
       logger.warn(
-        { status: res.status, body: text.slice(0, 500) },
+        { ...where, status: res.status, username: username ?? null, body: text.slice(0, 500) },
         "discord webhook non-2xx",
       );
     }
+    return res.status;
   } catch (err) {
-    logger.warn({ err }, "discord webhook fetch failed");
+    logger.warn({ ...where, err }, "discord webhook fetch failed");
+    return null;
   }
 }
 
@@ -79,7 +155,8 @@ export async function pushToDiscord(
 const FLUSH_INTERVAL_MS = 10_000;
 const MAX_QUEUE_LINES = 500;
 
-type QueueEntry = { lines: string[]; target: WebhookTarget };
+type QueueItem = ChatPost;
+type QueueEntry = { lines: QueueItem[]; target: WebhookTarget };
 const queues = new Map<string, QueueEntry>();
 let flushTimer: NodeJS.Timeout | null = null;
 
@@ -110,14 +187,41 @@ function packChunks(lines: string[]): string[] {
   return chunks;
 }
 
+/** Split into runs of consecutive items with the same username, keeping order. */
+function splitRuns(items: QueueItem[]): QueueItem[][] {
+  const runs: QueueItem[][] = [];
+  for (const item of items) {
+    const last = runs.at(-1);
+    if (last && last[0]!.username === item.username) last.push(item);
+    else runs.push([item]);
+  }
+  return runs;
+}
+
+async function sendRun(target: WebhookTarget, run: QueueItem[]): Promise<void> {
+  const username = run[0]!.username;
+  const chunks = packChunks(run.map((i) => i.content));
+  for (const [i, chunk] of chunks.entries()) {
+    const status = await pushToDiscord(target, chunk, username);
+    if (i === 0 && username && status === 400) {
+      // Discord rejected the username (it has unlisted name rules): resend the
+      // whole run under the bot's name with inline labels.
+      for (const fb of packChunks(run.map((r) => r.fallback))) {
+        await pushToDiscord(target, fb);
+      }
+      return;
+    }
+  }
+}
+
 export async function flushWebhookQueues(): Promise<void> {
   if (queues.size === 0) return;
   const entries = Array.from(queues.values());
   queues.clear();
   await Promise.all(
     entries.map(async (e) => {
-      for (const chunk of packChunks(e.lines)) {
-        await pushToDiscord(e.target, chunk);
+      for (const run of splitRuns(e.lines)) {
+        await sendRun(e.target, run);
       }
     }),
   );
@@ -133,7 +237,17 @@ function ensureFlushTimer(): void {
   flushTimer.unref();
 }
 
+/** Queue a system line, sent under the bot's own name. */
 export function notify(target: WebhookTarget | null, content: string): void {
+  enqueue(target, { content, fallback: content, username: null });
+}
+
+/** Queue a chat message, sent under the author's name. */
+export function notifyChat(target: WebhookTarget | null, post: ChatPost): void {
+  enqueue(target, post);
+}
+
+function enqueue(target: WebhookTarget | null, item: QueueItem): void {
   if (!target) return;
   ensureFlushTimer();
   const key = queueKey(target);
@@ -142,12 +256,12 @@ export function notify(target: WebhookTarget | null, content: string): void {
     q = { lines: [], target };
     queues.set(key, q);
   }
-  q.lines.push(content);
+  q.lines.push(item);
   if (q.lines.length > MAX_QUEUE_LINES) {
     const overflow = q.lines.length - MAX_QUEUE_LINES;
     q.lines.splice(0, overflow);
     logger.warn(
-      { url: target.url, dropped: overflow },
+      { webhookId: webhookId(target), threadId: target.threadId, dropped: overflow },
       "discord webhook queue overflow; dropped oldest",
     );
   }

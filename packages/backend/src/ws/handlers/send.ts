@@ -5,7 +5,7 @@ import type { MessagesRepo } from "../../db/messages.js";
 import type { ConnectionRegistry, AuthedConnection } from "../connection-registry.js";
 import { broadcastToRoom, send } from "../broadcast.js";
 import { logger } from "../../logger.js";
-import { formatChat, notify } from "../../discord/webhook.js";
+import { formatChatPost, notifyChat } from "../../discord/webhook.js";
 import { NPC_DEBOUNCE_MS } from "../../world/state.js";
 import type { WorldStateStore } from "../../world/state.js";
 import { runNpcTurn, type BrainDeps } from "../../world/brain.js";
@@ -52,7 +52,7 @@ export async function handleSend(
   };
   const out: ServerMessage = { type: "message", data: message };
   broadcastToRoom(deps.registry, conn.roomId, out);
-  notify(conn.webhook, formatChat(message.author, message.body, message.replyTo));
+  notifyChat(conn.webhook, formatChatPost(message.author, message.body, message.replyTo));
 
   // If a world is active in this room and this is a real player (not the
   // virtual NPC), feed the message to the brain. The brain handles its own
