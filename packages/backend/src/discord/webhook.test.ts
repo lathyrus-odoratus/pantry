@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { logger } from "../logger.js";
 import {
+  chatUsername,
   formatChat,
+  formatChatPost,
   formatSystem,
   pushToDiscord,
   notify,
+  notifyChat,
   targetFromRoom,
   flushWebhookQueues,
   _resetWebhookBatching,
@@ -21,6 +25,35 @@ describe("formatChat", () => {
     const out = formatChat({ nickname: "a", discriminator: "bbbb" }, body);
     expect(out.length).toBe(2000);
     expect(out.endsWith("…")).toBe(true);
+  });
+});
+
+describe("formatChatPost", () => {
+  const alice = { nickname: "alice", discriminator: "ab12" };
+
+  it("sends under the author's name without an inline label", () => {
+    expect(formatChatPost(alice, "hi")).toEqual({
+      content: "hi",
+      fallback: "**alice#ab12**: hi",
+      username: "alice#ab12",
+    });
+  });
+
+  it("keeps the reply quote above the body", () => {
+    const post = formatChatPost(alice, "me too", {
+      author: { nickname: "bob", discriminator: "cd34" },
+      body: "line1\nline2",
+    });
+    expect(post.content).toBe("> bob#cd34: line1\n> line2\nme too");
+  });
+
+  it("falls back to the labeled form when the name is not allowed", () => {
+    for (const nickname of ["discordfan", "Clyde"]) {
+      const post = formatChatPost({ nickname, discriminator: "ab12" }, "hi");
+      expect(post.username).toBeNull();
+      expect(post.content).toBe(`**${nickname}#ab12**: hi`);
+    }
+    expect(chatUsername({ nickname: "x".repeat(80), discriminator: "ab12" })).toBeNull();
   });
 });
 
@@ -71,6 +104,43 @@ describe("pushToDiscord", () => {
     });
   });
 
+  it("sets username when given and returns the status", async () => {
+    const status = await pushToDiscord(
+      { url: "https://discord.com/api/webhooks/1/abc", threadId: null },
+      "hi",
+      "alice#ab12",
+    );
+    expect(status).toBe(204);
+    const init = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(init.body as string).username).toBe("alice#ab12");
+  });
+
+  it("logs a rate-limit event on 429 without leaking the webhook token", async () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ retry_after: 1.5, global: false }), {
+          status: 429,
+          headers: { "x-ratelimit-scope": "shared" },
+        }),
+    ) as typeof fetch;
+    const status = await pushToDiscord(
+      { url: "https://discord.com/api/webhooks/123/secret-token", threadId: "9" },
+      "hi",
+    );
+    expect(status).toBe(429);
+    const [fields] = warn.mock.calls[0]!;
+    expect(fields).toMatchObject({
+      event: "discord.rate_limited",
+      webhookId: "123",
+      threadId: "9",
+      retryAfterSec: 1.5,
+      scope: "shared",
+    });
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("secret-token");
+    warn.mockRestore();
+  });
+
   it("merges thread_id when url already has query", async () => {
     await pushToDiscord(
       { url: "https://example.com/hook?foo=bar", threadId: "9" },
@@ -89,7 +159,7 @@ describe("pushToDiscord", () => {
         { url: "https://discord.com/api/webhooks/1/abc", threadId: null },
         "x",
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toBeNull();
   });
 });
 
@@ -139,6 +209,47 @@ describe("notify (batching)", () => {
     notify(target, "c".repeat(800));
     await flushWebhookQueues();
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("sends one POST per run of consecutive same-author lines, in order", async () => {
+    const target = { url: "https://example.com/hook", threadId: null };
+    const alice = { nickname: "alice", discriminator: "ab12" };
+    const bob = { nickname: "bob", discriminator: "cd34" };
+    notifyChat(target, formatChatPost(alice, "a1"));
+    notifyChat(target, formatChatPost(alice, "a2"));
+    notifyChat(target, formatChatPost(bob, "b1"));
+    notify(target, "> bob left");
+    notifyChat(target, formatChatPost(alice, "a3"));
+    await flushWebhookQueues();
+    const sent = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => JSON.parse((c[1] as RequestInit).body as string),
+    );
+    expect(sent.map((b) => [b.username ?? null, b.content])).toEqual([
+      ["alice#ab12", "a1\na2"],
+      ["bob#cd34", "b1"],
+      [null, "> bob left"],
+      ["alice#ab12", "a3"],
+    ]);
+  });
+
+  it("resends a run under the bot's name when Discord rejects the username", async () => {
+    globalThis.fetch = vi.fn(async (_url, init) => {
+      const body = JSON.parse((init as RequestInit).body as string);
+      return new Response(null, { status: body.username ? 400 : 204 });
+    }) as typeof fetch;
+    vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const target = { url: "https://example.com/hook", threadId: null };
+    const alice = { nickname: "alice", discriminator: "ab12" };
+    notifyChat(target, formatChatPost(alice, "a1"));
+    notifyChat(target, formatChatPost(alice, "a2"));
+    await flushWebhookQueues();
+    const sent = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => JSON.parse((c[1] as RequestInit).body as string),
+    );
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toMatchObject({ content: "**alice#ab12**: a1\n**alice#ab12**: a2" });
+    expect(sent[1].username).toBeUndefined();
+    vi.mocked(logger.warn).mockRestore();
   });
 
   it("clears queue after flush so a second flush does nothing", async () => {
