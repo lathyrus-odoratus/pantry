@@ -1,0 +1,47 @@
+name: Release backend
+
+# release-please 讀 packages/backend 底下的 conventional commits，自動開一個
+# 「chore(main): release backend X.Y.Z」PR（升 package.json 版號、寫 CHANGELOG）。
+# merge 那個 PR 時打 tag backend-vX.Y.Z，接著 build image 並部署到 Dokploy。
+# 一般 PR merge 進 main 不會部署，只會累積進下一個 release PR。
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      created: ${{ steps.release.outputs['packages/backend--release_created'] }}
+      version: ${{ steps.release.outputs['packages/backend--version'] }}
+      tag: ${{ steps.release.outputs['packages/backend--tag_name'] }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v5
+
+  deploy:
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+
+      - uses: lathyrus-odoratus/dokploy-deploy@v1
+        with:
+          dockerfile: packages/backend/Dockerfile
+          version: ${{ needs.release-please.outputs.version }}
+          webhook: ${{ secrets.DOKPLOY_WEBHOOK }}

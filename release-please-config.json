@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "6c3bcecaf19215b7e58b31be38f811d6f000d698",
+  "packages": {
+    "packages/backend": {
+      "release-type": "node",
+      "component": "backend",
+      "package-name": "@pantry/backend",
+      "initial-version": "0.1.0",
+      "bump-minor-pre-major": true
+    }
+  }
+}
