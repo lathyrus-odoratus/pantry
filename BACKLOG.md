@@ -42,6 +42,17 @@ The end-summary footer 「下一場世界開啟時，NPC 不會記得這次」 i
 
 ---
 
+## 👤 Identity & profile
+
+Raised 2026-10-14 while making Discord relay posts show the author's name (#68). The original design (`docs/superpowers/specs/2026-05-11-pantry-design.md`, brainstorm transcript) settled on "anonymous nickname + third-party OAuth" (Discord was added later in that brainstorm) and never discussed avatars, profiles, or switching identity mid-session. User mix on 2026-10-14: 118 anon, 3 Discord, 1 NPC.
+
+- **Decide whether the chat flow should persist the OAuth token.** The spec says the token goes to `~/.pantry/credentials.json` (mode 600, 7-day JWT, no refresh) and is reused across launches, deleted on `invalid_token`. Only `--admin` does that today (`AdminOAuthWaiting.tsx`); the chat flow (`OAuthWaiting.tsx`) runs a full browser OAuth on every launch and keeps the token in memory for reconnects only. `auth/credentials.ts` has existed since `59b89ce`. Unclear whether skipping it was deliberate. Trade-off: persisting removes the browser round-trip each launch, but anything refreshed at login (avatar, see below) then only updates every ≤ 7 days. Decide this before the avatar work, since it sets how fresh avatars are.
+- **Discord avatar on relayed messages.** Designed, not built. Migration `0002` adds a generic `users.avatar_url`; the Discord OAuth callback fills it from `/users/@me` (`https://cdn.discordapp.com/avatars/<id>/<hash>.png`, or `embed/avatars/<n>.png` when the user has none) and refreshes it on every login, since the hash changes when they change avatars. The connection carries it, and `discord/webhook.ts` sends it as `avatar_url` next to `username` (split runs by username + avatar). Anonymous users keep the webhook's own avatar. A stale hash just 404s and Discord falls back to the webhook avatar. Always-fresh avatars would need a Discord bot token to look users up; not worth it now. Pantry stores nothing else from Discord: `global_name ?? username` only seeds the nickname at first login (truncated to 20).
+- **`/avatar` with app-provided presets.** Let users pick from a few avatars the app ships, plus "use my Discord avatar" for Discord users; writes the same `users.avatar_url`. Name it for what the user wants (`/avatar`, like `/nick` and `/color`), not for the mechanism — a `fetch-discord-avatar`-style command was considered and dropped: it would still need a browser OAuth round-trip to get a fresh hash, which is no better than relaunching.
+- **Sign in / switch identity / sign out from chat.** Identity is chosen only at launch; an anonymous user who wants to become their Discord identity has to restart. Open questions if we do it: what happens to the anon user's messages (anon rows are per-connection, so there is nothing to merge into), and whether sign-out should also clear a persisted token (depends on the first item).
+
+---
+
 ## 🛠 Quality / polish
 
 - **Slash command dispatcher.** `InputBar` has grown an if/else chain of `cmd === "..."`. Extract a small client-side dispatcher + a parallel server-side switch refactor. Worth doing before the next 2-3 commands land.
