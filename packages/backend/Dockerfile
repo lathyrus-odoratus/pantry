@@ -26,6 +26,7 @@ COPY --from=build /repo/packages/backend/package.json packages/backend/package.j
 RUN pnpm install --frozen-lockfile --prod --filter @pantry/backend...
 COPY --from=build /repo/packages/shared/dist packages/shared/dist
 COPY --from=build /repo/packages/backend/dist packages/backend/dist
+COPY packages/backend/migrations packages/backend/migrations
 ENV NODE_ENV=production PORT=8080
 EXPOSE 8080
 # Dokploy（Swarm）依這個判斷新版健不健康：不健康就不切流量、自動回滾

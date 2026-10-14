@@ -12,7 +12,7 @@ function makeConfig(over: Partial<Config> = {}): Config {
     port: 8080,
     nodeEnv: "test",
     publicBackendUrl: "http://localhost:8080",
-    supabase: { url: "https://x.supabase.co", serviceRoleKey: "k" },
+    databaseUrl: "postgres://test.invalid/test",
     jwtSigningKey: "0123456789abcdef0123456789abcdef",
     oauth: { discord: { clientId: "d", clientSecret: "d" } },
     adminKey: null,

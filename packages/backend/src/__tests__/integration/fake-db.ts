@@ -7,7 +7,7 @@ import { generateDiscriminator } from "../../utils/discriminator.js";
 // In-memory stand-ins for RoomsRepo / UsersRepo / MessagesRepo. The flow
 // tests pass these into the real Fastify + WS server so everything above
 // the DB boundary runs for real — only the storage layer is faked. This
-// keeps the test path off prod Supabase without giving up the wiring
+// keeps the test path off the prod database without giving up the wiring
 // coverage that's the whole point of these tests.
 //
 // Methods implemented are only the ones the tested handler paths reach;

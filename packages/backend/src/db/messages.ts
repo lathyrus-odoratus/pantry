@@ -1,4 +1,4 @@
-import type { DB } from "./supabase.js";
+import type { DB } from "./client.js";
 import type { Message } from "@pantry/shared";
 
 export type MessageRow = {
@@ -60,48 +60,37 @@ export class MessagesRepo {
     createdAt: string;
     replyTo?: Message["replyTo"];
   }): Promise<void> {
-    const { error } = await this.db.from("messages").insert({
-      id: input.id,
-      room_id: input.roomId,
-      user_id: input.userId,
-      author_nickname: input.authorNickname,
-      author_discriminator: input.authorDiscriminator,
-      body: input.body,
-      created_at: input.createdAt,
-      reply_to_message_id: input.replyTo?.id ?? null,
-      reply_to_author_nickname: input.replyTo?.author.nickname ?? null,
-      reply_to_author_discriminator: input.replyTo?.author.discriminator ?? null,
-      reply_to_body: input.replyTo?.body ?? null,
-      reply_to_created_at: input.replyTo?.createdAt ?? null,
-    });
-    if (error) throw error;
+    await this.db`
+      INSERT INTO messages (
+        id, room_id, user_id, author_nickname, author_discriminator, body, created_at,
+        reply_to_message_id, reply_to_author_nickname, reply_to_author_discriminator,
+        reply_to_body, reply_to_created_at
+      ) VALUES (
+        ${input.id}, ${input.roomId}, ${input.userId}, ${input.authorNickname},
+        ${input.authorDiscriminator}, ${input.body}, ${input.createdAt},
+        ${input.replyTo?.id ?? null}, ${input.replyTo?.author.nickname ?? null},
+        ${input.replyTo?.author.discriminator ?? null}, ${input.replyTo?.body ?? null},
+        ${input.replyTo?.createdAt ?? null}
+      )
+    `;
   }
 
   async findInRoom(messageId: string, roomId: string): Promise<Message | null> {
-    const { data, error } = await this.db
-      .from("messages")
-      .select("*")
-      .eq("id", messageId)
-      .eq("room_id", roomId)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return null;
-    return rowToMessage(data as MessageRow);
+    const [row] = await this.db<MessageRow[]>`
+      SELECT * FROM messages WHERE id = ${messageId} AND room_id = ${roomId}
+    `;
+    return row ? rowToMessage(row) : null;
   }
 
   /**
    * Most recent `limit` messages in a room, returned in ascending time order.
    */
   async listRecent(roomId: string, limit = 50): Promise<Message[]> {
-    const { data, error } = await this.db
-      .from("messages")
-      .select("*")
-      .eq("room_id", roomId)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    if (error) throw error;
-    const rows = (data ?? []).reverse() as MessageRow[];
-    return rows.map(rowToMessage);
+    const rows = await this.db<MessageRow[]>`
+      SELECT * FROM messages WHERE room_id = ${roomId}
+      ORDER BY created_at DESC LIMIT ${limit}
+    `;
+    return rows.reverse().map(rowToMessage);
   }
 
   /**
@@ -113,24 +102,16 @@ export class MessagesRepo {
     beforeMessageId: string,
     limit = 50,
   ): Promise<{ messages: Message[]; hasMore: boolean }> {
-    const { data: pivot, error: pivotErr } = await this.db
-      .from("messages")
-      .select("created_at")
-      .eq("id", beforeMessageId)
-      .maybeSingle();
-    if (pivotErr) throw pivotErr;
-    if (!pivot) return { messages: [], hasMore: false };
-    const { data, error } = await this.db
-      .from("messages")
-      .select("*")
-      .eq("room_id", roomId)
-      .lt("created_at", pivot.created_at)
-      .order("created_at", { ascending: false })
-      .limit(limit + 1);
-    if (error) throw error;
-    const rows = (data ?? []) as MessageRow[];
+    // Compare against the pivot inside SQL so timestamptz keeps its full
+    // (microsecond) precision; an unknown pivot yields no rows.
+    const rows = await this.db<MessageRow[]>`
+      SELECT * FROM messages
+      WHERE room_id = ${roomId}
+        AND created_at < (SELECT created_at FROM messages WHERE id = ${beforeMessageId})
+      ORDER BY created_at DESC LIMIT ${limit + 1}
+    `;
     const hasMore = rows.length > limit;
-    const sliced = hasMore ? rows.slice(0, limit) : rows;
+    const sliced = hasMore ? rows.slice(0, limit) : [...rows];
     return {
       messages: sliced.reverse().map(rowToMessage),
       hasMore,

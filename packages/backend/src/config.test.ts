@@ -6,8 +6,7 @@ describe("parseConfig", () => {
     PORT: "8080",
     NODE_ENV: "development",
     PUBLIC_BACKEND_URL: "http://localhost:8080",
-    SUPABASE_URL: "https://x.supabase.co",
-    SUPABASE_SERVICE_ROLE_KEY: "k",
+    DATABASE_URL: "postgres://pantry:pw@localhost:5432/pantry",
     JWT_SIGNING_KEY: "0123456789abcdef0123456789abcdef",
     GITHUB_CLIENT_ID: "g",
     GITHUB_CLIENT_SECRET: "g",
@@ -21,7 +20,7 @@ describe("parseConfig", () => {
     const cfg = parseConfig(valid);
     expect(cfg.port).toBe(8080);
     expect(cfg.nodeEnv).toBe("development");
-    expect(cfg.supabase.url).toBe("https://x.supabase.co");
+    expect(cfg.databaseUrl).toBe("postgres://pantry:pw@localhost:5432/pantry");
   });
 
   it("accepts missing GitHub and Google OAuth secrets (Discord-only deploy)", () => {
@@ -37,8 +36,8 @@ describe("parseConfig", () => {
     expect(() => parseConfig(rest)).toThrow();
   });
 
-  it("rejects missing SUPABASE_URL", () => {
-    const { SUPABASE_URL, ...rest } = valid;
+  it("rejects missing DATABASE_URL", () => {
+    const { DATABASE_URL, ...rest } = valid;
     expect(() => parseConfig(rest)).toThrow();
   });
 

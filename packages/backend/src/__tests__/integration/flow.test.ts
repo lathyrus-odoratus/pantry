@@ -18,7 +18,7 @@ const TEST_CONFIG: Config = {
   port: 0,
   nodeEnv: "test",
   publicBackendUrl: "http://test.invalid",
-  supabase: { url: "http://test.invalid", serviceRoleKey: "test" },
+  databaseUrl: "postgres://test.invalid/test",
   jwtSigningKey: "x".repeat(32),
   oauth: { discord: { clientId: "test", clientSecret: "test" } },
   adminKey: null,
@@ -215,7 +215,7 @@ describe("backend integration flow", () => {
   });
 
   // The /color flow is covered by handlers/color.test.ts at unit level (no
-  // prod Supabase + no WS-buffer race). A full e2e variant lived here once
+  // prod database + no WS-buffer race). A full e2e variant lived here once
   // and was flaky: ClientChannel.next() returns the first buffered message
   // of the matching type, so bob.next("presence") would return bob's own
   // join presence (with alice.color=null) instead of the color.change one.

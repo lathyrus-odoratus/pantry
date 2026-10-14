@@ -1,4 +1,4 @@
-import type { DB } from "./supabase.js";
+import type { DB } from "./client.js";
 
 export type RoomRow = {
   id: string;
@@ -10,79 +10,46 @@ export type RoomRow = {
   closed_at: string | null;
 };
 
+function must(row: RoomRow | undefined, name: string): RoomRow {
+  if (!row) throw new Error(`Room ${name} not found`);
+  return row;
+}
+
 export class RoomsRepo {
   constructor(private db: DB) {}
 
   async findByName(name: string): Promise<RoomRow | null> {
-    const { data, error } = await this.db
-      .from("rooms")
-      .select("*")
-      .eq("name", name)
-      .maybeSingle();
-    if (error) throw error;
-    return data;
+    const [row] = await this.db<RoomRow[]>`SELECT * FROM rooms WHERE name = ${name}`;
+    return row ?? null;
   }
 
   async create(name: string, createdBy?: string): Promise<RoomRow> {
-    const { data, error } = await this.db
-      .from("rooms")
-      .insert({ name, created_by: createdBy ?? null })
-      .select("*")
-      .single();
-    if (error) throw error;
-    return data;
+    const [row] = await this.db<RoomRow[]>`
+      INSERT INTO rooms (name, created_by) VALUES (${name}, ${createdBy ?? null})
+      RETURNING *
+    `;
+    return must(row, name);
   }
 
   async list(): Promise<RoomRow[]> {
-    const { data, error } = await this.db
-      .from("rooms")
-      .select("*")
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return data ?? [];
+    return await this.db<RoomRow[]>`SELECT * FROM rooms ORDER BY created_at ASC`;
   }
 
   async deleteByName(name: string): Promise<void> {
-    const { error } = await this.db.from("rooms").delete().eq("name", name);
-    if (error) throw error;
+    await this.db`DELETE FROM rooms WHERE name = ${name}`;
   }
 
   async close(name: string): Promise<RoomRow> {
-    const { data, error } = await this.db
-      .from("rooms")
-      .update({ closed_at: new Date().toISOString() })
-      .eq("name", name)
-      .select("*")
-      .single();
-    if (error) throw error;
-    return data;
+    const [row] = await this.db<RoomRow[]>`
+      UPDATE rooms SET closed_at = now() WHERE name = ${name} RETURNING *
+    `;
+    return must(row, name);
   }
 
   async reopen(name: string): Promise<RoomRow> {
-    const { data, error } = await this.db
-      .from("rooms")
-      .update({ closed_at: null })
-      .eq("name", name)
-      .select("*")
-      .single();
-    if (error) throw error;
-    return data;
-  }
-
-  async setWebhook(
-    name: string,
-    webhook: { url: string | null; threadId: string | null },
-  ): Promise<RoomRow> {
-    const { data, error } = await this.db
-      .from("rooms")
-      .update({
-        webhook_url: webhook.url,
-        webhook_thread_id: webhook.threadId,
-      })
-      .eq("name", name)
-      .select("*")
-      .single();
-    if (error) throw error;
-    return data;
+    const [row] = await this.db<RoomRow[]>`
+      UPDATE rooms SET closed_at = NULL WHERE name = ${name} RETURNING *
+    `;
+    return must(row, name);
   }
 }
