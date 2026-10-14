@@ -1,47 +1,66 @@
 name: Release backend
 
-# release-please 讀 packages/backend 底下的 conventional commits，自動開一個
-# 「chore(main): release backend X.Y.Z」PR（升 package.json 版號、寫 CHANGELOG）。
-# merge 那個 PR 時打 tag backend-vX.Y.Z，接著 build image 並部署到 Dokploy。
-# 一般 PR merge 進 main 不會部署，只會累積進下一個 release PR。
+# merge 一個修改了 packages/backend/package.json 版號的 PR（release PR）就是發版：
+# 版號 X.Y.Z 還沒有 backend-vX.Y.Z tag 時，build image 並部署到 Dokploy，
+# 成功後打上 tag 當作「已上線」的紀錄。版號沒變的 push 會被跳過。
+# 一般 PR merge 進 main 不會部署。發版流程見 CLAUDE.md「Backend」。
 
 on:
   push:
     branches:
       - main
+    paths:
+      - packages/backend/package.json
+  workflow_dispatch: # 部署失敗修好後，可以手動重跑
 
 concurrency:
-  group: release
+  group: release-backend
   cancel-in-progress: false
 
 jobs:
-  release-please:
+  check:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     outputs:
-      created: ${{ steps.release.outputs['packages/backend--release_created'] }}
-      version: ${{ steps.release.outputs['packages/backend--version'] }}
-      tag: ${{ steps.release.outputs['packages/backend--tag_name'] }}
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.version.outputs.release }}
     steps:
-      - id: release
-        uses: googleapis/release-please-action@v5
+      - uses: actions/checkout@v7
+
+      - id: version
+        run: |
+          VERSION=$(node -p "require('./packages/backend/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/backend-v$VERSION" >/dev/null; then
+            echo "backend-v$VERSION already released; nothing to do"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
 
   deploy:
-    needs: release-please
-    if: needs.release-please.outputs.created == 'true'
+    needs: check
+    if: needs.check.outputs.release == 'true'
     runs-on: ubuntu-latest
+    # production environment：要審核者核准才會執行；DOKPLOY_WEBHOOK 是這個
+    # environment 的 secret，只有核准後的這個 job 拿得到。
+    environment:
+      name: production
+      url: https://pantry.miao-bao.cc/health
     permissions:
-      contents: read
+      contents: write # 打 tag
       packages: write
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.release-please.outputs.tag }}
 
       - uses: lathyrus-odoratus/dokploy-deploy@v1
         with:
           dockerfile: packages/backend/Dockerfile
-          version: ${{ needs.release-please.outputs.version }}
+          version: ${{ needs.check.outputs.version }}
           webhook: ${{ secrets.DOKPLOY_WEBHOOK }}
+
+      - name: Tag the release
+        env:
+          TAG: backend-v${{ needs.check.outputs.version }}
+        run: |
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "$TAG"
