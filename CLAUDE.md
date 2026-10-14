@@ -162,32 +162,55 @@ Procedure:
 
 ```sh
 # 1. Bump all three places (same version string)
-# 2. Commit. Use `fix`, not `chore`: this commit touches packages/backend
-#    (LATEST_CLIENT_VERSION), and only feat/fix commits make release-please
-#    propose a backend release — which is what deploys the new constant.
-git commit -am "fix(client): release X.Y.Z"
+# 2. Commit
+git commit -am "chore(client): bump to X.Y.Z"
 git push
 
 # 3. Signed annotated tag (tag.gpgsign=true is on)
 git tag -s client-vX.Y.Z -m "client vX.Y.Z: <one-line summary>"
 git push origin client-vX.Y.Z   # ← triggers GHA publish
 
-# 4. Merge the backend release PR that release-please opens, so
-#    LATEST_CLIENT_VERSION takes effect (see "Backend" below)
+# 4. Cut a backend release so LATEST_CLIENT_VERSION takes effect
+#    (see "Backend" below)
 ```
 
 **Versions are never reused.** If a CI run fails (tag was pushed but publish didn't reach npm), bump to the next patch and tag again. Don't force-update a tag.
 
-### Backend (release-please → Dokploy)
+### Backend (tag → Dokploy)
 
-**Merging a normal PR into `main` does not deploy.** `release.yml` runs [release-please](https://github.com/googleapis/release-please) on every push to `main`: it reads conventional commits that touch `packages/backend/` and keeps one open PR, *chore(main): release backend X.Y.Z*, which bumps `packages/backend/package.json` and `packages/backend/CHANGELOG.md`. **Merging that PR is the deploy**: release-please tags `backend-vX.Y.Z`, then the `deploy` job builds the image and calls the Dokploy webhook.
+**Merging into `main` does not deploy.** Pushing a `backend-vX.Y.Z` tag does: `.github/workflows/release.yml` checks the tag against `packages/backend/package.json#version`, builds the image (tags `:X.Y.Z`, `:X.Y`, `:latest`, `:<sha>`) and calls the Dokploy webhook. Releases are cut by hand, usually with an agent's help.
 
-- `feat` → minor, `fix`/`perf` → patch (pre-1.0, breaking changes bump minor). `chore`/`ci`/`docs`/`test` never trigger a release.
-- Only paths under `packages/backend/` count. A change that only touches `packages/shared/` but should ship to the backend needs a `Release-As: X.Y.Z` footer, or a backend commit alongside it.
-- Config: `release-please-config.json`, `.release-please-manifest.json`. First release is `0.1.0`.
-- Rollback: in Dokploy, set the image to an earlier `:X.Y.Z` and redeploy.
+**When to suggest a release (agents).** Offer to cut one — don't do it unprompted — when:
 
-Deploying restarts the backend, which drops every WebSocket and all in-memory state (presence, game rooms). Clients reconnect on their own. To warn a room first, call `POST /admin/broadcast` (`x-admin-key: $ADMIN_KEY`, body `{"room": "<name>", "body": "<text>"}`) a little before merging the release PR.
+- a PR whose title is `feat`/`fix`/`perf` and that touches `packages/backend/` (or `packages/shared/` in a way the backend depends on) has just been merged;
+- the user asks to deploy or ship the backend;
+- a client release bumped `LATEST_CLIENT_VERSION`;
+- at the start of a session, `git log $(git describe --tags --match 'backend-v*' --abbrev=0)..origin/main --oneline -- packages/backend packages/shared` is non-empty (mention it once).
+
+**Never push a `backend-v*` tag without the user's go-ahead** — it deploys to production.
+
+**Procedure.**
+
+1. Find what's unreleased: merged PRs since the last tag, keeping those that touch `packages/backend/` or `packages/shared/`:
+   ```sh
+   LAST=$(git describe --tags --match 'backend-v*' --abbrev=0)
+   git log --merges --first-parent "$LAST"..origin/main --format='%s'   # "Merge pull request #N …"
+   gh pr view <N> --json title,files                                   # per PR
+   ```
+2. Pick the version from the PR titles: any `feat` → minor, otherwise `fix`/`perf` → patch. Pre-1.0, a breaking change bumps minor. Nothing releasable → no release.
+3. On a branch, bump `packages/backend/package.json#version` and prepend to `packages/backend/CHANGELOG.md` — **one line per PR**, grouped under `### Features` / `### Bug Fixes`, linking the PR: `* **backend:** <title without the type> ([#N](https://github.com/lathyrus-odoratus/pantry/pull/N))`. Work from PRs, not commits: with merge commits, the same change shows up twice in `git log`.
+4. Open a PR titled `chore(backend): release X.Y.Z` and get it merged.
+5. Tag the merge commit and push the tag:
+   ```sh
+   git switch main && git pull
+   git tag -s backend-vX.Y.Z -m "backend vX.Y.Z"
+   git push origin backend-vX.Y.Z   # ← builds and deploys
+   ```
+6. Check the run, then that the VM serves the new version.
+
+Rollback: in Dokploy, set the image to an earlier `:X.Y.Z` and redeploy. **Versions are never reused**: if the release run fails, fix forward with the next patch.
+
+Deploying restarts the backend, which drops every WebSocket and all in-memory state (presence, game rooms). Clients reconnect on their own. To warn a room first, call `POST /admin/broadcast` (`x-admin-key: $ADMIN_KEY`, body `{"room": "<name>", "body": "<text>"}`) a little before pushing the tag.
 
 ## World feature — credit accounting
 
