@@ -28,5 +28,8 @@ COPY --from=build /repo/packages/shared/dist packages/shared/dist
 COPY --from=build /repo/packages/backend/dist packages/backend/dist
 ENV NODE_ENV=production PORT=8080
 EXPOSE 8080
+# Dokploy（Swarm）依這個判斷新版健不健康：不健康就不切流量、自動回滾
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- "http://127.0.0.1:${PORT:-8080}/health" || exit 1
 WORKDIR /app/packages/backend
 CMD ["node", "dist/index.js"]

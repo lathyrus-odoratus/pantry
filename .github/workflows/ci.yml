@@ -32,40 +32,19 @@ jobs:
       - name: Test
         run: pnpm test
 
-  # main 通過測試後建 backend image 推 Artifact Registry（GKE 部署用）
+  # main 通過測試後建 backend image 推 ghcr，再打 Dokploy webhook 上線。
+  # 沒設 DOKPLOY_WEBHOOK 就只推 image、不部署。說明見 lathyrus-odoratus/dokploy-deploy。
   image:
     needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
+      packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - uses: lathyrus-odoratus/dokploy-deploy@v1
         with:
-          workload_identity_provider: projects/514754876772/locations/global/workloadIdentityPools/github/providers/github-actions
-          service_account: github-actions@careful-broker-485510-r0.iam.gserviceaccount.com
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker asia-east1-docker.pkg.dev --quiet
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: packages/backend/Dockerfile
-          push: true
-          tags: |
-            asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry/pantry:latest
-            asia-east1-docker.pkg.dev/careful-broker-485510-r0/pantry/pantry:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          dockerfile: packages/backend/Dockerfile
+          webhook: ${{ secrets.DOKPLOY_WEBHOOK }}
