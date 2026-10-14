@@ -12,7 +12,7 @@ Current shipped state: **0.1.17** — TRPG world MVP with GM-driven dice, prompt
 - **Move credit weights to config.** The `W_INPUT / W_CACHE_WRITE / W_CACHE_READ / W_OUTPUT` constants in `brain.ts` are Haiku 4.5–specific. Lift to an env-keyed lookup so swapping `MODEL` doesn't silently break the $ → credit conversion. Pair with documenting Sonnet 4.6 weights for when we want to try it. ~30 min.
 - **Per-world cost summary at end-of-world.** Already log per-call; add an aggregate log line on `endWorld` (`total_credit`, `total_usd_estimate`, `npc_turns`, `dice_rolls`) so we can grep one line per session instead of summing. ~15 min.
 - **Persist world session metadata.** New tables `worlds` (id, room_id, opened_at, ended_at, reason, credit_total, credit_used) and optionally `chronicles` (world_id, summary). Lets us query history without grepping container logs. Migration + minimal repo + insert at `endWorld`. ~1 h.
-- **Add a `pnpm admin world status` command.** Read in-memory state via a new admin HTTP endpoint so the operator can see "is a world running, how much credit left, how many turns" without `docker logs`. ~30 min.
+- **Show world status to the operator.** Let the operator see "is a world running, how much credit left, how many turns" without `docker logs`. The `pnpm admin` CLI was retired in #67 (the database is no longer reachable from outside the host), so surface it in the admin TUI (`pantry --admin`) backed by the existing admin WS connection, or as a `GET /admin/world` endpoint gated by `ADMIN_KEY` like `/admin/broadcast`. ~30 min.
 
 ---
 
@@ -22,7 +22,7 @@ Current shipped state: **0.1.17** — TRPG world MVP with GM-driven dice, prompt
 - **Crit / fumble emphasis on rolls.** When the player rolls a natural max or natural 1 on `d20`, decorate the system event (`✨` / `💥`) and surface it visibly. Adds drama with no LLM cost.
 - **Skill-check shape: `[[roll:d20 vs 15]]`.** Marker carries the DC; server reports `success`/`fail` alongside the raw number, fed into transcript as a structured outcome. Easier for the NPC to react with appropriate consequence.
 - **Advantage / disadvantage.** Marker form `[[roll:d20!adv]]` / `[[roll:d20!dis]]`: server rolls twice, picks max / min. The NPC can invoke when situational (cover, prone, etc.).
-- **Per-room NPC override.** Right now `灰袍旅人` is hard-coded in `world/npc.ts`. Move persona (subject, nickname, emoji, system_prompt block) to a YAML/JSON loaded at startup, eventually per-room overrides via `pnpm admin`. Pre-req for the multi-NPC idea below.
+- **Per-room NPC override.** Right now `灰袍旅人` is hard-coded in `world/npc.ts`. Move persona (subject, nickname, emoji, system_prompt block) to a YAML/JSON loaded at startup, eventually per-room overrides via the admin TUI (the `pnpm admin` CLI was retired in #67). Pre-req for the multi-NPC idea below.
 - **Multi-NPC in one world.** Several `virtual` participants in the room, each with own persona. Brain becomes a router: per player message, decide which NPC(s) speak (or none). Significant — adds an arbitration layer. Defer until single-NPC has been played enough.
 - **NPC name-gated trigger heuristic.** When we go back to "only respond when named", improve detection beyond `body.includes(name)`. Cases to handle: addressed by you/旅人/the traveler synonyms, indirect references, attempting to talk to a different NPC.
 
