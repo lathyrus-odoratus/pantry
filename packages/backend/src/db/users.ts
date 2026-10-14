@@ -1,4 +1,4 @@
-import type { DB } from "./supabase.js";
+import type { DB } from "./client.js";
 import type { AuthProvider } from "@pantry/shared";
 import { generateDiscriminator } from "../utils/discriminator.js";
 
@@ -32,24 +32,15 @@ export class UsersRepo {
     provider: AuthProvider,
     subject: string,
   ): Promise<UserRow | null> {
-    const { data, error } = await this.db
-      .from("users")
-      .select("*")
-      .eq("auth_provider", provider)
-      .eq("auth_subject", subject)
-      .maybeSingle();
-    if (error) throw error;
-    return data;
+    const [row] = await this.db<UserRow[]>`
+      SELECT * FROM users WHERE auth_provider = ${provider} AND auth_subject = ${subject}
+    `;
+    return row ?? null;
   }
 
   async findById(id: string): Promise<UserRow | null> {
-    const { data, error } = await this.db
-      .from("users")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data;
+    const [row] = await this.db<UserRow[]>`SELECT * FROM users WHERE id = ${id}`;
+    return row ?? null;
   }
 
   /**
@@ -64,22 +55,17 @@ export class UsersRepo {
     let lastError: unknown;
     for (let i = 0; i < MAX_DISCRIMINATOR_RETRIES; i++) {
       const discriminator = generateDiscriminator();
-      const { data, error } = await this.db
-        .from("users")
-        .insert({
-          auth_provider: input.provider,
-          auth_subject: input.subject,
-          nickname: input.nickname,
-          discriminator,
-        })
-        .select("*")
-        .single();
-      if (!error && data) return data;
-      if (isUniqueViolation(error)) {
+      try {
+        const [row] = await this.db<UserRow[]>`
+          INSERT INTO users (auth_provider, auth_subject, nickname, discriminator)
+          VALUES (${input.provider}, ${input.subject}, ${input.nickname}, ${discriminator})
+          RETURNING *
+        `;
+        return row!;
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
         lastError = error;
-        continue;
       }
-      throw error;
     }
     throw new Error(
       `Failed to allocate discriminator after ${MAX_DISCRIMINATOR_RETRIES} attempts: ${String(lastError)}`,
@@ -98,107 +84,42 @@ export class UsersRepo {
     // First try keeping the existing discriminator
     const current = await this.findById(userId);
     if (!current) throw new Error(`User ${userId} not found`);
-    {
-      const { data, error } = await this.db
-        .from("users")
-        .update({ nickname: newNickname, updated_at: new Date().toISOString() })
-        .eq("id", userId)
-        .select("*")
-        .single();
-      if (!error && data) return data;
+    try {
+      return await this.update(userId, newNickname, current.discriminator);
+    } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       lastError = error;
     }
     // Collision: retry with new discriminators
     for (let i = 0; i < MAX_DISCRIMINATOR_RETRIES; i++) {
-      const discriminator = generateDiscriminator();
-      const { data, error } = await this.db
-        .from("users")
-        .update({
-          nickname: newNickname,
-          discriminator,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", userId)
-        .select("*")
-        .single();
-      if (!error && data) return data;
-      if (isUniqueViolation(error)) {
+      try {
+        return await this.update(userId, newNickname, generateDiscriminator());
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
         lastError = error;
-        continue;
       }
-      throw error;
     }
     throw new Error(
       `Failed to rename user after ${MAX_DISCRIMINATOR_RETRIES} attempts: ${String(lastError)}`,
     );
   }
 
-  async findByNicknameDiscriminator(
+  async setColor(userId: string, color: string | null): Promise<void> {
+    await this.db`UPDATE users SET color = ${color}, updated_at = now() WHERE id = ${userId}`;
+  }
+
+  private async update(
+    userId: string,
     nickname: string,
     discriminator: string,
-  ): Promise<UserRow | null> {
-    const { data, error } = await this.db
-      .from("users")
-      .select("*")
-      .eq("nickname", nickname)
-      .eq("discriminator", discriminator)
-      .maybeSingle();
-    if (error) throw error;
-    return data;
-  }
-
-  async setAdmin(userId: string, isAdmin: boolean): Promise<UserRow> {
-    const { data, error } = await this.db
-      .from("users")
-      .update({ is_admin: isAdmin, updated_at: new Date().toISOString() })
-      .eq("id", userId)
-      .select("*")
-      .single();
-    if (error) throw error;
-    return data;
-  }
-
-  async setColor(userId: string, color: string | null): Promise<void> {
-    const { error } = await this.db
-      .from("users")
-      .update({ color, updated_at: new Date().toISOString() })
-      .eq("id", userId);
-    if (error) throw error;
-  }
-
-  async listAll(opts: {
-    provider?: AuthProvider;
-    limit?: number;
-  } = {}): Promise<UserRow[]> {
-    let q = this.db
-      .from("users")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (opts.provider) q = q.eq("auth_provider", opts.provider);
-    if (opts.limit) q = q.limit(opts.limit);
-    const { data, error } = await q;
-    if (error) throw error;
-    return data ?? [];
-  }
-
-  async listByRoomActivity(roomId: string, limit = 200): Promise<UserRow[]> {
-    // Simplified: most-recently-active users in a room (by their latest message).
-    // For MVP admin tooling only. Falls back to all users if room empty.
-    const { data: msgUsers, error } = await this.db
-      .from("messages")
-      .select("user_id, created_at")
-      .eq("room_id", roomId)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    if (error) throw error;
-    const ids = Array.from(new Set((msgUsers ?? []).map((m) => m.user_id)));
-    if (ids.length === 0) return [];
-    const { data: users, error: usersErr } = await this.db
-      .from("users")
-      .select("*")
-      .in("id", ids);
-    if (usersErr) throw usersErr;
-    return users ?? [];
+  ): Promise<UserRow> {
+    const [row] = await this.db<UserRow[]>`
+      UPDATE users
+      SET nickname = ${nickname}, discriminator = ${discriminator}, updated_at = now()
+      WHERE id = ${userId}
+      RETURNING *
+    `;
+    if (!row) throw new Error(`User ${userId} not found`);
+    return row;
   }
 }

@@ -2,7 +2,8 @@ import Fastify from "fastify";
 import Anthropic from "@anthropic-ai/sdk";
 import { loadConfig } from "./config.js";
 import { logger } from "./logger.js";
-import { createSupabaseClient } from "./db/supabase.js";
+import { createDb } from "./db/client.js";
+import { migrate } from "./db/migrate.js";
 import { RoomsRepo } from "./db/rooms.js";
 import { UsersRepo } from "./db/users.js";
 import { MessagesRepo } from "./db/messages.js";
@@ -17,7 +18,8 @@ import { WorldStateStore } from "./world/state.js";
 
 export async function startServer(): Promise<void> {
   const config = loadConfig();
-  const db = createSupabaseClient(config);
+  const db = createDb(config);
+  await migrate(db);
 
   const rooms = new RoomsRepo(db);
   const users = new UsersRepo(db);

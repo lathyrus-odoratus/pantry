@@ -5,8 +5,8 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PUBLIC_BACKEND_URL: z.string().url(),
 
-  SUPABASE_URL: z.string().url(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  // postgres://user:password@host:5432/dbname
+  DATABASE_URL: z.string().url(),
 
   JWT_SIGNING_KEY: z.string().min(32),
 
@@ -49,7 +49,7 @@ export type Config = {
   port: number;
   nodeEnv: "development" | "test" | "production";
   publicBackendUrl: string;
-  supabase: { url: string; serviceRoleKey: string };
+  databaseUrl: string;
   jwtSigningKey: string;
   oauth: {
     github?: ProviderCreds;
@@ -70,10 +70,7 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
     port: parsed.PORT,
     nodeEnv: parsed.NODE_ENV,
     publicBackendUrl: parsed.PUBLIC_BACKEND_URL,
-    supabase: {
-      url: parsed.SUPABASE_URL,
-      serviceRoleKey: parsed.SUPABASE_SERVICE_ROLE_KEY,
-    },
+    databaseUrl: parsed.DATABASE_URL,
     jwtSigningKey: parsed.JWT_SIGNING_KEY,
     oauth: {
       github:

@@ -10,18 +10,17 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "admin": "tsx --env-file=.env src/admin/cli.ts"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
     "@pantry/shared": "workspace:*",
-    "@supabase/supabase-js": "^2.45.0",
     "cac": "^6.7.14",
     "fastify": "^4.28.0",
     "jsonwebtoken": "^9.0.2",
     "nanoid": "^5.0.7",
     "pino": "^9.0.0",
+    "postgres": "^3.4.9",
     "ws": "^8.18.0",
     "zod": "^3.23.0"
   },

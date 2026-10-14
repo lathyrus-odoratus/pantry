@@ -13,7 +13,7 @@ Full design doc: `docs/superpowers/specs/2026-05-11-pantry-design.md`. Deploymen
 pnpm workspace (`pnpm@9`, Node ≥ 20, `"type": "module"` everywhere). Three packages under `packages/`:
 
 - **`@pantry/shared`** — Zod schemas + types for WS protocol (`protocol.ts`) and persistence models (`models.ts`). Built first; consumed by both other packages. Has `composite: true` and is referenced via TS project references.
-- **`@pantry/backend`** — Fastify HTTP (health + OAuth routes) plus a native `ws` `WebSocketServer` mounted at `/ws`. Talks to Supabase using the service-role key. Logger is `pino`.
+- **`@pantry/backend`** — Fastify HTTP (health + OAuth routes) plus a native `ws` `WebSocketServer` mounted at `/ws`. Talks to Postgres via `postgres` (postgres.js) using `DATABASE_URL`. Logger is `pino`.
 - **`pantry`** (npm name `@lathyrus-odoratus/pantry`) — Ink-based TUI. Zustand store drives screen routing (`room_input → identity_select → nickname_input | oauth_waiting → chat | error`). Transport layer uses `ws` directly with exponential backoff reconnect.
 
 Imports between packages go through the workspace alias (`@pantry/shared`). The client's published build inlines `@pantry/shared` (see Plan C, Task 10): its `tsconfig.json` uses `paths` + `rootDir: ".."` so `tsc` emits both packages into the client's `dist/` and the published package has no workspace dependency.
@@ -41,16 +41,10 @@ pnpm dev:client
 # or, with overrides:
 pnpm --filter @lathyrus-odoratus/pantry dev -- --server ws://localhost:8080/ws --room lobby
 
-# Admin CLI against Supabase (uses service_role; requires packages/backend/.env)
-pnpm admin room create <name>
-pnpm admin room list                    # shows OPEN/CLOSED in STATE column
-pnpm admin room close <name>            # soft gate: history kept, new joins rejected, existing conns stay
-pnpm admin room reopen <name>           # clear closed_at
-pnpm admin room delete <name>           # prompts y/N (use -y to skip) — cascades messages
-pnpm admin user list                    # all users; --provider discord, --limit N optional
-pnpm admin user list --room <name>      # users active in a specific room
-pnpm admin user promote <ref>           # ref = UUID or nickname#discriminator → users.is_admin = true
-pnpm admin user demote <ref>            # users.is_admin = false
+# The admin CLI (`pnpm admin …`) was retired with the move off Supabase: the
+# database is no longer reachable from outside the VM. Room management lives in
+# the admin TUI below; anything else (promote a user, set a room webhook) is
+# plain SQL against the database on the VM until a replacement exists.
 
 # Admin TUI (in-app admin scene, requires users.is_admin = true + Discord login)
 pnpm --filter @lathyrus-odoratus/pantry dev -- --admin
@@ -64,10 +58,15 @@ pnpm --filter @lathyrus-odoratus/pantry test
 pnpm --filter @pantry/backend typecheck
 
 # Single Vitest test by name
-pnpm --filter @pantry/backend test -- -t "rejects missing SUPABASE_URL"
+pnpm --filter @pantry/backend test -- -t "rejects missing DATABASE_URL"
 ```
 
-Backend env is loaded from `packages/backend/.env` (template at `packages/backend/.env.example`). The Vitest config in the backend also loads that file, so integration tests in `src/__tests__/integration/` run against the configured Supabase project — keep that in mind before running `pnpm --filter @pantry/backend test` blindly.
+Backend env is loaded from `packages/backend/.env` (template at `packages/backend/.env.example`). The flow tests in `src/__tests__/integration/` use in-memory fake repos. The repo tests in `src/db/db.test.ts` run against a real Postgres and **truncate it**, so they only run when `TEST_DATABASE_URL` is set (never `DATABASE_URL`, which may point at prod). CI provides a throwaway `postgres:17`; locally:
+
+```sh
+docker run -d --name pantry-test-pg -e POSTGRES_PASSWORD=test -p 127.0.0.1:55432:5432 postgres:17
+TEST_DATABASE_URL=postgres://postgres:test@127.0.0.1:55432/postgres pnpm --filter @pantry/backend test
+```
 
 ## Architecture — what's worth knowing before editing
 
@@ -89,12 +88,14 @@ Broadcast is **in-memory only** (single-instance backend, no Redis/pub-sub). Mul
 
 ### Persistence
 
-Supabase Postgres, single migration in `supabase/migrations/20260511000000_init.sql`. Tables: `rooms`, `users`, `messages`. The backend uses **service_role** (`db/supabase.ts`) — there is no RLS; all authorization lives in backend code.
+Postgres 17 (moved off Supabase in 2026-10), accessed with postgres.js (`db/client.ts`). Tables: `rooms`, `users`, `messages`. Only the backend connects to the database, which is not exposed to the internet — there is no RLS; all authorization lives in backend code. `timestamptz` columns come back as ISO strings (`…Z`), matching the string-typed `*_at` fields.
+
+**Migrations** live in `packages/backend/migrations/NNNN_name.sql` and are applied automatically on startup (`db/migrate.ts`): each file runs once, in filename order, inside a transaction together with its row in `schema_migrations`, under an advisory lock. To change the schema, add a new file — never edit one that has shipped. `0001_init.sql` is the baseline consolidated from the old Supabase migrations.
 
 Two key invariants:
 
 - **Author identity is snapshotted on `messages.insert`** (`author_nickname`, `author_discriminator`). Renames never rewrite history.
-- **Message send is fan-out-then-persist**: `handlers/send.ts` broadcasts immediately (in-memory, ~ms) and writes to Supabase in parallel; an insert failure only notifies the original sender.
+- **Message send is fan-out-then-persist**: `handlers/send.ts` broadcasts immediately (in-memory, ~ms) and writes to Postgres in parallel; an insert failure only notifies the original sender.
 
 ### OAuth flow
 
