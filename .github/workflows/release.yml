@@ -41,6 +41,11 @@ jobs:
     needs: check
     if: needs.check.outputs.release == 'true'
     runs-on: ubuntu-latest
+    # production environment：要審核者核准才會執行；DOKPLOY_WEBHOOK 是這個
+    # environment 的 secret，只有核准後的這個 job 拿得到。
+    environment:
+      name: production
+      url: https://pantry.miao-bao.cc/health
     permissions:
       contents: write # 打 tag
       packages: write

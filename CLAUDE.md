@@ -180,6 +180,8 @@ git push origin client-vX.Y.Z   # ← triggers GHA publish
 
 **Merging an ordinary PR into `main` does not deploy. Merging a release PR does** — any PR that changes `packages/backend/package.json#version`. On that push, `.github/workflows/release.yml` sees a version with no `backend-vX.Y.Z` tag yet, builds the image (tags `:X.Y.Z`, `:X.Y`, `:latest`, `:<sha>`), calls the Dokploy webhook, and only then tags the commit `backend-vX.Y.Z` as the record that it shipped. Pushes where the version already has a tag (e.g. dependency bumps) are skipped. If a deploy fails, fix the cause and re-run the workflow (`workflow_dispatch`); no tag was created, so it will try again. Nobody pushes `backend-v*` tags by hand.
 
+The deploy job runs in the GitHub Environment **`production`**: it waits until a required reviewer (currently @noracami) approves it in the Actions run, and only main can deploy. `DOKPLOY_WEBHOOK` is a secret of that environment, not of the repo, so no other workflow can read it.
+
 **When to suggest a release (agents).** Offer to cut one — don't do it unprompted — when:
 
 - a PR whose title is `feat`/`fix`/`perf` and that touches `packages/backend/` (or `packages/shared/` in a way the backend depends on) has just been merged;
