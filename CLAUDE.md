@@ -131,12 +131,13 @@ HMAC must run over the raw request bytes, so the routes are registered in an **e
 
 ## Deployment
 
-Backend runs on the `wisp` VM in a container built on-host (no registry):
+Backend runs on the hobby VM under [Dokploy](https://dokploy.com) (managed in `noracami/hobby-infra`, not this repo):
 
-- `docker-compose.yml` + `packages/backend/Dockerfile` (multistage: deps → build → runtime, alpine).
-- Host port `127.0.0.1:8081` → container `:8080` (8080 is taken by another container on that VM).
-- Cloudflare Tunnel routes `pantry.miao-bao.cc` → `http://localhost:8081`. No public ports opened on the VM.
-- `scripts/deploy.sh` rsyncs source to `/opt/pantry/` on `wisp` (excluding `.env`) and runs `docker compose up -d --build` remotely.
+- Image: `ghcr.io/lathyrus-odoratus/pantry`, built from `packages/backend/Dockerfile` (multistage, alpine) by `.github/workflows/release.yml` via [`lathyrus-odoratus/dokploy-deploy`](https://github.com/lathyrus-odoratus/dokploy-deploy). Tags: `:latest`, `:X.Y.Z`, `:X.Y`, `:<sha>`.
+- Dokploy pulls `:latest` when the workflow calls its webhook (repo secret `DOKPLOY_WEBHOOK`), starts the new container, and only switches traffic once the Dockerfile `HEALTHCHECK` passes (otherwise it rolls back).
+- Runtime env (`DATABASE_URL`, OAuth secrets, …) lives in Dokploy, not GitHub. Postgres is a separate Dokploy service, backed up daily to R2.
+- Cloudflare Tunnel routes `pantry.miao-bao.cc` to the VM; no public ports.
+- `docker-compose.yml` is only for running the backend locally.
 
 The client publishes to npm as `@lathyrus-odoratus/pantry` (scoped, public). `bin: pantry` → `dist/client/src/cli.js` (path reflects `tsconfig.json` `rootDir: ".."` so both packages emit into the published `dist/`). `tsc-alias` rewrites the `@pantry/shared` specifier to the relative `dist/shared/src/...` path so the published package has no workspace dependency.
 
@@ -161,25 +162,32 @@ Procedure:
 
 ```sh
 # 1. Bump all three places (same version string)
-# 2. Commit
-git commit -am "chore(client): bump to X.Y.Z"
+# 2. Commit. Use `fix`, not `chore`: this commit touches packages/backend
+#    (LATEST_CLIENT_VERSION), and only feat/fix commits make release-please
+#    propose a backend release — which is what deploys the new constant.
+git commit -am "fix(client): release X.Y.Z"
 git push
 
 # 3. Signed annotated tag (tag.gpgsign=true is on)
 git tag -s client-vX.Y.Z -m "client vX.Y.Z: <one-line summary>"
 git push origin client-vX.Y.Z   # ← triggers GHA publish
 
-# 4. Redeploy backend so LATEST_CLIENT_VERSION takes effect
-pnpm run deploy
-# or for graceful announce-then-restart:
-pnpm run deploy:with-notice <room>
+# 4. Merge the backend release PR that release-please opens, so
+#    LATEST_CLIENT_VERSION takes effect (see "Backend" below)
 ```
 
 **Versions are never reused.** If a CI run fails (tag was pushed but publish didn't reach npm), bump to the next patch and tag again. Don't force-update a tag.
 
-### Backend (Docker rebuild on wisp)
+### Backend (release-please → Dokploy)
 
-`pnpm run deploy` rsyncs source to `wisp:/opt/pantry/` and rebuilds the container. The in-memory connection registry can't broadcast leaves on container death, so use `pnpm run deploy:with-notice <room> [delay-seconds]` when active users would notice — it posts an admin announcement, sleeps, then deploys.
+**Merging a normal PR into `main` does not deploy.** `release.yml` runs [release-please](https://github.com/googleapis/release-please) on every push to `main`: it reads conventional commits that touch `packages/backend/` and keeps one open PR, *chore(main): release backend X.Y.Z*, which bumps `packages/backend/package.json` and `packages/backend/CHANGELOG.md`. **Merging that PR is the deploy**: release-please tags `backend-vX.Y.Z`, then the `deploy` job builds the image and calls the Dokploy webhook.
+
+- `feat` → minor, `fix`/`perf` → patch (pre-1.0, breaking changes bump minor). `chore`/`ci`/`docs`/`test` never trigger a release.
+- Only paths under `packages/backend/` count. A change that only touches `packages/shared/` but should ship to the backend needs a `Release-As: X.Y.Z` footer, or a backend commit alongside it.
+- Config: `release-please-config.json`, `.release-please-manifest.json`. First release is `0.1.0`.
+- Rollback: in Dokploy, set the image to an earlier `:X.Y.Z` and redeploy.
+
+Deploying restarts the backend, which drops every WebSocket and all in-memory state (presence, game rooms). Clients reconnect on their own. To warn a room first, call `POST /admin/broadcast` (`x-admin-key: $ADMIN_KEY`, body `{"room": "<name>", "body": "<text>"}`) a little before merging the release PR.
 
 ## World feature — credit accounting
 
@@ -200,7 +208,7 @@ This pegs to **`claude-haiku-4-5`** specifically. Switching model means revisiti
 
 Pull-on-connect, not pushed: `auth.ok` carries `latestClientVersion` (from backend's `LATEST_CLIENT_VERSION`). Client's `version.ts` exports `CLIENT_VERSION` + `compareSemver`; when latest > self, store sets `updateAvailable` and `StatusBar` renders the hint.
 
-For active broadcasts to currently-connected users (e.g. "new version, please reconnect"), the backend exposes `POST /admin/broadcast` (gated by `ADMIN_KEY`). That's the mechanism used by `deploy:with-notice` and is the right vehicle for any release-time notice.
+For active broadcasts to currently-connected users (e.g. "new version, please reconnect"), the backend exposes `POST /admin/broadcast` (gated by `ADMIN_KEY`). It's the right vehicle for any release-time notice (see "Backend" under Release flow).
 
 ## Conventions worth respecting
 

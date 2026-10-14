@@ -47,20 +47,3 @@ jobs:
 
       - name: Test
         run: pnpm test
-
-  # main 通過測試後建 backend image 推 ghcr，再打 Dokploy webhook 上線。
-  # 沒設 DOKPLOY_WEBHOOK 就只推 image、不部署。說明見 lathyrus-odoratus/dokploy-deploy。
-  image:
-    needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: lathyrus-odoratus/dokploy-deploy@v1
-        with:
-          dockerfile: packages/backend/Dockerfile
-          webhook: ${{ secrets.DOKPLOY_WEBHOOK }}
