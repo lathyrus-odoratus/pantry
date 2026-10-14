@@ -1,39 +1,61 @@
 name: Release backend
 
-# 推 backend-vX.Y.Z tag 時 build image 並部署到 Dokploy。
+# merge 一個修改了 packages/backend/package.json 版號的 PR（release PR）就是發版：
+# 版號 X.Y.Z 還沒有 backend-vX.Y.Z tag 時，build image 並部署到 Dokploy，
+# 成功後打上 tag 當作「已上線」的紀錄。版號沒變的 push 會被跳過。
 # 一般 PR merge 進 main 不會部署。發版流程見 CLAUDE.md「Backend」。
 
 on:
   push:
-    tags:
-      - "backend-v*"
+    branches:
+      - main
+    paths:
+      - packages/backend/package.json
+  workflow_dispatch: # 部署失敗修好後，可以手動重跑
 
 concurrency:
   group: release-backend
   cancel-in-progress: false
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.version.outputs.release }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: version
+        run: |
+          VERSION=$(node -p "require('./packages/backend/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/backend-v$VERSION" >/dev/null; then
+            echo "backend-v$VERSION already released; nothing to do"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
   deploy:
+    needs: check
+    if: needs.check.outputs.release == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # 打 tag
       packages: write
     steps:
       - uses: actions/checkout@v7
 
-      - name: Verify tag matches package version
-        id: version
-        run: |
-          PKG_VERSION=$(node -p "require('./packages/backend/package.json').version")
-          TAG_VERSION="${GITHUB_REF_NAME#backend-v}"
-          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match packages/backend/package.json version $PKG_VERSION"
-            exit 1
-          fi
-          echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
-
       - uses: lathyrus-odoratus/dokploy-deploy@v1
         with:
           dockerfile: packages/backend/Dockerfile
-          version: ${{ steps.version.outputs.version }}
+          version: ${{ needs.check.outputs.version }}
           webhook: ${{ secrets.DOKPLOY_WEBHOOK }}
+
+      - name: Tag the release
+        env:
+          TAG: backend-v${{ needs.check.outputs.version }}
+        run: |
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "$TAG"

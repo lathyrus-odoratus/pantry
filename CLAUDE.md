@@ -176,9 +176,9 @@ git push origin client-vX.Y.Z   # ← triggers GHA publish
 
 **Versions are never reused.** If a CI run fails (tag was pushed but publish didn't reach npm), bump to the next patch and tag again. Don't force-update a tag.
 
-### Backend (tag → Dokploy)
+### Backend (release PR → Dokploy)
 
-**Merging into `main` does not deploy.** Pushing a `backend-vX.Y.Z` tag does: `.github/workflows/release.yml` checks the tag against `packages/backend/package.json#version`, builds the image (tags `:X.Y.Z`, `:X.Y`, `:latest`, `:<sha>`) and calls the Dokploy webhook. Releases are cut by hand, usually with an agent's help.
+**Merging an ordinary PR into `main` does not deploy. Merging a release PR does** — any PR that changes `packages/backend/package.json#version`. On that push, `.github/workflows/release.yml` sees a version with no `backend-vX.Y.Z` tag yet, builds the image (tags `:X.Y.Z`, `:X.Y`, `:latest`, `:<sha>`), calls the Dokploy webhook, and only then tags the commit `backend-vX.Y.Z` as the record that it shipped. Pushes where the version already has a tag (e.g. dependency bumps) are skipped. If a deploy fails, fix the cause and re-run the workflow (`workflow_dispatch`); no tag was created, so it will try again. Nobody pushes `backend-v*` tags by hand.
 
 **When to suggest a release (agents).** Offer to cut one — don't do it unprompted — when:
 
@@ -187,7 +187,7 @@ git push origin client-vX.Y.Z   # ← triggers GHA publish
 - a client release bumped `LATEST_CLIENT_VERSION`;
 - at the start of a session, `git log $(git describe --tags --match 'backend-v*' --abbrev=0)..origin/main --oneline -- packages/backend packages/shared` is non-empty (mention it once).
 
-**Never push a `backend-v*` tag without the user's go-ahead** — it deploys to production.
+**Never merge a release PR without the user's go-ahead** — merging it deploys to production.
 
 **Procedure.**
 
@@ -199,18 +199,12 @@ git push origin client-vX.Y.Z   # ← triggers GHA publish
    ```
 2. Pick the version from the PR titles: any `feat` → minor, otherwise `fix`/`perf` → patch. Pre-1.0, a breaking change bumps minor. Nothing releasable → no release.
 3. On a branch, bump `packages/backend/package.json#version` and prepend to `packages/backend/CHANGELOG.md` — **one line per PR**, grouped under `### Features` / `### Bug Fixes`, linking the PR: `* **backend:** <title without the type> ([#N](https://github.com/lathyrus-odoratus/pantry/pull/N))`. Work from PRs, not commits: with merge commits, the same change shows up twice in `git log`.
-4. Open a PR titled `chore(backend): release X.Y.Z` and get it merged.
-5. Tag the merge commit and push the tag:
-   ```sh
-   git switch main && git pull
-   git tag -s backend-vX.Y.Z -m "backend vX.Y.Z"
-   git push origin backend-vX.Y.Z   # ← builds and deploys
-   ```
-6. Check the run, then that the VM serves the new version.
+4. Open a PR titled `chore(backend): release X.Y.Z` with only those two files. Don't bump the version inside a feature PR: whatever changes the version is the release.
+5. Merging it deploys. Check the *Release backend* run, that `backend-vX.Y.Z` got tagged, and that the VM serves the new version.
 
-Rollback: in Dokploy, set the image to an earlier `:X.Y.Z` and redeploy. **Versions are never reused**: if the release run fails, fix forward with the next patch.
+Rollback: in Dokploy, set the image to an earlier `:X.Y.Z` and redeploy. **Versions are never reused** once tagged.
 
-Deploying restarts the backend, which drops every WebSocket and all in-memory state (presence, game rooms). Clients reconnect on their own. To warn a room first, call `POST /admin/broadcast` (`x-admin-key: $ADMIN_KEY`, body `{"room": "<name>", "body": "<text>"}`) a little before pushing the tag.
+Deploying restarts the backend, which drops every WebSocket and all in-memory state (presence, game rooms). Clients reconnect on their own. To warn a room first, call `POST /admin/broadcast` (`x-admin-key: $ADMIN_KEY`, body `{"room": "<name>", "body": "<text>"}`) a little before merging the release PR.
 
 ## World feature — credit accounting
 
